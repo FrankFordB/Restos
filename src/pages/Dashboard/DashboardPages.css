@@ -1,0 +1,14 @@
+.dash {
+  display: grid;
+  gap: 16px;
+}
+
+.dash__header h1 {
+  margin: 0 0 6px 0;
+}
+
+.dash__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}

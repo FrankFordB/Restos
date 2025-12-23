@@ -1,0 +1,34 @@
+.tenants {
+  display: grid;
+  gap: 16px;
+}
+
+.tenants__form {
+  display: grid;
+  gap: 12px;
+}
+
+.tenants__list {
+  display: grid;
+  gap: 10px;
+}
+
+.tenants__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.tenants__link {
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.tenants__link:hover {
+  text-decoration: underline;
+}

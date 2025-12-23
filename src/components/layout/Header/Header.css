@@ -1,0 +1,42 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.header__brand {
+  font-weight: 800;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navlink {
+  text-decoration: none;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  font-weight: 600;
+}
+
+.navlink--active {
+  color: var(--text);
+}
+
+.header__user {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}

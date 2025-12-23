@@ -1,0 +1,6 @@
+- Este proyecto usa React + Vite con componentes en .jsx.
+- Arquitectura por features (Redux Toolkit): auth, tenants, products, theme.
+- CSS por componente (cada carpeta contiene su .css).
+- Rutas con React Router y guards por rol (super_admin y tenant_admin).
+- Estado persistente en localStorage (modo MOCK) para que funcione sin backend.
+- Base de datos recomendada para producción: Supabase (PostgreSQL + Auth + Storage).

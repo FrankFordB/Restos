@@ -1,0 +1,304 @@
+-- RLS recomendado (Supabase)
+-- IMPORTANTE: Ajusta según tus necesidades.
+
+alter table public.profiles enable row level security;
+alter table public.tenants enable row level security;
+alter table public.products enable row level security;
+alter table public.tenant_themes enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+
+-- Hacer el script re-ejecutable (evita: "policy ... already exists")
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+drop policy if exists "profiles_insert_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+
+drop policy if exists "tenants_select" on public.tenants;
+drop policy if exists "tenants_public_select" on public.tenants;
+drop policy if exists "tenants_insert_admin" on public.tenants;
+drop policy if exists "tenants_update_admin_or_owner" on public.tenants;
+
+drop policy if exists "products_select" on public.products;
+drop policy if exists "products_public_select_active" on public.products;
+drop policy if exists "products_modify" on public.products;
+
+drop policy if exists "themes_select" on public.tenant_themes;
+drop policy if exists "themes_public_select" on public.tenant_themes;
+drop policy if exists "themes_modify" on public.tenant_themes;
+
+drop policy if exists "orders_select" on public.orders;
+drop policy if exists "orders_insert" on public.orders;
+drop policy if exists "orders_update" on public.orders;
+
+drop policy if exists "order_items_select" on public.order_items;
+drop policy if exists "order_items_insert" on public.order_items;
+drop policy if exists "order_items_update" on public.order_items;
+
+-- Helper: role del usuario
+create or replace function public.current_role()
+returns text as $$
+  select role from public.profiles where user_id = auth.uid();
+$$ language sql stable;
+
+create or replace function public.current_tenant_id()
+returns uuid as $$
+  select tenant_id from public.profiles where user_id = auth.uid();
+$$ language sql stable;
+
+-- PROFILES: cada usuario puede leer/editar su perfil; super_admin puede leer todo
+create policy "profiles_select_own_or_admin" on public.profiles
+for select
+to authenticated
+using (user_id = auth.uid() or public.current_role() = 'super_admin');
+
+create policy "profiles_insert_own" on public.profiles
+for insert
+to authenticated
+with check (user_id = auth.uid());
+
+create policy "profiles_update_own" on public.profiles
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+-- TENANTS: tenant_admin solo su tenant; super_admin todo
+create policy "tenants_select" on public.tenants
+for select
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or id = public.current_tenant_id()
+);
+
+-- Tienda pública (sin login): lectura de tenants
+create policy "tenants_public_select" on public.tenants
+for select
+to anon
+using (true);
+
+create policy "tenants_insert_admin" on public.tenants
+for insert
+to authenticated
+with check (public.current_role() = 'super_admin' or owner_user_id = auth.uid());
+
+create policy "tenants_update_admin_or_owner" on public.tenants
+for update
+to authenticated
+using (public.current_role() = 'super_admin' or owner_user_id = auth.uid())
+with check (public.current_role() = 'super_admin' or owner_user_id = auth.uid());
+
+-- PRODUCTS: tenant_admin solo su tenant; super_admin todo
+create policy "products_select" on public.products
+for select
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+-- Tienda pública (sin login): solo productos activos
+create policy "products_public_select_active" on public.products
+for select
+to anon
+using (active = true);
+
+create policy "products_modify" on public.products
+for all
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+)
+with check (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+-- TENANT_THEMES: tenant_admin solo su tenant; super_admin todo
+create policy "themes_select" on public.tenant_themes
+for select
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+-- Tienda pública (sin login): lectura del tema
+create policy "themes_public_select" on public.tenant_themes
+for select
+to anon
+using (true);
+
+-- ORDERS: tenant_admin solo su tenant; super_admin todo
+create policy "orders_select" on public.orders
+for select
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+create policy "orders_insert" on public.orders
+for insert
+to authenticated
+with check (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+create policy "orders_update" on public.orders
+for update
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+)
+with check (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+-- ORDER_ITEMS: se accede por pertenecer a un order del tenant
+create policy "order_items_select" on public.order_items
+for select
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or exists (
+    select 1
+    from public.orders o
+    where o.id = order_items.order_id
+      and o.tenant_id = public.current_tenant_id()
+  )
+);
+
+create policy "order_items_insert" on public.order_items
+for insert
+to authenticated
+with check (
+  public.current_role() = 'super_admin'
+  or exists (
+    select 1
+    from public.orders o
+    where o.id = order_items.order_id
+      and o.tenant_id = public.current_tenant_id()
+  )
+);
+
+create policy "order_items_update" on public.order_items
+for update
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or exists (
+    select 1
+    from public.orders o
+    where o.id = order_items.order_id
+      and o.tenant_id = public.current_tenant_id()
+  )
+)
+with check (
+  public.current_role() = 'super_admin'
+  or exists (
+    select 1
+    from public.orders o
+    where o.id = order_items.order_id
+      and o.tenant_id = public.current_tenant_id()
+  )
+);
+
+create policy "themes_modify" on public.tenant_themes
+for all
+to authenticated
+using (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+)
+with check (
+  public.current_role() = 'super_admin'
+  or tenant_id = public.current_tenant_id()
+);
+
+-- STORAGE (product-images)
+-- Nota: esto controla permisos sobre storage.objects.
+do $$
+begin
+  -- En algunos proyectos, el SQL Editor puede estar ejecutando como un rol
+  -- que NO es dueño de storage.objects (y fallará con: "must be owner of table objects").
+  -- Para no bloquear la instalación completa, intentamos aplicar RLS/policies y
+  -- si falta privilegio, solo mostramos un aviso.
+  begin
+    alter table storage.objects enable row level security;
+  exception
+    when insufficient_privilege then
+      raise notice 'Saltando Storage RLS/policies: falta privilegio/owner sobre storage.objects. Ejecuta esta sección como postgres/supabase_admin o configura policies en Dashboard.';
+      return;
+    when others then
+      raise notice 'Saltando Storage RLS/policies por error: %', sqlerrm;
+      return;
+  end;
+
+  execute 'drop policy if exists "product_images_public_select" on storage.objects';
+  execute 'drop policy if exists "product_images_insert" on storage.objects';
+  execute 'drop policy if exists "product_images_update" on storage.objects';
+  execute 'drop policy if exists "product_images_delete" on storage.objects';
+
+  -- Lectura pública de imágenes (para mostrarlas en /store/:slug)
+  execute $policy$
+    create policy "product_images_public_select" on storage.objects
+    for select
+    to anon
+    using (bucket_id = 'product-images')
+  $policy$;
+
+  -- Subida/edición/borrado: solo usuarios autenticados.
+  -- Para tenant_admin, solo puede escribir dentro de su carpeta: <tenant_id>/...
+  -- Para super_admin, puede escribir en cualquier ruta.
+  execute $policy$
+    create policy "product_images_insert" on storage.objects
+    for insert
+    to authenticated
+    with check (
+      bucket_id = 'product-images'
+      and (
+        public.current_role() = 'super_admin'
+        or name like (public.current_tenant_id()::text || '/%')
+      )
+    )
+  $policy$;
+
+  execute $policy$
+    create policy "product_images_update" on storage.objects
+    for update
+    to authenticated
+    using (
+      bucket_id = 'product-images'
+      and (
+        public.current_role() = 'super_admin'
+        or name like (public.current_tenant_id()::text || '/%')
+      )
+    )
+    with check (
+      bucket_id = 'product-images'
+      and (
+        public.current_role() = 'super_admin'
+        or name like (public.current_tenant_id()::text || '/%')
+      )
+    )
+  $policy$;
+
+  execute $policy$
+    create policy "product_images_delete" on storage.objects
+    for delete
+    to authenticated
+    using (
+      bucket_id = 'product-images'
+      and (
+        public.current_role() = 'super_admin'
+        or name like (public.current_tenant_id()::text || '/%')
+      )
+    )
+  $policy$;
+end
+$$;

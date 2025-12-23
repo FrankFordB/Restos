@@ -1,0 +1,94 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import './TenantsManager.css'
+import Card from '../../ui/Card/Card'
+import Input from '../../ui/Input/Input'
+import Button from '../../ui/Button/Button'
+import { useAppDispatch, useAppSelector } from '../../../app/hooks'
+import { addTenant, createTenant, fetchTenants, selectTenants } from '../../../features/tenants/tenantsSlice'
+import { createId } from '../../../shared/ids'
+import { selectUser } from '../../../features/auth/authSlice'
+
+function slugify(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+}
+
+export default function TenantsManager() {
+  const dispatch = useAppDispatch()
+  const tenants = useAppSelector(selectTenants)
+  const user = useAppSelector(selectUser)
+
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+
+  const suggestedSlug = useMemo(() => (name ? slugify(name) : ''), [name])
+
+  useEffect(() => {
+    dispatch(fetchTenants())
+  }, [dispatch])
+
+  return (
+    <div className="tenants">
+      <Card
+        title="Crear restaurante (tenant)"
+        actions={
+          <Button
+            size="sm"
+            onClick={async () => {
+              const finalName = name.trim()
+              const finalSlug = (slug.trim() || suggestedSlug).trim()
+              if (!finalName || !finalSlug) return
+
+              const localTenant = {
+                id: createId('tenant'),
+                name: finalName,
+                slug: finalSlug,
+              }
+
+              // fallback MOCK
+              dispatch(addTenant(localTenant))
+
+              // Supabase (si está configurado) crea también en DB
+              try {
+                if (user?.id) await dispatch(createTenant({ name: finalName, slug: finalSlug, ownerUserId: user.id })).unwrap()
+              } catch {
+                // ignore (RLS / no config)
+              }
+
+              setName('')
+              setSlug('')
+            }}
+          >
+            Crear
+          </Button>
+        }
+      >
+        <div className="tenants__form">
+          <Input label="Nombre" value={name} onChange={setName} placeholder="Burger House" />
+          <Input label="Slug" value={slug} onChange={setSlug} placeholder={suggestedSlug || 'burger-house'} />
+          <p className="muted">El slug es la URL pública: /store/&lt;slug&gt;</p>
+        </div>
+      </Card>
+
+      <Card title="Tenants">
+        <div className="tenants__list">
+          {tenants.map((t) => (
+            <div key={t.id} className="tenants__row">
+              <div>
+                <strong>{t.name}</strong>
+                <div className="muted">{t.slug}</div>
+              </div>
+              <Link className="tenants__link" to={`/store/${t.slug}`}>
+                Ver tienda
+              </Link>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}

@@ -1,0 +1,109 @@
+.products {
+  display: grid;
+  gap: 16px;
+}
+
+.products__form {
+  display: grid;
+  gap: 12px;
+}
+
+.products__hint {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 65%, transparent);
+  font-size: 0.92rem;
+}
+
+.products__list {
+  display: grid;
+  gap: 14px;
+}
+
+.products__row {
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.products__rowMain {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 10px;
+}
+
+.products__inline {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  padding: 10px 10px;
+}
+
+.products__desc {
+  width: 100%;
+  min-height: 64px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  padding: 10px;
+  resize: vertical;
+}
+
+.products__rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.products__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--text) 80%, transparent);
+}
+
+.products__file {
+  display: grid;
+  gap: 6px;
+}
+
+.products__fileLabel {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.products__file input[type='file'] {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  padding: 10px;
+  background: #fff;
+}
+
+.products__imageRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.products__thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.products__imageLink {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.products__imageLink:hover {
+  text-decoration: underline;
+}
+
+.products__noImage {
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+  font-size: 0.92rem;
+}

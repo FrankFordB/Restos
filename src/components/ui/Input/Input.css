@@ -1,0 +1,23 @@
+.input {
+  display: grid;
+  gap: 6px;
+}
+
+.input__label {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.input__control {
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  padding: 10px 12px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+}
+
+.input__control:focus {
+  border-color: color-mix(in srgb, var(--accent) 75%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
