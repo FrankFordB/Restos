@@ -15,6 +15,33 @@ npm install
 npm run dev
 ```
 
+## Compartir la tienda (link público)
+
+Si compartes un link como `/store/:slug` o `/r/:slug` con otra persona y le sale “roto”, normalmente es por una de estas dos razones:
+
+1) **Estás compartiendo un link local** (ej: `http://localhost:5173/store/mi-resto`).
+	 - `localhost` solo funciona en tu PC.
+	 - Para probar en la misma red: `npm run dev -- --host` y comparte `http://TU_IP:5173/store/mi-resto`.
+	 - Para compartir por internet: debes **deployar**.
+
+2) **Deploy sin “SPA fallback / rewrites”**.
+	 - En apps React (React Router), el servidor debe redirigir cualquier ruta a `index.html`.
+	 - Este repo incluye configuración lista:
+		 - `vercel.json` (Vercel)
+		 - `netlify.toml` (Netlify)
+
+### Requisito para que otros vean tus productos
+
+Para que otra persona (no logueada) vea *tus* productos, la app debe estar deployada con Supabase configurado:
+
+- Configura variables de entorno en el hosting (Vercel/Netlify):
+	- `VITE_SUPABASE_URL`
+	- `VITE_SUPABASE_ANON_KEY`
+
+Si el deploy no tiene esas variables, la app cae a **modo MOCK** (localStorage) y los demás solo verán la demo, no tus datos.
+
+Nota: la tienda pública solo muestra productos con `active = true`.
+
 ## Credenciales demo (modo MOCK)
 
 - Usuario restaurante: `demo@resto.local` / `demo123`
