@@ -1,0 +1,43 @@
+.tenantHome {
+  display: grid;
+  gap: 16px;
+}
+
+.tenantHome__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tenantHome__title {
+  margin: 0;
+}
+
+.tenantHome__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tenantHome__quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tenantHome__label {
+  color: color-mix(in srgb, var(--text) 65%, transparent);
+  font-size: 0.9rem;
+}
+
+.tenantHome__value {
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .tenantHome__quick {
+    grid-template-columns: 1fr;
+  }
+}

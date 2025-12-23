@@ -70,7 +70,7 @@ export default function TenantsManager() {
         <div className="tenants__form">
           <Input label="Nombre" value={name} onChange={setName} placeholder="Burger House" />
           <Input label="Slug" value={slug} onChange={setSlug} placeholder={suggestedSlug || 'burger-house'} />
-          <p className="muted">El slug es la URL pública: /store/&lt;slug&gt;</p>
+          <p className="muted">URL pública: /r/&lt;slug&gt; (home) y /store/&lt;slug&gt; (menú)</p>
         </div>
       </Card>
 
@@ -82,8 +82,8 @@ export default function TenantsManager() {
                 <strong>{t.name}</strong>
                 <div className="muted">{t.slug}</div>
               </div>
-              <Link className="tenants__link" to={`/store/${t.slug}`}>
-                Ver tienda
+              <Link className="tenants__link" to={`/r/${t.slug}`}>
+                Ver home
               </Link>
             </div>
           ))}

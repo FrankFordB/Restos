@@ -72,6 +72,20 @@ export async function fetchTenantBySlug(slug) {
   return data
 }
 
+export async function fetchTenantByOwnerUserId(ownerUserId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id, name, slug, owner_user_id')
+    .eq('owner_user_id', ownerUserId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase

@@ -7,6 +7,7 @@ import {
   supabaseSignIn,
   supabaseSignUp,
   createTenant as sbCreateTenant,
+  fetchTenantByOwnerUserId,
   upsertProfile,
 } from '../../lib/supabaseApi'
 import { ROLES } from '../../shared/constants'
@@ -33,7 +34,7 @@ export const signInWithEmail = createAsyncThunk(
       return user
     }
 
-    const { data } = await supabaseSignIn(payload)
+    const data = await supabaseSignIn(payload)
     const authed = data.user
     if (!authed) throw new Error('No se pudo iniciar sesión')
 
@@ -50,6 +51,25 @@ export const signInWithEmail = createAsyncThunk(
         email: authed.email,
         role: ROLES.TENANT_ADMIN,
         tenantId: null,
+      }
+    }
+
+    // Si el perfil existe pero no tiene tenant asignado, intentamos auto-recuperar
+    // el tenant del que el usuario es owner (evita quedarse bloqueado en dashboard).
+    if (!profile.tenant_id) {
+      try {
+        const owned = await fetchTenantByOwnerUserId(authed.id)
+        if (owned?.id) {
+          const updated = await upsertProfile({ userId: authed.id, role: profile.role, tenantId: owned.id })
+          return {
+            id: updated.user_id,
+            email: authed.email,
+            role: updated.role,
+            tenantId: updated.tenant_id,
+          }
+        }
+      } catch {
+        // ignore: si falla, mantenemos tenantId null
       }
     }
 
@@ -73,7 +93,7 @@ export const registerWithEmail = createAsyncThunk(
     const { email, password, tenantName } = payload
     if (!email || !password) throw new Error('Email y password son requeridos')
     if (!tenantName || !tenantName.trim()) throw new Error('Nombre del restaurante es requerido')
-    const { data } = await supabaseSignUp({ email, password })
+    const data = await supabaseSignUp({ email, password })
 
     // Si Auth requiere confirmación de email, Supabase crea el usuario pero NO entrega sesión.
     // Sin sesión, no podrás insertar tenant/profile/product por RLS.
@@ -141,6 +161,13 @@ const authSlice = createSlice({
       state.mode = action.payload
       persist(state)
     },
+    setTenantId(state, action) {
+      const tenantId = action.payload || null
+      if (state.user) {
+        state.user = { ...state.user, tenantId }
+        persist(state)
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -185,6 +212,7 @@ export const {
   clearAuthError,
   signOut,
   setMode,
+  setTenantId,
 } = authSlice.actions
 
 export const selectAuth = (state) => state.auth

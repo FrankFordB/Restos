@@ -9,6 +9,7 @@ import HomePage from './pages/Home/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import StorefrontPage from './pages/Storefront/StorefrontPage'
+import TenantHomePage from './pages/TenantHome/TenantHomePage'
 import UserDashboardPage from './pages/Dashboard/UserDashboardPage'
 import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/r/:slug" element={<TenantHomePage />} />
           <Route path="/store/:slug" element={<StorefrontPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 

@@ -38,18 +38,44 @@ drop policy if exists "order_items_update" on public.order_items;
 create or replace function public.current_role()
 returns text as $$
   select role from public.profiles where user_id = auth.uid();
-$$ language sql stable;
+$$ language sql stable security definer set search_path = public;
 
 create or replace function public.current_tenant_id()
 returns uuid as $$
   select tenant_id from public.profiles where user_id = auth.uid();
-$$ language sql stable;
+$$ language sql stable security definer set search_path = public;
+
+-- Helper seguro para evitar recursión de RLS:
+-- No uses current_role() directamente dentro de policies sobre public.profiles.
+create or replace function public.is_super_admin()
+returns boolean as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.user_id = auth.uid()
+      and p.role = 'super_admin'
+  );
+$$ language sql stable security definer set search_path = public;
+
+-- Intentar asignar owner a postgres (bypass RLS) cuando se ejecute como admin.
+do $$
+begin
+  begin
+    alter function public.current_role() owner to postgres;
+    alter function public.current_tenant_id() owner to postgres;
+    alter function public.is_super_admin() owner to postgres;
+  exception
+    when insufficient_privilege then
+      raise notice 'No se pudo cambiar owner de funciones a postgres. Ejecuta este archivo como postgres/supabase_admin para evitar errores de RLS/recursión.';
+  end;
+end
+$$;
 
 -- PROFILES: cada usuario puede leer/editar su perfil; super_admin puede leer todo
 create policy "profiles_select_own_or_admin" on public.profiles
 for select
 to authenticated
-using (user_id = auth.uid() or public.current_role() = 'super_admin');
+using (user_id = auth.uid() or public.is_super_admin());
 
 create policy "profiles_insert_own" on public.profiles
 for insert
@@ -67,8 +93,9 @@ create policy "tenants_select" on public.tenants
 for select
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or id = public.current_tenant_id()
+  or owner_user_id = auth.uid()
 );
 
 -- Tienda pública (sin login): lectura de tenants
@@ -80,20 +107,20 @@ using (true);
 create policy "tenants_insert_admin" on public.tenants
 for insert
 to authenticated
-with check (public.current_role() = 'super_admin' or owner_user_id = auth.uid());
+with check (public.is_super_admin() or owner_user_id = auth.uid());
 
 create policy "tenants_update_admin_or_owner" on public.tenants
 for update
 to authenticated
-using (public.current_role() = 'super_admin' or owner_user_id = auth.uid())
-with check (public.current_role() = 'super_admin' or owner_user_id = auth.uid());
+using (public.is_super_admin() or owner_user_id = auth.uid())
+with check (public.is_super_admin() or owner_user_id = auth.uid());
 
 -- PRODUCTS: tenant_admin solo su tenant; super_admin todo
 create policy "products_select" on public.products
 for select
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -107,11 +134,11 @@ create policy "products_modify" on public.products
 for all
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 )
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -120,7 +147,7 @@ create policy "themes_select" on public.tenant_themes
 for select
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -135,7 +162,7 @@ create policy "orders_select" on public.orders
 for select
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -143,7 +170,7 @@ create policy "orders_insert" on public.orders
 for insert
 to authenticated
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -151,11 +178,11 @@ create policy "orders_update" on public.orders
 for update
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 )
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -164,7 +191,7 @@ create policy "order_items_select" on public.order_items
 for select
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or exists (
     select 1
     from public.orders o
@@ -177,7 +204,7 @@ create policy "order_items_insert" on public.order_items
 for insert
 to authenticated
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or exists (
     select 1
     from public.orders o
@@ -190,7 +217,7 @@ create policy "order_items_update" on public.order_items
 for update
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or exists (
     select 1
     from public.orders o
@@ -199,7 +226,7 @@ using (
   )
 )
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or exists (
     select 1
     from public.orders o
@@ -212,11 +239,11 @@ create policy "themes_modify" on public.tenant_themes
 for all
 to authenticated
 using (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 )
 with check (
-  public.current_role() = 'super_admin'
+  public.is_super_admin()
   or tenant_id = public.current_tenant_id()
 );
 
@@ -253,18 +280,18 @@ begin
   $policy$;
 
   -- Subida/edición/borrado: solo usuarios autenticados.
-  -- Para tenant_admin, solo puede escribir dentro de su carpeta: <tenant_id>/...
-  -- Para super_admin, puede escribir en cualquier ruta.
+  -- IMPORTANTE:
+  -- Usar public.current_tenant_id() aquí puede fallar si profiles.tenant_id está NULL
+  -- o si hay problemas de permisos/owner con las funciones SECURITY DEFINER.
+  -- Para destrabar la subida de imágenes de forma confiable, usamos el patrón estándar:
+  -- el usuario autenticado solo puede escribir sobre objetos de los que es owner.
   execute $policy$
     create policy "product_images_insert" on storage.objects
     for insert
     to authenticated
     with check (
       bucket_id = 'product-images'
-      and (
-        public.current_role() = 'super_admin'
-        or name like (public.current_tenant_id()::text || '/%')
-      )
+      and owner = auth.uid()
     )
   $policy$;
 
@@ -274,17 +301,11 @@ begin
     to authenticated
     using (
       bucket_id = 'product-images'
-      and (
-        public.current_role() = 'super_admin'
-        or name like (public.current_tenant_id()::text || '/%')
-      )
+      and owner = auth.uid()
     )
     with check (
       bucket_id = 'product-images'
-      and (
-        public.current_role() = 'super_admin'
-        or name like (public.current_tenant_id()::text || '/%')
-      )
+      and owner = auth.uid()
     )
   $policy$;
 
@@ -294,10 +315,7 @@ begin
     to authenticated
     using (
       bucket_id = 'product-images'
-      and (
-        public.current_role() = 'super_admin'
-        or name like (public.current_tenant_id()::text || '/%')
-      )
+      and owner = auth.uid()
     )
   $policy$;
 end

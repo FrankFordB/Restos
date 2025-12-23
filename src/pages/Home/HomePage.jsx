@@ -27,10 +27,10 @@ export default function HomePage() {
           </p>
         </div>
 
-        <Card title="Tienda demo">
-          <p className="muted">Visita la tienda pública y mira cómo cambia con el diseño del tenant.</p>
-          <Link to="/store/demo-burgers">
-            <Button size="sm">Ver tienda</Button>
+        <Card title="Restaurante demo">
+          <p className="muted">Cada restaurante tiene su home pública y su menú por slug.</p>
+          <Link to="/r/demo-burgers">
+            <Button size="sm">Ver restaurante</Button>
           </Link>
         </Card>
       </section>
