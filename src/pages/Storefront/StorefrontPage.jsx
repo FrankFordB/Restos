@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import './StorefrontPage.css'
 import { useAppSelector } from '../../app/hooks'
 import { useAppDispatch } from '../../app/hooks'
-import { fetchTenantBySlug, selectTenantBySlug } from '../../features/tenants/tenantsSlice'
+import { fetchTenantBySlug, selectTenantBySlug, selectTenantFetchError, selectTenantFetchStatus } from '../../features/tenants/tenantsSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../features/products/productsSlice'
 import ThemeApplier from '../../components/theme/ThemeApplier'
 import { fetchTenantTheme } from '../../features/theme/themeSlice'
@@ -15,6 +15,8 @@ export default function StorefrontPage() {
   const { slug } = useParams()
   const dispatch = useAppDispatch()
   const tenant = useAppSelector(selectTenantBySlug(slug))
+  const status = useAppSelector(selectTenantFetchStatus(slug))
+  const error = useAppSelector(selectTenantFetchError(slug))
   const tenantId = tenant?.id
 
   const products = useAppSelector(selectProductsForTenant(tenantId || 'tenant_demo'))
@@ -95,6 +97,27 @@ export default function StorefrontPage() {
   }, [dispatch, tenantId])
 
   if (!tenant) {
+    if (status === 'loading' || status === 'idle') {
+      return (
+        <div className="store">
+          <h1>Cargando tienda...</h1>
+          <p className="muted">Buscando el restaurante.</p>
+        </div>
+      )
+    }
+
+    if (status === 'error') {
+      return (
+        <div className="store">
+          <h1>No se pudo cargar la tienda</h1>
+          <p className="muted">{error || 'Error desconocido'}</p>
+          <p className="muted">
+            Si estás en Vercel, revisa que el deploy tenga `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+          </p>
+        </div>
+      )
+    }
+
     return (
       <div className="store">
         <h1>Tienda no encontrada</h1>

@@ -1,6 +1,6 @@
 import './Input.css'
 
-export default function Input({ label, value, onChange, type = 'text', placeholder, name }) {
+export default function Input({ label, value, onChange, type = 'text', placeholder, name, ...rest }) {
   return (
     <label className="input">
       {label ? <span className="input__label">{label}</span> : null}
@@ -11,6 +11,7 @@ export default function Input({ label, value, onChange, type = 'text', placehold
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange?.(e.target.value)}
+        {...rest}
       />
     </label>
   )

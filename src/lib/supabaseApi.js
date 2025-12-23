@@ -86,6 +86,18 @@ export async function fetchTenantByOwnerUserId(ownerUserId) {
   return data
 }
 
+export async function fetchTenantById(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id, name, slug')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase

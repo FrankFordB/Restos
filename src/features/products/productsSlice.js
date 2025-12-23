@@ -11,80 +11,82 @@ import {
 
 const PERSIST_KEY = 'state.products'
 
-const seed = {
-  tenant_demo: [
-    {
-      id: 'prod_demo_1',
-      name: 'Hamburguesa clásica',
-      price: 8.99,
-      description: 'Carne, queso, lechuga, tomate',
-      active: true,
-    },
-    {
-      id: 'prod_demo_2',
-      name: 'Papas fritas',
-      price: 3.5,
-      description: 'Crocantes y doradas',
-      active: true,
-    },
-    {
-      id: 'prod_demo_3',
-      name: 'Hamburguesa BBQ',
-      price: 10.49,
-      description: 'Salsa BBQ, cebolla crispy, queso cheddar',
-      active: true,
-    },
-    {
-      id: 'prod_demo_4',
-      name: 'Hamburguesa Doble',
-      price: 12.99,
-      description: 'Doble carne, doble queso, pepinillos',
-      active: true,
-    },
-    {
-      id: 'prod_demo_5',
-      name: 'Hamburguesa Pollo Crunch',
-      price: 9.99,
-      description: 'Pollo crispy, mayo, lechuga',
-      active: true,
-    },
-    {
-      id: 'prod_demo_6',
-      name: 'Aros de cebolla',
-      price: 4.25,
-      description: 'Porción mediana',
-      active: true,
-    },
-    {
-      id: 'prod_demo_7',
-      name: 'Nuggets (8u)',
-      price: 5.75,
-      description: 'Incluye salsa',
-      active: true,
-    },
-    {
-      id: 'prod_demo_8',
-      name: 'Refresco',
-      price: 2.25,
-      description: '350ml',
-      active: true,
-    },
-    {
-      id: 'prod_demo_9',
-      name: 'Agua',
-      price: 1.5,
-      description: '500ml',
-      active: true,
-    },
-    {
-      id: 'prod_demo_10',
-      name: 'Combo Clásico',
-      price: 12.49,
-      description: 'Hamburguesa clásica + papas + bebida',
-      active: true,
-    },
-  ],
-}
+const seed = isSupabaseConfigured
+  ? {}
+  : {
+      tenant_demo: [
+        {
+          id: 'prod_demo_1',
+          name: 'Hamburguesa clásica',
+          price: 8.99,
+          description: 'Carne, queso, lechuga, tomate',
+          active: true,
+        },
+        {
+          id: 'prod_demo_2',
+          name: 'Papas fritas',
+          price: 3.5,
+          description: 'Crocantes y doradas',
+          active: true,
+        },
+        {
+          id: 'prod_demo_3',
+          name: 'Hamburguesa BBQ',
+          price: 10.49,
+          description: 'Salsa BBQ, cebolla crispy, queso cheddar',
+          active: true,
+        },
+        {
+          id: 'prod_demo_4',
+          name: 'Hamburguesa Doble',
+          price: 12.99,
+          description: 'Doble carne, doble queso, pepinillos',
+          active: true,
+        },
+        {
+          id: 'prod_demo_5',
+          name: 'Hamburguesa Pollo Crunch',
+          price: 9.99,
+          description: 'Pollo crispy, mayo, lechuga',
+          active: true,
+        },
+        {
+          id: 'prod_demo_6',
+          name: 'Aros de cebolla',
+          price: 4.25,
+          description: 'Porción mediana',
+          active: true,
+        },
+        {
+          id: 'prod_demo_7',
+          name: 'Nuggets (8u)',
+          price: 5.75,
+          description: 'Incluye salsa',
+          active: true,
+        },
+        {
+          id: 'prod_demo_8',
+          name: 'Refresco',
+          price: 2.25,
+          description: '350ml',
+          active: true,
+        },
+        {
+          id: 'prod_demo_9',
+          name: 'Agua',
+          price: 1.5,
+          description: '500ml',
+          active: true,
+        },
+        {
+          id: 'prod_demo_10',
+          name: 'Combo Clásico',
+          price: 12.49,
+          description: 'Hamburguesa clásica + papas + bebida',
+          active: true,
+        },
+      ],
+    }
 
 const initialState = loadJson(PERSIST_KEY, {
   productsByTenantId: seed,

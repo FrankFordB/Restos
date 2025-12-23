@@ -4,7 +4,7 @@ import './TenantHomePage.css'
 import Card from '../../components/ui/Card/Card'
 import Button from '../../components/ui/Button/Button'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
-import { fetchTenantBySlug, selectTenantBySlug } from '../../features/tenants/tenantsSlice'
+import { fetchTenantBySlug, selectTenantBySlug, selectTenantFetchError, selectTenantFetchStatus } from '../../features/tenants/tenantsSlice'
 import ThemeApplier from '../../components/theme/ThemeApplier'
 import { fetchTenantTheme } from '../../features/theme/themeSlice'
 
@@ -12,6 +12,8 @@ export default function TenantHomePage() {
   const { slug } = useParams()
   const dispatch = useAppDispatch()
   const tenant = useAppSelector(selectTenantBySlug(slug))
+  const status = useAppSelector(selectTenantFetchStatus(slug))
+  const error = useAppSelector(selectTenantFetchError(slug))
   const tenantId = tenant?.id
 
   useEffect(() => {
@@ -25,6 +27,27 @@ export default function TenantHomePage() {
   }, [dispatch, tenantId])
 
   if (!tenant) {
+    if (status === 'loading' || status === 'idle') {
+      return (
+        <div className="tenantHome">
+          <h1>Cargando restaurante...</h1>
+          <p className="muted">Buscando el restaurante.</p>
+        </div>
+      )
+    }
+
+    if (status === 'error') {
+      return (
+        <div className="tenantHome">
+          <h1>No se pudo cargar</h1>
+          <p className="muted">{error || 'Error desconocido'}</p>
+          <p className="muted">
+            Si estás en Vercel, revisa que el deploy tenga `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+          </p>
+        </div>
+      )
+    }
+
     return (
       <div className="tenantHome">
         <h1>Restaurante no encontrado</h1>

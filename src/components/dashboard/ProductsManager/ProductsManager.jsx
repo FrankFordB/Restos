@@ -31,6 +31,31 @@ export default function ProductsManager({ tenantId }) {
   const [imageFile, setImageFile] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
 
+  function parsePrice(raw) {
+    const s = String(raw ?? '').trim()
+    if (!s) return null
+
+    // Permite 9.99 o 9,99 y elimina símbolos/espacios.
+    let cleaned = s.replace(/\s/g, '').replace(/[^0-9.,-]/g, '')
+    if (!cleaned) return null
+
+    // Si tiene punto y coma: asumimos coma como separador de miles.
+    if (cleaned.includes('.') && cleaned.includes(',')) {
+      cleaned = cleaned.replace(/,/g, '')
+    } else {
+      cleaned = cleaned.replace(',', '.')
+    }
+
+    const num = Number(cleaned)
+    if (!Number.isFinite(num) || num < 0) return null
+
+    // Supabase schema usa numeric(10,2) => máximo ~ 99,999,999.99
+    const rounded = Math.round(num * 100) / 100
+    const MAX_PRICE = 99_999_999.99
+    if (rounded > MAX_PRICE) return null
+    return rounded
+  }
+
   const [cropState, setCropState] = useState({
     open: false,
     mode: null, // 'create' | 'edit'
@@ -133,10 +158,7 @@ export default function ProductsManager({ tenantId }) {
     })
   }
 
-  const parsedPrice = useMemo(() => {
-    const num = Number(price)
-    return Number.isFinite(num) ? num : null
-  }, [price])
+  const parsedPrice = useMemo(() => parsePrice(price), [price])
 
   const previewUrl = useMemo(() => {
     if (!imageFile) return null
@@ -200,7 +222,10 @@ export default function ProductsManager({ tenantId }) {
             size="sm"
             onClick={async () => {
               setPhotoStatus(null)
-              if (!name.trim() || parsedPrice === null) return
+              if (!name.trim() || parsedPrice === null) {
+                setPhotoStatus('Precio inválido. Usa 9.99 o 9,99.')
+                return
+              }
 
               let mockImageUrl = null
               try {
@@ -267,7 +292,14 @@ export default function ProductsManager({ tenantId }) {
       >
         <div className="products__form">
           <Input label="Nombre" value={name} onChange={setName} placeholder="Hamburguesa doble" />
-          <Input label="Precio" value={price} onChange={setPrice} placeholder="9.99" />
+          <Input
+            label="Precio"
+            value={price}
+            onChange={setPrice}
+            placeholder="9,99"
+            inputMode="decimal"
+            autoComplete="off"
+          />
           <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
           <label className="products__file">
             <span className="products__fileLabel">Foto</span>
@@ -436,10 +468,17 @@ export default function ProductsManager({ tenantId }) {
                   />
                   <input
                     className="products__inline products__price"
-                    value={String(p.price)}
-                    onChange={(e) => {
-                      const next = Number(e.target.value)
-                      if (!Number.isFinite(next)) return
+                    key={`price-${p.id}-${p.price}`}
+                    defaultValue={String(p.price)}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    onBlur={(e) => {
+                      const next = parsePrice(e.target.value)
+                      if (next === null) {
+                        setPhotoStatus('Precio inválido. Usa 9.99 o 9,99.')
+                        e.target.value = String(p.price)
+                        return
+                      }
                       dispatch(patchProduct({ tenantId, productId: p.id, patch: { price: next } }))
                     }}
                   />

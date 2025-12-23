@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './DashboardPages.css'
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
@@ -10,7 +10,7 @@ import ProductsManager from '../../components/dashboard/ProductsManager/Products
 import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
 import { createTenant } from '../../features/tenants/tenantsSlice'
-import { upsertProfile } from '../../lib/supabaseApi'
+import { fetchTenantById, upsertProfile } from '../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 
 function slugify(value) {
@@ -30,7 +30,37 @@ export default function UserDashboardPage() {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  const [currentTenant, setCurrentTenant] = useState(null)
+  const [loadingTenant, setLoadingTenant] = useState(false)
+  const [tenantLoadError, setTenantLoadError] = useState(null)
+
   const suggestedSlug = useMemo(() => slugify(tenantName), [tenantName])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadTenant() {
+      if (!isSupabaseConfigured) return
+      if (!user?.tenantId) return
+
+      setLoadingTenant(true)
+      setTenantLoadError(null)
+      try {
+        const tenant = await fetchTenantById(user.tenantId)
+        if (!cancelled) setCurrentTenant(tenant)
+      } catch (e) {
+        const msg = e?.message ? String(e.message) : 'No se pudo cargar el restaurante'
+        if (!cancelled) setTenantLoadError(msg)
+      } finally {
+        if (!cancelled) setLoadingTenant(false)
+      }
+    }
+
+    loadTenant()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.tenantId])
 
   if (!user?.tenantId) {
     return (
@@ -106,6 +136,25 @@ export default function UserDashboardPage() {
         <h1>Dashboard del restaurante</h1>
         <p className="muted">Administra productos, precios y diseño.</p>
       </header>
+
+      {isSupabaseConfigured ? (
+        <Card title="Tu tienda pública">
+          {loadingTenant ? <p className="muted">Cargando restaurante...</p> : null}
+          {tenantLoadError ? <p className="muted">{tenantLoadError}</p> : null}
+          {currentTenant?.slug ? (
+            <>
+              <p className="muted">
+                Slug: <strong>{currentTenant.slug}</strong>
+              </p>
+              <p className="muted">Links:</p>
+              <p className="muted">/r/{currentTenant.slug}</p>
+              <p className="muted">/store/{currentTenant.slug}</p>
+            </>
+          ) : !loadingTenant && !tenantLoadError ? (
+            <p className="muted">No se encontró el slug para este restaurante.</p>
+          ) : null}
+        </Card>
+      ) : null}
 
       <div className="dash__grid">
         <ThemeManager tenantId={user.tenantId} />
