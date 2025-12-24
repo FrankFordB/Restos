@@ -5,6 +5,7 @@ import tenantsReducer from '../features/tenants/tenantsSlice'
 import productsReducer from '../features/products/productsSlice'
 import themeReducer from '../features/theme/themeSlice'
 import ordersReducer from '../features/orders/ordersSlice'
+import pageBuilderReducer from '../features/pageBuilder/pageBuilderSlice'
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,7 @@ export const store = configureStore({
     products: productsReducer,
     theme: themeReducer,
     orders: ordersReducer,
+    pageBuilder: pageBuilderReducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false }),
 })

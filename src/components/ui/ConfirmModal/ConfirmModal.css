@@ -1,0 +1,40 @@
+.confirmModal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.confirmModal__card {
+  width: min(420px, 100%);
+  background: var(--background, #fff);
+  color: var(--text, #111827);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+  box-shadow: 0 22px 60px -20px rgba(15, 23, 42, 0.45);
+}
+
+.confirmModal__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.confirmModal__message {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 84%, transparent);
+  line-height: 1.5;
+}
+
+.confirmModal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

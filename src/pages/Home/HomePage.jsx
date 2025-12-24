@@ -1,17 +1,38 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './HomePage.css'
 import Card from '../../components/ui/Card/Card'
 import Button from '../../components/ui/Button/Button'
+import { useAppDispatch, useAppSelector } from '../../app/hooks'
+import { fetchTenants, selectTenants } from '../../features/tenants/tenantsSlice'
+import { isSupabaseConfigured } from '../../lib/supabaseClient'
 
 export default function HomePage() {
+  const dispatch = useAppDispatch()
+  const tenants = useAppSelector(selectTenants)
+
+  const isTenantPremium = (t) => {
+    const until = t?.premium_until || t?.premiumUntil
+    if (!until) return false
+    const ms = Date.parse(until)
+    if (!Number.isFinite(ms)) return false
+    return ms > Date.now()
+  }
+
+  useEffect(() => {
+    if (isSupabaseConfigured) dispatch(fetchTenants())
+  }, [dispatch])
+
+  const publicTenants = (tenants || []).filter((t) => t?.isPublic !== false)
+
   return (
     <div className="home">
       <section className="home__hero">
         <div className="home__heroText">
-          <h1>Vende comida online con tu propio panel</h1>
+          <h1>Tu restaurante online, listo para vender</h1>
           <p className="muted">
-            Super usuario para controlar todo, y usuarios (restaurantes) con dashboard para cambiar diseño, productos y
-            precios.
+            Te damos una tienda moderna, un panel para administrarla y herramientas para crecer. Ideal para restaurantes,
+            dark kitchens, cafeterías y emprendedores.
           </p>
           <div className="home__cta">
             <Link to="/register">
@@ -21,41 +42,92 @@ export default function HomePage() {
               <Button variant="secondary">Entrar</Button>
             </Link>
           </div>
-          <p className="home__creds">
-            Demo: <strong>demo@resto.local</strong> / <strong>demo123</strong> · Admin: <strong>admin@resto.local</strong>{' '}
-            / <strong>admin123</strong>
-          </p>
+
+          <div className="home__badges">
+            <span className="home__badge">Tienda por restaurante</span>
+            <span className="home__badge">Panel de control</span>
+            <span className="home__badge">Diseño personalizable</span>
+            <span className="home__badge">Supabase listo</span>
+          </div>
         </div>
 
-        <Card title="Restaurante demo">
-          <p className="muted">Cada restaurante tiene su home pública y su menú por slug.</p>
-          <Link to="/r/demo-burgers">
-            <Button size="sm">Ver restaurante</Button>
-          </Link>
+        <Card title="Ver restaurantes">
+          <p className="muted">Explora la lista completa de restaurantes y empresas publicados.</p>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+            <Link to="/restaurantes">
+              <Button variant="secondary" size="sm">Ver más</Button>
+            </Link>
+          </div>
         </Card>
       </section>
 
       <section className="home__grid">
-        <Card title="Roles y control">
+        <Card title="Beneficios">
           <ul className="home__list">
-            <li>Super usuario: administra tenants</li>
-            <li>Usuario restaurante: administra su tienda</li>
-            <li>Rutas protegidas y estado persistente</li>
+            <li>Tu propia tienda pública por restaurante: <strong>/store/:slug</strong></li>
+            <li>Catálogo con productos, precios e imágenes</li>
+            <li>Diseño personalizable (colores, bordes, estilo)</li>
+            <li>Control de visibilidad: aparecer o no en el Home</li>
           </ul>
         </Card>
-        <Card title="Personalización">
+
+        <Card title="Cómo funciona">
+          <ol className="home__steps">
+            <li>Creas tu restaurante y eliges si será visible en el Home.</li>
+            <li>Cargas productos, precios y fotos desde tu dashboard.</li>
+            <li>Compartes tu link de tienda y comienzas a vender.</li>
+          </ol>
+        </Card>
+
+        <Card title="Soporte y seguridad">
           <ul className="home__list">
-            <li>Colores y radio por tenant</li>
-            <li>Productos, precios y estado activo</li>
-            <li>Vista pública /store/:slug</li>
+            <li>Accesos por roles (super_admin y tenant_admin)</li>
+            <li>Datos en Supabase (PostgreSQL) + RLS</li>
+            <li>Gestión de cuentas: premium, cancelación y perfiles (super admin)</li>
           </ul>
         </Card>
-        <Card title="Escalable">
-          <ul className="home__list">
-            <li>Redux Toolkit por features</li>
-            <li>Componentes .jsx + CSS por carpeta</li>
-            <li>Preparado para Supabase (PostgreSQL)</li>
-          </ul>
+      </section>
+
+      <section className="home__contact">
+        <Card title="Contacto">
+          <div className="home__contactGrid">
+            <div>
+              <p className="home__contactTitle">¿Querés sumar tu restaurante?</p>
+              <p className="muted">Escribinos y te ayudamos con la configuración y puesta en línea.</p>
+              <div className="home__contactList">
+                <div>
+                  <div className="muted">Email</div>
+                  <div><strong>contacto@restos.app</strong></div>
+                </div>
+                <div>
+                  <div className="muted">Teléfono / WhatsApp</div>
+                  <div><strong>+00 000 000 000</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="home__contactTitle">Redes</p>
+              <div className="home__social">
+                <a className="home__socialLink" href="https://instagram.com" target="_blank" rel="noreferrer">
+                  Instagram
+                </a>
+                <a className="home__socialLink" href="https://facebook.com" target="_blank" rel="noreferrer">
+                  Facebook
+                </a>
+                <a className="home__socialLink" href="https://tiktok.com" target="_blank" rel="noreferrer">
+                  TikTok
+                </a>
+                <a className="home__socialLink" href="https://wa.me" target="_blank" rel="noreferrer">
+                  WhatsApp
+                </a>
+              </div>
+              <p className="muted" style={{ marginTop: 10 }}>
+                (Estos links son ejemplo. Los cambiamos por los tuyos cuando me pases tus redes.)
+              </p>
+            </div>
+          </div>
         </Card>
       </section>
     </div>

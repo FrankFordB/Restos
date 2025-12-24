@@ -49,10 +49,15 @@ export function mockSignIn({ email, password }) {
   }
 
   const { password: _pw, ...safeUser } = match
-  return safeUser
+  return {
+    accountStatus: 'active',
+    premiumUntil: null,
+    premiumSource: null,
+    ...safeUser,
+  }
 }
 
-export function mockRegister({ email, password, tenantName }) {
+export function mockRegister({ email, password, tenantName, isPublic = true }) {
   const users = readUsers()
   const exists = users.some((u) => u.email.toLowerCase() === email.toLowerCase())
   if (exists) {
@@ -85,6 +90,7 @@ export function mockRegister({ email, password, tenantName }) {
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, ''),
       name: tenantName.trim(),
+      isPublic: isPublic !== false,
     },
   }
 }

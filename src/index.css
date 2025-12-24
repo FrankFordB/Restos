@@ -1,12 +1,43 @@
-:root {
-  --primary: #111827;
-  --accent: #f59e0b;
-  --background: #ffffff;
-  --text: #111827;
-  --radius: 12px;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  line-height: 1.5;
+:root {
+  --primary: #0f172a;
+  --primary-light: #1e293b;
+  --accent: #f97316;
+  --accent-soft: #fb923c;
+  --background: #fafbfc;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 24px;
+  --card: #ffffff;
+  --card-glass: rgba(255, 255, 255, 0.75);
+  --border: rgba(15, 23, 42, 0.08);
+  --border-hover: rgba(15, 23, 42, 0.15);
+  
+  --gradient-accent: linear-gradient(135deg, var(--accent) 0%, #ea580c 100%);
+  --gradient-hero: linear-gradient(135deg, #f97316 0%, #f59e0b 50%, #fbbf24 100%);
+  --gradient-card: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+  
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.08), 0 8px 20px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 32px 64px rgba(0, 0, 0, 0.12), 0 16px 32px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 40px rgba(249, 115, 22, 0.15);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  --bg-subtle: #f1f5f9;
+  
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,25 +54,80 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--background);
+  background-image: 
+    radial-gradient(ellipse 1200px 600px at 0% 0%, rgba(249, 115, 22, 0.08), transparent 50%),
+    radial-gradient(ellipse 1000px 500px at 100% 0%, rgba(59, 130, 246, 0.06), transparent 50%),
+    radial-gradient(ellipse 800px 400px at 50% 100%, rgba(249, 115, 22, 0.04), transparent 50%);
   color: var(--text);
 }
 
 a {
   color: inherit;
+  text-decoration: none;
+  transition: color 200ms var(--ease-out);
+}
+
+a:hover {
+  color: var(--accent);
 }
 
 .container {
-  width: min(1100px, calc(100% - 32px));
+  width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
 }
 
 .muted {
-  color: color-mix(in srgb, var(--text) 65%, transparent);
+  color: var(--text-muted);
   margin: 0;
+  line-height: 1.7;
 }
 
-h1,
-h2,
-h3 {
-  letter-spacing: -0.02em;
+h1, h2, h3, h4 {
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h1 {
+  font-weight: 800;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Modern scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.25);
+  background-clip: content-box;
+}
+
+/* Utility classes */
+.glass {
+  background: var(--card-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.gradient-text {
+  background: var(--gradient-hero);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

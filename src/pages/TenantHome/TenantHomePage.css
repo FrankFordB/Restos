@@ -1,39 +1,50 @@
 .tenantHome {
   display: grid;
-  gap: 16px;
+  gap: 24px;
+  padding-bottom: 40px;
 }
 
 .tenantHome__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tenantHome__title {
   margin: 0;
+  font-size: 1.75rem;
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-muted) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .tenantHome__actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .tenantHome__quick {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 
 .tenantHome__label {
-  color: color-mix(in srgb, var(--text) 65%, transparent);
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .tenantHome__value {
   font-weight: 700;
+  font-size: 1.05rem;
+  margin-top: 4px;
 }
 
 @media (max-width: 640px) {

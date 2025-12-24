@@ -9,8 +9,8 @@
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (user_id, role, tenant_id)
-  values (new.id, 'tenant_admin', null)
+  insert into public.profiles (user_id, role, tenant_id, account_status, premium_until, premium_source)
+  values (new.id, 'tenant_admin', null, 'active', null, null)
   on conflict (user_id) do nothing;
 
   return new;

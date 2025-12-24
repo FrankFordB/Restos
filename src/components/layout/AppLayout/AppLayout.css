@@ -8,5 +8,21 @@
 
 .app__main {
   flex: 1;
-  padding: 24px 0;
+  padding: 32px 0;
+}
+
+/* Page transitions */
+.app__main > * {
+  animation: fadeIn 300ms var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

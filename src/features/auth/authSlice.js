@@ -9,6 +9,7 @@ import {
   createTenant as sbCreateTenant,
   fetchTenantByOwnerUserId,
   upsertProfile,
+  supabaseResetPasswordForEmail,
 } from '../../lib/supabaseApi'
 import { ROLES } from '../../shared/constants'
 
@@ -20,6 +21,9 @@ const initialState = loadJson(PERSIST_KEY, {
   error: null,
   mode: 'mock',
   lastCreatedTenant: null,
+  adminManagedTenantId: null,
+  bannedInfo: null,
+  welcomeInfo: null,
 })
 
 function persist(state) {
@@ -28,7 +32,7 @@ function persist(state) {
 
 export const signInWithEmail = createAsyncThunk(
   'auth/signInWithEmail',
-  async (payload) => {
+  async (payload, thunkAPI) => {
     if (!isSupabaseConfigured) {
       const user = mockSignIn(payload)
       return user
@@ -73,11 +77,22 @@ export const signInWithEmail = createAsyncThunk(
       }
     }
 
+    if (profile.account_status === 'cancelled') {
+      return thunkAPI.rejectWithValue({
+        code: 'ACCOUNT_CANCELLED',
+        email: authed.email,
+        message: 'Tu cuenta está baneada por no respetar nuestros términos y condiciones.',
+      })
+    }
+
     return {
       id: profile.user_id,
       email: authed.email,
       role: profile.role,
       tenantId: profile.tenant_id,
+      accountStatus: profile.account_status,
+      premiumUntil: profile.premium_until,
+      premiumSource: profile.premium_source,
     }
   },
 )
@@ -90,7 +105,7 @@ export const registerWithEmail = createAsyncThunk(
       return { user, createdTenant }
     }
 
-    const { email, password, tenantName } = payload
+  const { email, password, tenantName } = payload
     if (!email || !password) throw new Error('Email y password son requeridos')
     if (!tenantName || !tenantName.trim()) throw new Error('Nombre del restaurante es requerido')
     const data = await supabaseSignUp({ email, password })
@@ -110,23 +125,28 @@ export const registerWithEmail = createAsyncThunk(
       throw new Error('No se pudo crear el usuario en Supabase')
     }
 
-    const createdTenant = await sbCreateTenant({
-      name: tenantName.trim(),
-      slug: tenantName
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, ''),
-      ownerUserId: authed.id,
-    })
-
-    // Asegura que el perfil tenga tenant_id para que RLS permita operar productos/tema
+    // Nuevo comportamiento: al registrarse, SIEMPRE queda como rol "user".
+    // Puede crear su restaurante, pero no tiene permisos admin hasta que el super_admin lo promueva.
+    let createdTenant = null
     try {
-      await upsertProfile({
-        userId: authed.id,
-        role: ROLES.TENANT_ADMIN,
-        tenantId: createdTenant?.id || null,
+      createdTenant = await sbCreateTenant({
+        name: tenantName.trim(),
+        slug: tenantName
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, ''),
+        ownerUserId: authed.id,
       })
+    } catch {
+      // Si RLS bloquea creación para rol user, igual dejamos creado el user.
+      createdTenant = null
+    }
+
+    // Perfil por defecto como user (sin tenant asignado).
+    // El super_admin luego puede asignar tenant_id y/o cambiar a tenant_admin.
+    try {
+      await upsertProfile({ userId: authed.id, role: ROLES.USER, tenantId: null })
     } catch {
       // ignore (policies/triggers not installed)
     }
@@ -135,10 +155,22 @@ export const registerWithEmail = createAsyncThunk(
       user: {
         id: authed.id,
         email,
-        role: ROLES.TENANT_ADMIN,
-        tenantId: createdTenant?.id || null,
+        role: ROLES.USER,
+        tenantId: null,
       },
       createdTenant,
+    }
+  },
+)
+
+export const requestPasswordReset = createAsyncThunk(
+  'auth/requestPasswordReset',
+  async ({ email, redirectTo }, thunk) => {
+    try {
+      await supabaseResetPasswordForEmail({ email, redirectTo })
+      return true
+    } catch (e) {
+      return thunk.rejectWithValue(e?.message ? String(e.message) : 'No se pudo enviar el email de recuperación')
     }
   },
 )
@@ -149,12 +181,16 @@ const authSlice = createSlice({
   reducers: {
     clearAuthError(state) {
       state.error = null
+      state.welcomeInfo = null
     },
     signOut(state) {
       state.status = 'anonymous'
       state.user = null
       state.error = null
       state.lastCreatedTenant = null
+      state.adminManagedTenantId = null
+      state.bannedInfo = null
+      state.welcomeInfo = null
       persist(state)
     },
     setMode(state, action) {
@@ -168,23 +204,55 @@ const authSlice = createSlice({
         persist(state)
       }
     },
+    setAdminManagedTenantId(state, action) {
+      state.adminManagedTenantId = action.payload || null
+      persist(state)
+    },
+    clearBannedInfo(state) {
+      state.bannedInfo = null
+      persist(state)
+    },
+    clearWelcomeInfo(state) {
+      state.welcomeInfo = null
+      persist(state)
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(signInWithEmail.pending, (state) => {
         state.status = 'loading'
         state.error = null
+        state.bannedInfo = null
+        state.welcomeInfo = null
       })
       .addCase(signInWithEmail.fulfilled, (state, action) => {
         state.status = 'authenticated'
         state.user = action.payload
         state.error = null
+        state.bannedInfo = null
+        state.welcomeInfo = {
+          message:
+            '¡Bienvenido! Ahora puedes crear y administrar tu restaurante, personalizar su estilo, cargar productos y gestionar tus pedidos desde el panel.',
+        }
         persist(state)
       })
       .addCase(signInWithEmail.rejected, (state, action) => {
         state.status = 'anonymous'
         state.user = null
-        state.error = action.error?.message || 'Error al iniciar sesión'
+        if (action.payload?.code === 'ACCOUNT_CANCELLED') {
+          state.error = null
+          state.bannedInfo = {
+            message:
+              action.payload.message ||
+              'Tu cuenta está baneada por no respetar nuestros términos y condiciones.',
+            email: action.payload.email || null,
+          }
+          state.welcomeInfo = null
+        } else {
+          state.error = action.payload?.message || action.error?.message || 'Error al iniciar sesión'
+          state.bannedInfo = null
+          state.welcomeInfo = null
+        }
         persist(state)
       })
       .addCase(registerWithEmail.pending, (state) => {
@@ -205,6 +273,16 @@ const authSlice = createSlice({
         state.error = action.error?.message || 'Error al registrarse'
         persist(state)
       })
+
+      .addCase(requestPasswordReset.pending, (state) => {
+        state.error = null
+      })
+      .addCase(requestPasswordReset.fulfilled, (state) => {
+        state.error = null
+      })
+      .addCase(requestPasswordReset.rejected, (state, action) => {
+        state.error = action.payload || action.error?.message || 'No se pudo enviar el email de recuperación'
+      })
   },
 })
 
@@ -213,10 +291,14 @@ export const {
   signOut,
   setMode,
   setTenantId,
+  setAdminManagedTenantId,
+  clearBannedInfo,
+  clearWelcomeInfo,
 } = authSlice.actions
 
 export const selectAuth = (state) => state.auth
 export const selectUser = (state) => state.auth.user
+export const selectAdminManagedTenantId = (state) => state.auth.adminManagedTenantId
 export const selectIsAuthed = (state) => state.auth.status === 'authenticated'
 
 export default authSlice.reducer

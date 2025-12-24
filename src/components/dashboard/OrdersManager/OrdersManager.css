@@ -1,46 +1,62 @@
 .orders {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .orders__row {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  gap: 16px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.5);
+  transition: all 200ms var(--ease-out);
+}
+
+.orders__row:hover {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-sm);
 }
 
 .orders__id {
-  font-weight: 900;
-  font-size: 0.92rem;
+  font-weight: 700;
+  font-size: 0.85rem;
   word-break: break-all;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
 }
 
 .orders__meta {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .orders__status {
-  font-weight: 900;
-  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .orders__date {
-  color: color-mix(in srgb, var(--text) 65%, transparent);
-  font-weight: 700;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .orders__total {
-  font-weight: 900;
-  color: var(--primary);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--accent);
   white-space: nowrap;
 }

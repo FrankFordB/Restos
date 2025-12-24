@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
 
   const [tenantName, setTenantName] = useState('')
+  const [isPublic, setIsPublic] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -29,6 +30,16 @@ export default function RegisterPage() {
       >
         <div className="auth__form">
           <Input label="Nombre del restaurante" value={tenantName} onChange={setTenantName} placeholder="Mi Hamburguesería" />
+
+          <label className="auth__checkbox">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+            />
+            Mostrar mi restaurante en el listado público del Home
+          </label>
+
           <Input label="Email" value={email} onChange={setEmail} placeholder="mi@resto.com" />
           <Input label="Password" type="password" value={password} onChange={setPassword} placeholder="mínimo 6" />
 
@@ -40,7 +51,7 @@ export default function RegisterPage() {
                 dispatch(clearAuthError())
                 try {
                   const result = await dispatch(
-                    registerWithEmail({ email, password, tenantName }),
+                    registerWithEmail({ email, password, tenantName, isPublic }),
                   ).unwrap()
                   if (result?.createdTenant) dispatch(addTenant(result.createdTenant))
                   navigate('/dashboard')

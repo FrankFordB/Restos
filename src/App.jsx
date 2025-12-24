@@ -10,6 +10,7 @@ import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import StorefrontPage from './pages/Storefront/StorefrontPage'
 import TenantHomePage from './pages/TenantHome/TenantHomePage'
+import DirectoryPage from './pages/Directory/DirectoryPage'
 import UserDashboardPage from './pages/Dashboard/UserDashboardPage'
 import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
@@ -21,6 +22,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/restaurantes" element={<DirectoryPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/r/:slug" element={<TenantHomePage />} />

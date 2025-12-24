@@ -1,17 +1,35 @@
 .footer {
-  border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  padding: 18px 0;
-  margin-top: 32px;
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  margin-top: 48px;
+  background: linear-gradient(180deg, transparent 0%, rgba(249, 115, 22, 0.02) 100%);
 }
 
 .footer__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .footer__muted {
-  color: color-mix(in srgb, var(--text) 65%, transparent);
-  font-size: 0.92rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.footer__links {
+  display: flex;
+  gap: 20px;
+}
+
+.footer__link {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 200ms var(--ease-out);
+}
+
+.footer__link:hover {
+  color: var(--accent);
 }

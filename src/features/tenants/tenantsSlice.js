@@ -1,7 +1,12 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { loadJson, saveJson } from '../../shared/storage'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { createTenant as sbCreateTenant, fetchTenantBySlug as sbFetchTenantBySlug, listTenants as sbListTenants } from '../../lib/supabaseApi'
+import {
+  createTenant as sbCreateTenant,
+  fetchTenantBySlug as sbFetchTenantBySlug,
+  listPublicTenants as sbListPublicTenants,
+  listTenants as sbListTenants,
+} from '../../lib/supabaseApi'
 
 const PERSIST_KEY = 'state.tenants'
 
@@ -13,13 +18,22 @@ const defaultState = {
           id: 'tenant_demo',
           slug: 'demo-burgers',
           name: 'Demo Burgers',
+          isPublic: true,
         },
       ],
   statusBySlug: {},
   errorBySlug: {},
 }
 
-const initialState = loadJson(PERSIST_KEY, defaultState)
+const loadedState = loadJson(PERSIST_KEY, defaultState)
+
+const initialState = {
+  ...loadedState,
+  tenants: (loadedState?.tenants || []).map((t) => ({
+    ...t,
+    isPublic: t?.isPublic !== false,
+  })),
+}
 
 function persist(state) {
   saveJson(PERSIST_KEY, state)
@@ -27,8 +41,13 @@ function persist(state) {
 
 export const fetchTenants = createAsyncThunk('tenants/fetchTenants', async () => {
   if (!isSupabaseConfigured) return null
-  const tenants = await sbListTenants()
-  return tenants
+  // Para la landing/Home queremos solo los públicos.
+  // Para paneles admin se usa el estado local + endpoints específicos de admin.
+  const tenants = await sbListPublicTenants()
+  return (tenants || []).map((t) => ({
+    ...t,
+    isPublic: t?.is_public !== false,
+  }))
 })
 
 export const fetchTenantBySlug = createAsyncThunk(
@@ -87,6 +106,9 @@ const tenantsSlice = createSlice({
 
         const tenant = action.payload
         if (!tenant) return
+        if (tenant && 'is_public' in tenant && !('isPublic' in tenant)) {
+          tenant.isPublic = tenant.is_public !== false
+        }
         const idx = state.tenants.findIndex((t) => t.id === tenant.id)
         if (idx >= 0) state.tenants[idx] = tenant
         else state.tenants.push(tenant)

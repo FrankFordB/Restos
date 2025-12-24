@@ -8,3 +8,8 @@ Luciano_luciano1
 <p><a href="{{ .ConfirmationURL }}">Confirm your mail</a></p>
 
 https://supabase.com/dashboard/project/tzxedrtjfyxgjychenqa/auth/policies
+
+
+mail
+franco
+Luciano_11

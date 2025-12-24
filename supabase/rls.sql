@@ -12,11 +12,14 @@ alter table public.order_items enable row level security;
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
 drop policy if exists "profiles_update_own" on public.profiles;
+drop policy if exists "profiles_insert_admin" on public.profiles;
 
 drop policy if exists "tenants_select" on public.tenants;
 drop policy if exists "tenants_public_select" on public.tenants;
 drop policy if exists "tenants_insert_admin" on public.tenants;
 drop policy if exists "tenants_update_admin_or_owner" on public.tenants;
+drop policy if exists "tenants_update_owner" on public.tenants;
+drop policy if exists "tenants_update_premium_admin" on public.tenants;
 
 drop policy if exists "products_select" on public.products;
 drop policy if exists "products_public_select_active" on public.products;
@@ -72,21 +75,43 @@ end
 $$;
 
 -- PROFILES: cada usuario puede leer/editar su perfil; super_admin puede leer todo
+-- IMPORTANTE: Permitimos que usuarios cancelados lean su propio perfil para verificación de baneo
 create policy "profiles_select_own_or_admin" on public.profiles
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_super_admin());
+using (
+  user_id = auth.uid()
+  or public.is_super_admin()
+);
 
 create policy "profiles_insert_own" on public.profiles
 for insert
 to authenticated
 with check (user_id = auth.uid());
 
+-- Permite al super_admin crear perfiles para otros usuarios (ej. dueños que aún no tienen fila)
+create policy "profiles_insert_admin" on public.profiles
+for insert
+to authenticated
+with check (public.is_super_admin());
+
 create policy "profiles_update_own" on public.profiles
 for update
 to authenticated
 using (user_id = auth.uid())
-with check (user_id = auth.uid());
+with check (
+  user_id = auth.uid()
+  and account_status = 'active'
+  and role = 'tenant_admin'
+);
+
+-- Admin: puede actualizar cualquier perfil (incluye cancelar, premium, etc.)
+drop policy if exists "profiles_update_admin" on public.profiles;
+create policy "profiles_update_admin" on public.profiles
+for update
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
 
 -- TENANTS: tenant_admin solo su tenant; super_admin todo
 create policy "tenants_select" on public.tenants
@@ -102,18 +127,30 @@ using (
 create policy "tenants_public_select" on public.tenants
 for select
 to anon
-using (true);
+using (is_public = true);
 
 create policy "tenants_insert_admin" on public.tenants
 for insert
 to authenticated
 with check (public.is_super_admin() or owner_user_id = auth.uid());
 
-create policy "tenants_update_admin_or_owner" on public.tenants
+-- Owner puede actualizar su tenant, pero NO tocar premium_until ni subscription_tier
+create policy "tenants_update_owner" on public.tenants
 for update
 to authenticated
-using (public.is_super_admin() or owner_user_id = auth.uid())
-with check (public.is_super_admin() or owner_user_id = auth.uid());
+using (owner_user_id = auth.uid())
+with check (
+  owner_user_id = auth.uid()
+  and premium_until is not distinct from (select t.premium_until from public.tenants t where t.id = public.tenants.id)
+  and subscription_tier is not distinct from (select t.subscription_tier from public.tenants t where t.id = public.tenants.id)
+);
+
+-- Solo super_admin puede tocar premium_until, subscription_tier (y cualquier otro campo)
+create policy "tenants_update_premium_admin" on public.tenants
+for update
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
 
 -- PRODUCTS: tenant_admin solo su tenant; super_admin todo
 create policy "products_select" on public.products
