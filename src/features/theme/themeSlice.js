@@ -67,6 +67,10 @@ const themeSlice = createSlice({
           cardDesc: row.card_desc,
           cardPrice: row.card_price,
           cardButton: row.card_button,
+          heroStyle: row.hero_style,
+          heroSlides: row.hero_slides,
+          heroTitlePosition: row.hero_title_position,
+          heroOverlayOpacity: row.hero_overlay_opacity,
         }
         persist(state)
       })
@@ -88,6 +92,10 @@ const themeSlice = createSlice({
             cardDesc: row.card_desc,
             cardPrice: row.card_price,
             cardButton: row.card_button,
+            heroStyle: row.hero_style,
+            heroSlides: row.hero_slides,
+            heroTitlePosition: row.hero_title_position,
+            heroOverlayOpacity: row.hero_overlay_opacity,
           }
         } else if (theme) {
           state.themeByTenantId[tenantId] = {

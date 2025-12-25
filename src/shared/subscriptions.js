@@ -393,6 +393,86 @@ export const TIER_PRICES = {
   [SUBSCRIPTION_TIERS.PREMIUM_PRO]: { monthly: 24.99, yearly: 249 },
 }
 
+// Estilos de Hero/Carrusel para la tienda
+// FREE: 1 estilo básico
+// PREMIUM: 4 estilos
+// PREMIUM_PRO: 4 estilos adicionales
+export const STORE_HERO_STYLES = {
+  // FREE
+  simple: {
+    label: 'Simple',
+    tier: SUBSCRIPTION_TIERS.FREE,
+    description: 'Banner básico con título y descripción',
+    layout: 'center',
+    hasCarousel: false,
+  },
+  // PREMIUM (4 estilos)
+  slide_fade: {
+    label: 'Slide Fade',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Carrusel con transición suave de fundido',
+    layout: 'full',
+    hasCarousel: true,
+    animation: 'fade',
+  },
+  slide_horizontal: {
+    label: 'Slide Horizontal',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Carrusel con deslizamiento horizontal',
+    layout: 'full',
+    hasCarousel: true,
+    animation: 'slide-x',
+  },
+  split_image: {
+    label: 'Split Image',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Imagen a un lado, texto al otro',
+    layout: 'split',
+    hasCarousel: true,
+    animation: 'fade',
+  },
+  minimal_bar: {
+    label: 'Barra Minimal',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Banner compacto con información esencial',
+    layout: 'bar',
+    hasCarousel: false,
+  },
+  // PREMIUM PRO (4 estilos adicionales)
+  parallax: {
+    label: 'Parallax',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Efecto parallax con profundidad',
+    layout: 'full',
+    hasCarousel: true,
+    animation: 'parallax',
+  },
+  video_bg: {
+    label: 'Video Background',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Video de fondo con overlay',
+    layout: 'video',
+    hasCarousel: false,
+    hasVideo: true,
+  },
+  cards_carousel: {
+    label: 'Cards Carousel',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Carrusel de cards promocionales',
+    layout: 'cards',
+    hasCarousel: true,
+    animation: 'cards',
+  },
+  fullscreen_immersive: {
+    label: 'Inmersivo',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Hero a pantalla completa con animación',
+    layout: 'fullscreen',
+    hasCarousel: true,
+    animation: 'zoom',
+  },
+}
+
 // Paletas de colores prediseñadas (solo afectan la página, no las cards)
 // Cada paleta tiene: primary, accent, background, text
 export const COLOR_PALETTES = {

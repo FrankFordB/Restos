@@ -20,6 +20,11 @@ export default function AppLayout() {
   const welcomeInfo = auth.welcomeInfo
   const showWelcomeModal = auth.status === 'authenticated' && !showBannedModal && Boolean(welcomeInfo)
 
+  // Show global header: always for logged-in users, hide only for public store visitors
+  const isStorePage = location.pathname.startsWith('/store/')
+  const isLoggedIn = auth.status === 'authenticated' && user
+  const showGlobalHeader = isLoggedIn || !isStorePage
+
   const bannedMessage = (() => {
     if (bannedInfo?.message) return bannedInfo.message
     if (accountCancelled) return 'Tu cuenta está baneada por no respetar nuestros términos y condiciones.'
@@ -51,11 +56,11 @@ Cuenta: ${bannedEmail}` : bannedMessage}
         onCancel={() => dispatch(clearWelcomeInfo())}
       />
       <ThemeApplier tenantId={tenantId} key={location.pathname} />
-      <Header />
-      <main className="container app__main">
+      {showGlobalHeader && <Header />}
+      <main className={`app__main ${isStorePage ? 'app__main--store' : 'container'}`}>
         <Outlet />
       </main>
-      <Footer />
+      {showGlobalHeader && <Footer />}
     </div>
   )
 }

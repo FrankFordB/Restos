@@ -11,6 +11,12 @@
   padding: 32px 0;
 }
 
+/* Store pages - full width, no padding */
+.app__main--store {
+  padding: 0;
+  width: 100%;
+}
+
 /* Page transitions */
 .app__main > * {
   animation: fadeIn 300ms var(--ease-out);

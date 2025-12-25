@@ -131,3 +131,12 @@ h1 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Store Preview Mode - hide global header and footer */
+body.store-preview-mode .header {
+  display: none !important;
+}
+
+body.store-preview-mode .footer {
+  display: none !important;
+}

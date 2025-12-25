@@ -43,6 +43,13 @@ alter table if exists public.tenant_themes
   add column if not exists layout_style text default 'modern'
     check (layout_style in ('modern', 'classic', 'minimal', 'bold'));
 
+-- Hero/Carrusel del Store Header
+alter table if exists public.tenant_themes
+  add column if not exists hero_style text default 'simple';
+
+alter table if exists public.tenant_themes
+  add column if not exists hero_slides jsonb default '[]'::jsonb;
+
 -- 3) Tabla de configuración de página (Page Builder)
 -- ----------------------------------------------------------------------------
 create table if not exists public.tenant_page_config (

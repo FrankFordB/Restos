@@ -190,6 +190,18 @@ alter table if exists public.tenant_themes
   add column if not exists card_price text;
 alter table if exists public.tenant_themes
   add column if not exists card_button text;
+alter table if exists public.tenant_themes
+  add column if not exists card_desc text;
+
+-- Migración segura para columnas de hero/carrusel
+alter table if exists public.tenant_themes
+  add column if not exists hero_style text not null default 'simple';
+alter table if exists public.tenant_themes
+  add column if not exists hero_slides jsonb;
+alter table if exists public.tenant_themes
+  add column if not exists hero_title_position text not null default 'center';
+alter table if exists public.tenant_themes
+  add column if not exists hero_overlay_opacity integer not null default 50;
 
 -- helper trigger para updated_at
 create or replace function public.set_updated_at()

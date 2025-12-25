@@ -10,6 +10,7 @@ import { fetchTenantTheme, selectThemeForTenant, saveTenantTheme, upsertTenantTh
 import { selectUser } from '../../features/auth/authSlice'
 import ProductCard from '../../components/storefront/ProductCard/ProductCard'
 import CartPanel from '../../components/storefront/CartPanel/CartPanel'
+import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
 import { createPaidOrder } from '../../features/orders/ordersSlice'
 import Button from '../../components/ui/Button/Button'
 import Input from '../../components/ui/Input/Input'
@@ -17,8 +18,10 @@ import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
   PRODUCT_CARD_LAYOUTS,
+  STORE_HERO_STYLES,
   isFeatureAvailable,
 } from '../../shared/subscriptions'
+import { uploadHeroImage } from '../../lib/supabaseStorage'
 
 export default function StorefrontPage() {
   const { slug } = useParams()
@@ -54,9 +57,34 @@ export default function StorefrontPage() {
   const [localCardTheme, setLocalCardTheme] = useState(null)
   const [savingTheme, setSavingTheme] = useState(false)
 
+  // Cart panel state
+  const [showCart, setShowCart] = useState(false)
+
+  // Hero customization panel state
+  const [showHeroPanel, setShowHeroPanel] = useState(false)
+  const [localHeroTheme, setLocalHeroTheme] = useState(null)
+  const [heroPreviewMode, setHeroPreviewMode] = useState(false)
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
+  const heroFileInputRef = useRef(null)
+
+  // Hero/carousel state (local for preview, or saved)
+  const heroTheme = localHeroTheme || theme || {}
+  const heroStyle = heroTheme?.heroStyle || 'simple'
+  const heroSlides = heroTheme?.heroSlides || [
+    { title: tenant?.name || 'Bienvenido', subtitle: 'Explora nuestros productos', imageUrl: '', ctaText: 'Ver menú', ctaLink: '#productos' }
+  ]
+  const heroTitlePosition = heroTheme?.heroTitlePosition || 'center'
+  const heroOverlayOpacity = heroTheme?.heroOverlayOpacity ?? 50
+
   // Get subscription tier from tenant (super_admin bypasses tier restrictions)
   const subscriptionTier = tenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
   const effectiveTier = isSuperAdmin ? SUBSCRIPTION_TIERS.PREMIUM_PRO : subscriptionTier
+
+  // Hero limits by tier
+  const canUploadHeroImage = effectiveTier !== SUBSCRIPTION_TIERS.FREE
+  const maxHeroSlides = effectiveTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? 3 : 
+                        effectiveTier === SUBSCRIPTION_TIERS.PREMIUM ? 1 : 1
+  const canAddMoreSlides = heroSlides.length < maxHeroSlides
 
   // Get card layout from theme (local for preview, or saved)
   const cardTheme = localCardTheme || theme || {}
@@ -95,6 +123,77 @@ export default function StorefrontPage() {
   }
 
   const hasCardChanges = localCardTheme !== null
+
+  // Update local hero theme (for live preview)
+  const updateHeroTheme = (patch) => {
+    setLocalHeroTheme(prev => ({
+      ...(prev || theme || {}),
+      ...patch
+    }))
+  }
+
+  // Update a specific slide
+  const updateHeroSlide = (index, field, value) => {
+    const updatedSlides = [...heroSlides]
+    updatedSlides[index] = { ...updatedSlides[index], [field]: value }
+    updateHeroTheme({ heroSlides: updatedSlides })
+  }
+
+  // Add new slide
+  const addHeroSlide = () => {
+    updateHeroTheme({
+      heroSlides: [...heroSlides, {
+        title: 'Nuevo slide',
+        subtitle: 'Descripción del slide',
+        imageUrl: '',
+        ctaText: 'Ver más',
+        ctaLink: '#productos',
+      }]
+    })
+  }
+
+  // Delete slide
+  const deleteHeroSlide = (index) => {
+    updateHeroTheme({
+      heroSlides: heroSlides.filter((_, i) => i !== index)
+    })
+  }
+
+  // Handle hero image file upload
+  const handleHeroImageUpload = async (index, file) => {
+    if (!file || !canUploadHeroImage) return
+    setUploadingHeroImage(index)
+    try {
+      const publicUrl = await uploadHeroImage({ tenantId, file })
+      updateHeroSlide(index, 'imageUrl', publicUrl)
+    } catch (err) {
+      console.error('Error subiendo imagen del hero:', err)
+      alert('Error al subir la imagen: ' + (err.message || 'Error desconocido'))
+    } finally {
+      setUploadingHeroImage(null)
+    }
+  }
+
+  // Save hero theme
+  const saveHeroTheme = async () => {
+    if (!localHeroTheme) return
+    setSavingTheme(true)
+    try {
+      await dispatch(saveTenantTheme({ tenantId, theme: localHeroTheme }))
+      setLocalHeroTheme(null)
+      setShowHeroPanel(false) // Cerrar panel al guardar
+      setHeroPreviewMode(false)
+    } finally {
+      setSavingTheme(false)
+    }
+  }
+
+  // Discard hero changes
+  const discardHeroChanges = () => {
+    setLocalHeroTheme(null)
+  }
+
+  const hasHeroChanges = localHeroTheme !== null
 
   const cartCount = useMemo(
     () => Object.values(cart).reduce((acc, n) => acc + (Number(n) || 0), 0),
@@ -232,6 +331,18 @@ export default function StorefrontPage() {
     dispatch(fetchTenantTheme(tenantId))
   }, [dispatch, tenantId])
 
+  // Add/remove body class for preview mode (to hide global header)
+  useEffect(() => {
+    if (heroPreviewMode) {
+      document.body.classList.add('store-preview-mode')
+    } else {
+      document.body.classList.remove('store-preview-mode')
+    }
+    return () => {
+      document.body.classList.remove('store-preview-mode')
+    }
+  }, [heroPreviewMode])
+
   if (!tenant) {
     if (status === 'loading' || status === 'idle') {
       return (
@@ -263,32 +374,275 @@ export default function StorefrontPage() {
   }
 
   return (
-    <div className="store">
+    <div className={`store ${heroPreviewMode ? 'store--previewMode' : ''}`}>
+      {/* Preview Mode Bar - appears at top when in preview */}
+      {isAdmin && heroPreviewMode && (
+        <div className="store__previewBar">
+          <span className="store__previewBarText">👁️ Vista previa — Así ven tu tienda los clientes</span>
+          <Button size="sm" onClick={() => setHeroPreviewMode(false)}>
+            ✏️ Salir de vista previa
+          </Button>
+        </div>
+      )}
+
       <ThemeApplier tenantId={tenantId} />
-      <header className="store__header">
-        <div>
-          <h1 className="store__title">{tenant.name}</h1>
-          <p className="muted">Menú público</p>
-        </div>
+      
+      {/* Store Header with Carousel */}
+      <StoreHeader
+        tenant={tenant}
+        theme={theme}
+        heroStyle={heroStyle}
+        slides={heroSlides}
+        titlePosition={heroTitlePosition}
+        overlayOpacity={heroOverlayOpacity}
+        cart={cart}
+        onOpenCart={() => setShowCart(true)}
+      />
 
-        <div className="store__summaryPill" aria-label="Resumen carrito">
-          <div className="store__summaryTop">{cartCount} item{cartCount === 1 ? '' : 's'}</div>
-          <div className="store__summaryBottom">${cartTotal.toFixed(2)}</div>
-        </div>
-      </header>
-
-      <div className="store__layout">
+      <div className="store__layout" id="productos">
         <section className="store__products" aria-label="Productos">
           {isAdmin && (
             <div className="store__adminBar">
               <span className="store__adminLabel">🔧 Modo administrador</span>
               <div className="store__adminActions">
+                <Button size="sm" variant="secondary" onClick={() => setShowHeroPanel(!showHeroPanel)}>
+                  🖼️ Header / Carrusel
+                </Button>
                 <Button size="sm" variant="secondary" onClick={() => setShowCardPanel(!showCardPanel)}>
                   🎨 Personalizar Cards
                 </Button>
                 <Button size="sm" onClick={openAddProduct}>
                   ➕ Agregar producto
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Hero Customization Panel */}
+          {isAdmin && showHeroPanel && (
+            <div className="store__heroPanelWrapper">
+              {/* Preview Toggle Button - at the top */}
+              <div className="store__heroPreviewToggle">
+                <Button 
+                  size="sm" 
+                  variant={heroPreviewMode ? 'primary' : 'secondary'}
+                  onClick={() => setHeroPreviewMode(!heroPreviewMode)}
+                >
+                  {heroPreviewMode ? '✏️ Salir de vista previa' : '👁️ Ver como cliente'}
+                </Button>
+                {heroPreviewMode && (
+                  <span className="store__heroPreviewHint">↑ Mira arriba cómo se ve tu tienda</span>
+                )}
+              </div>
+
+              <div className="store__heroPanel">
+                <div className="store__heroPanelHeader">
+                  <h4>🖼️ Personalizar Header / Carrusel</h4>
+                  <button type="button" className="store__heroPanelClose" onClick={() => {
+                    setShowHeroPanel(false)
+                    setHeroPreviewMode(false)
+                  }}>✕</button>
+                </div>
+
+                {/* Editing controls - hidden in preview mode */}
+                {!heroPreviewMode && (
+                  <>
+                    {/* Style Selector */}
+                    <div className="store__heroSection">
+                      <label className="store__heroSectionTitle">Estilo del Carrusel</label>
+                      <div className="store__heroStylesGrid">
+                        {Object.entries(STORE_HERO_STYLES).map(([styleId, config]) => {
+                          const available = isFeatureAvailable(config.tier, effectiveTier)
+                      const isSelected = heroStyle === styleId
+                      return (
+                        <button
+                          key={styleId}
+                          type="button"
+                          className={`store__heroStyleOption ${isSelected ? 'store__heroStyleOption--selected' : ''} ${!available ? 'store__heroStyleOption--locked' : ''}`}
+                          onClick={() => available && updateHeroTheme({ heroStyle: styleId })}
+                          disabled={!available}
+                          title={available ? config.description : `Requiere ${TIER_LABELS[config.tier]}`}
+                        >
+                          <span className="store__heroStyleLabel">{config.label}</span>
+                          {!available && (
+                            <span className="store__heroStyleTier">
+                              {config.tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Title Position */}
+                <div className="store__heroSection">
+                  <label className="store__heroSectionTitle">Posición del Título</label>
+                  <div className="store__heroPositionGrid">
+                    {['left', 'center', 'right'].map((pos) => (
+                      <button
+                        key={pos}
+                        type="button"
+                        className={`store__heroPositionBtn ${heroTitlePosition === pos ? 'store__heroPositionBtn--selected' : ''}`}
+                        onClick={() => updateHeroTheme({ heroTitlePosition: pos })}
+                      >
+                        {pos === 'left' ? '⬅️ Izquierda' : pos === 'center' ? '↔️ Centro' : '➡️ Derecha'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Overlay Opacity */}
+                <div className="store__heroSection">
+                  <label className="store__heroSectionTitle">Opacidad del Overlay: {heroOverlayOpacity}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={heroOverlayOpacity}
+                    onChange={(e) => updateHeroTheme({ heroOverlayOpacity: Number(e.target.value) })}
+                    className="store__heroRangeInput"
+                  />
+                </div>
+
+                {/* Slides Editor */}
+                <div className="store__heroSection">
+                  <div className="store__heroSlidesHeader">
+                    <label className="store__heroSectionTitle">
+                      Slides del Carrusel ({heroSlides.length}/{maxHeroSlides})
+                      {effectiveTier === SUBSCRIPTION_TIERS.FREE && (
+                        <span className="store__heroTierNote"> - ⭐ Premium para imágenes</span>
+                      )}
+                    </label>
+                    {canAddMoreSlides ? (
+                      <Button size="sm" variant="secondary" onClick={addHeroSlide}>
+                        + Añadir Slide
+                      </Button>
+                    ) : (
+                      <span className="store__heroLimitNote">
+                        {effectiveTier === SUBSCRIPTION_TIERS.PREMIUM 
+                          ? '👑 Pro para más slides' 
+                          : 'Máximo alcanzado'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="store__heroSlidesList">
+                    {heroSlides.map((slide, index) => (
+                      <div key={index} className="store__heroSlideItem">
+                        <div className="store__heroSlideNumber">{index + 1}</div>
+                        <div className="store__heroSlideFields">
+                          <input
+                            type="text"
+                            placeholder="Título"
+                            value={slide.title || ''}
+                            onChange={(e) => updateHeroSlide(index, 'title', e.target.value)}
+                            className="store__heroSlideInput"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Subtítulo"
+                            value={slide.subtitle || ''}
+                            onChange={(e) => updateHeroSlide(index, 'subtitle', e.target.value)}
+                            className="store__heroSlideInput"
+                          />
+                          {canUploadHeroImage ? (
+                            <div className="store__heroImageUpload">
+                              <input
+                                type="text"
+                                placeholder="URL de imagen o sube un archivo"
+                                value={slide.imageUrl || ''}
+                                onChange={(e) => updateHeroSlide(index, 'imageUrl', e.target.value)}
+                                className="store__heroSlideInput"
+                              />
+                              <label className="store__heroUploadBtn">
+                                {uploadingHeroImage === index ? '⏳' : '📁'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleHeroImageUpload(index, file)
+                                    e.target.value = ''
+                                  }}
+                                  disabled={uploadingHeroImage !== null}
+                                  hidden
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <div className="store__heroLockedField">
+                              🔒 Imagen de fondo disponible con ⭐ Premium
+                            </div>
+                          )}
+                          <div className="store__heroSlideRow">
+                            <input
+                              type="text"
+                              placeholder="Texto del botón"
+                              value={slide.ctaText || ''}
+                              onChange={(e) => updateHeroSlide(index, 'ctaText', e.target.value)}
+                              className="store__heroSlideInput"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Enlace"
+                              value={slide.ctaLink || ''}
+                              onChange={(e) => updateHeroSlide(index, 'ctaLink', e.target.value)}
+                              className="store__heroSlideInput"
+                            />
+                          </div>
+                        </div>
+                        {heroSlides.length > 1 && (
+                          <button
+                            type="button"
+                            className="store__heroSlideDelete"
+                            onClick={() => deleteHeroSlide(index)}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                  </>
+                )}
+
+                {/* Preview mode message */}
+                {heroPreviewMode && (
+                  <div className="store__heroPreviewMessage">
+                    <p>🎉 ¡Perfecto! Así verán los clientes tu tienda</p>
+                    <p className="muted">Los cambios se aplican en tiempo real</p>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="store__heroPanelFooter">
+                  {/* Save/Discard buttons */}
+                  <div className="store__heroPanelActions">
+                    <Button size="sm" variant="secondary" onClick={discardHeroChanges} disabled={savingTheme || !hasHeroChanges}>
+                      Descartar
+                    </Button>
+                    <Button size="sm" onClick={saveHeroTheme} disabled={savingTheme || !hasHeroChanges}>
+                      {savingTheme ? 'Guardando...' : '💾 Guardar'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Exit to cards button */}
+                <div className="store__heroPanelExit">
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    onClick={() => {
+                      setShowHeroPanel(false)
+                      setHeroPreviewMode(false)
+                      setShowCardPanel(true)
+                    }}
+                  >
+                    🎨 Ir a personalizar Cards
+                  </Button>
+                </div>
               </div>
             </div>
           )}

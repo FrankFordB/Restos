@@ -81,3 +81,45 @@ export async function uploadProductImage({ tenantId, productId, file }) {
 
   return data.publicUrl
 }
+
+export async function uploadHeroImage({ tenantId, file }) {
+  ensureSupabase()
+  if (!file) throw new Error('Archivo requerido')
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser()
+  if (userErr) throw userErr
+  const userId = userData?.user?.id
+  if (!userId) throw new Error('No hay usuario autenticado para subir imagen')
+
+  const { data: profile, error: profileErr } = await supabase
+    .from('profiles')
+    .select('tenant_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (profileErr) throw profileErr
+  const profileTenantId = profile?.tenant_id || null
+  if (!profileTenantId) {
+    throw new Error('Tu usuario no tiene tenant asignado.')
+  }
+
+  const ext = safeExtFromFile(file)
+  const filename = `hero_${Date.now()}${ext || ''}`
+  const path = `${profileTenantId}/hero/${filename}`
+
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: '3600',
+  })
+
+  if (uploadError) {
+    const base = uploadError?.message ? String(uploadError.message) : 'Error subiendo imagen'
+    throw new Error(base)
+  }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  if (!data?.publicUrl) throw new Error('No se pudo obtener publicUrl de la imagen')
+
+  return data.publicUrl
+}

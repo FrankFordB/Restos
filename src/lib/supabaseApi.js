@@ -426,7 +426,7 @@ export async function fetchThemeByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenant_themes')
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -451,8 +451,12 @@ export async function upsertTheme({ tenantId, theme }) {
       card_desc: theme.cardDesc,
       card_price: theme.cardPrice,
       card_button: theme.cardButton,
+      hero_style: theme.heroStyle,
+      hero_slides: theme.heroSlides,
+      hero_title_position: theme.heroTitlePosition,
+      hero_overlay_opacity: theme.heroOverlayOpacity,
     })
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity')
     .single()
 
   if (error) throw error
