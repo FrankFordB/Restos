@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   BarChart3,
+  Layers,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -25,6 +26,7 @@ const MENU_ITEMS = [
   { id: 'orders', label: 'Pedidos', icon: ClipboardList },
   { id: 'sales', label: 'Ventas', icon: DollarSign },
   { id: 'menu', label: 'Menú', icon: UtensilsCrossed },
+  { id: 'extras', label: 'Extras / Toppings', icon: Layers },
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'customers', label: 'Clientes', icon: Users },

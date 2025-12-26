@@ -1,0 +1,509 @@
+.extrasManager {
+  padding: 0;
+}
+
+.extrasManager__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.extrasManager__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  margin: 0;
+}
+
+.extrasManager__headerActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.extrasManager__empty {
+  text-align: center;
+  padding: 3rem;
+  color: var(--muted-text, #6b7280);
+}
+
+.extrasManager__emptyIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* Groups List */
+.extrasManager__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.extrasManager__group {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.extrasManager__groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--bg-muted, #f9fafb);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.extrasManager__groupHeader:hover {
+  background: var(--bg-hover, #f3f4f6);
+}
+
+.extrasManager__groupInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.extrasManager__groupName {
+  font-weight: 600;
+  color: var(--text-color, #1f2937);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.extrasManager__groupMeta {
+  font-size: 0.8rem;
+  color: var(--muted-text, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.extrasManager__groupBadge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-color, #f59e0b);
+  color: #fff;
+  font-weight: 500;
+}
+
+.extrasManager__groupBadge--required {
+  background: #ef4444;
+}
+
+.extrasManager__groupActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.extrasManager__groupExpandIcon {
+  color: var(--muted-text, #6b7280);
+  transition: transform 0.2s ease;
+}
+
+.extrasManager__groupExpandIcon--open {
+  transform: rotate(180deg);
+}
+
+/* Group Content */
+.extrasManager__groupContent {
+  padding: 1rem 1.25rem;
+}
+
+/* Extras List */
+.extrasManager__extras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.extrasManager__extra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-muted, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  transition: all 0.2s ease;
+}
+
+.extrasManager__extra:hover {
+  border-color: var(--accent-color, #f59e0b);
+}
+
+.extrasManager__extra--inactive {
+  opacity: 0.5;
+}
+
+.extrasManager__extraInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+}
+
+.extrasManager__extraName {
+  font-weight: 500;
+  color: var(--text-color, #1f2937);
+}
+
+.extrasManager__extraDesc {
+  font-size: 0.8rem;
+  color: var(--muted-text, #6b7280);
+}
+
+.extrasManager__extraPrice {
+  font-weight: 600;
+  color: var(--success-color, #059669);
+  margin-right: 1rem;
+  min-width: 80px;
+  text-align: right;
+}
+
+.extrasManager__extraPrice--free {
+  color: var(--muted-text, #6b7280);
+}
+
+.extrasManager__extraActions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Add Extra Button */
+.extrasManager__addExtra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 2px dashed var(--border-color, #d1d5db);
+  border-radius: 8px;
+  color: var(--muted-text, #6b7280);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.extrasManager__addExtra:hover {
+  border-color: var(--accent-color, #f59e0b);
+  color: var(--accent-color, #f59e0b);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+/* Modal Styles */
+.extrasManager__modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.extrasManager__modalContent {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.extrasManager__modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.extrasManager__modalTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.extrasManager__modalClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted-text, #6b7280);
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.extrasManager__modalClose:hover {
+  color: var(--text-color, #1f2937);
+}
+
+.extrasManager__modalBody {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.extrasManager__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.extrasManager__fieldLabel {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-color, #1f2937);
+}
+
+.extrasManager__fieldInput {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+
+.extrasManager__fieldInput:focus {
+  outline: none;
+  border-color: var(--accent-color, #f59e0b);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.extrasManager__fieldRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.extrasManager__fieldRow > * {
+  flex: 1;
+}
+
+.extrasManager__fieldCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.extrasManager__fieldCheckbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-color, #f59e0b);
+}
+
+.extrasManager__modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  background: var(--bg-muted, #f9fafb);
+}
+
+/* Large Modal */
+.extrasManager__modalContent--large {
+  max-width: 600px;
+}
+
+/* Options Section */
+.extrasManager__optionsSection {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-muted, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.extrasManager__optionsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.extrasManager__optionsHeader .extrasManager__fieldLabel {
+  margin-bottom: 0;
+}
+
+.extrasManager__optionsEmpty {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--muted-text, #6b7280);
+}
+
+.extrasManager__optionsEmpty p {
+  margin: 0;
+}
+
+.extrasManager__optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.extrasManager__optionRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.extrasManager__optionLabel {
+  flex: 2;
+}
+
+.extrasManager__optionPrice {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.extrasManager__optionPrice span {
+  color: var(--muted-text, #6b7280);
+  font-weight: 500;
+}
+
+.extrasManager__optionPrice input {
+  width: 100%;
+}
+
+/* Field Hint */
+.extrasManager__fieldHint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted-text, #6b7280);
+  margin-top: 0.25rem;
+}
+
+/* Checkbox Highlight */
+.extrasManager__fieldCheckbox--highlight {
+  padding: 1rem;
+  background: var(--bg-muted, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  align-items: flex-start;
+}
+
+.extrasManager__fieldCheckbox--highlight div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.extrasManager__fieldCheckbox--highlight span:first-child {
+  font-weight: 500;
+  color: var(--text-color, #1f2937);
+}
+
+/* Extra Badge */
+.extrasManager__extraBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-color, #f59e0b);
+  color: #fff;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
+/* Extra Options Preview */
+.extrasManager__extraOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.extrasManager__extraOptionTag {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--bg-hover, #f3f4f6);
+  border-radius: 4px;
+  color: var(--muted-text, #6b7280);
+}
+
+.extrasManager__extraOptionTag--more {
+  background: transparent;
+  color: var(--accent-color, #f59e0b);
+  font-weight: 500;
+}
+
+/* Icon Buttons */
+.extrasManager__iconBtn {
+  background: none;
+  border: none;
+  padding: 0.4rem;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--muted-text, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.extrasManager__iconBtn:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-color, #1f2937);
+}
+
+.extrasManager__iconBtn--danger:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .extrasManager__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .extrasManager__headerActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .extrasManager__extra {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .extrasManager__extraPrice {
+    text-align: left;
+    margin-right: 0;
+  }
+
+  .extrasManager__extraActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .extrasManager__fieldRow {
+    flex-direction: column;
+  }
+}

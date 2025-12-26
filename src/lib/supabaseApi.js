@@ -399,7 +399,7 @@ export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('products')
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
 
@@ -417,9 +417,12 @@ export async function insertProduct({ tenantId, product }) {
       price: product.price,
       description: product.description || null,
       image_url: product.imageUrl || null,
+      category: product.category || null,
+      stock: product.stock ?? null,
       active: product.active ?? true,
+      product_extras: product.productExtras || [],
     })
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
     .single()
 
   if (error) throw error
@@ -435,11 +438,14 @@ export async function updateProductRow({ tenantId, productId, patch }) {
       ...('price' in patch ? { price: patch.price } : null),
       ...('description' in patch ? { description: patch.description } : null),
       ...('imageUrl' in patch ? { image_url: patch.imageUrl || null } : null),
+      ...('category' in patch ? { category: patch.category || null } : null),
+      ...('stock' in patch ? { stock: patch.stock ?? null } : null),
       ...('active' in patch ? { active: patch.active } : null),
+      ...('productExtras' in patch ? { product_extras: patch.productExtras || [] } : null),
     })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
     .single()
 
   if (error) throw error
@@ -520,4 +526,197 @@ export async function updateDeliveryConfig(tenantId, deliveryConfig) {
 
   if (error) throw error
   return data?.delivery_config
+}
+
+// -------------------------
+// Categories
+// -------------------------
+
+export async function fetchCategoriesByTenantId(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('id, tenant_id, name, description, sort_order, active')
+    .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export async function insertCategory({ tenantId, category }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .insert({
+      tenant_id: tenantId,
+      name: category.name,
+      description: category.description || null,
+      sort_order: category.sortOrder ?? 0,
+      active: category.active ?? true,
+    })
+    .select('id, tenant_id, name, description, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateCategoryRow({ tenantId, categoryId, patch }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .update({
+      ...('name' in patch ? { name: patch.name } : null),
+      ...('description' in patch ? { description: patch.description } : null),
+      ...('sortOrder' in patch ? { sort_order: patch.sortOrder } : null),
+      ...('active' in patch ? { active: patch.active } : null),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('id', categoryId)
+    .select('id, tenant_id, name, description, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteCategoryRow({ tenantId, categoryId }) {
+  ensureSupabase()
+  const { error } = await supabase.from('product_categories').delete().eq('tenant_id', tenantId).eq('id', categoryId)
+  if (error) throw error
+}
+
+// -------------------------
+// Extra Groups (for product extras/toppings)
+// -------------------------
+
+export async function fetchExtraGroupsByTenantId(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('extra_groups')
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export async function insertExtraGroup({ tenantId, group }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('extra_groups')
+    .insert({
+      tenant_id: tenantId,
+      name: group.name,
+      description: group.description || null,
+      min_selections: group.minSelections ?? 0,
+      max_selections: group.maxSelections ?? 10,
+      is_required: group.isRequired ?? false,
+      sort_order: group.sortOrder ?? 0,
+      active: group.active ?? true,
+    })
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateExtraGroupRow({ tenantId, groupId, patch }) {
+  ensureSupabase()
+  const updateData = {}
+  if ('name' in patch) updateData.name = patch.name
+  if ('description' in patch) updateData.description = patch.description
+  if ('minSelections' in patch) updateData.min_selections = patch.minSelections
+  if ('maxSelections' in patch) updateData.max_selections = patch.maxSelections
+  if ('isRequired' in patch) updateData.is_required = patch.isRequired
+  if ('sortOrder' in patch) updateData.sort_order = patch.sortOrder
+  if ('active' in patch) updateData.active = patch.active
+
+  const { data, error } = await supabase
+    .from('extra_groups')
+    .update(updateData)
+    .eq('tenant_id', tenantId)
+    .eq('id', groupId)
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteExtraGroupRow({ tenantId, groupId }) {
+  ensureSupabase()
+  const { error } = await supabase.from('extra_groups').delete().eq('tenant_id', tenantId).eq('id', groupId)
+  if (error) throw error
+}
+
+// -------------------------
+// Extras (individual extra items)
+// -------------------------
+
+export async function fetchExtrasByTenantId(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('extras')
+    .select('id, tenant_id, group_id, name, description, price, sort_order, active, has_options, options')
+    .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export async function insertExtra({ tenantId, extra }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('extras')
+    .insert({
+      tenant_id: tenantId,
+      group_id: extra.groupId,
+      name: extra.name,
+      description: extra.description || null,
+      price: extra.price ?? 0,
+      sort_order: extra.sortOrder ?? 0,
+      active: extra.active ?? true,
+      has_options: extra.hasOptions ?? false,
+      options: extra.options || [],
+    })
+    .select('id, tenant_id, group_id, name, description, price, sort_order, active, has_options, options')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateExtraRow({ tenantId, extraId, patch }) {
+  ensureSupabase()
+  const updateData = {}
+  if ('groupId' in patch) updateData.group_id = patch.groupId
+  if ('name' in patch) updateData.name = patch.name
+  if ('description' in patch) updateData.description = patch.description
+  if ('price' in patch) updateData.price = patch.price
+  if ('sortOrder' in patch) updateData.sort_order = patch.sortOrder
+  if ('active' in patch) updateData.active = patch.active
+  if ('hasOptions' in patch) updateData.has_options = patch.hasOptions
+  if ('options' in patch) updateData.options = patch.options
+
+  const { data, error } = await supabase
+    .from('extras')
+    .update(updateData)
+    .eq('tenant_id', tenantId)
+    .eq('id', extraId)
+    .select('id, tenant_id, group_id, name, description, price, sort_order, active, has_options, options')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteExtraRow({ tenantId, extraId }) {
+  ensureSupabase()
+  const { error } = await supabase.from('extras').delete().eq('tenant_id', tenantId).eq('id', extraId)
+  if (error) throw error
 }

@@ -228,6 +228,103 @@
   gap: 12px;
 }
 
+/* Header de selección */
+.ordersManager__listHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+
+.ordersManager__selectAllLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ordersManager__checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent, #22c55e);
+}
+
+/* Barra de acciones masivas */
+.ordersManager__bulkActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
+}
+
+.ordersManager__bulkInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-weight: 500;
+}
+
+.ordersManager__bulkCheckbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.ordersManager__bulkClear {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 200ms var(--ease-out);
+}
+
+.ordersManager__bulkClear:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ordersManager__bulkButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ordersManager__bulkButtons .btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+  border: none;
+  font-weight: 500;
+}
+
+.ordersManager__bulkButtons .btn:hover {
+  background: white;
+}
+
+.ordersManager__bulkButtons .btn--danger {
+  background: #ef4444;
+  color: white;
+}
+
+.ordersManager__bulkButtons .btn--danger:hover {
+  background: #dc2626;
+}
+
 .ordersManager__empty {
   text-align: center;
   padding: 40px 20px;
@@ -248,6 +345,8 @@
 
 /* Card de orden */
 .orderCard {
+  display: flex;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.5);
@@ -255,9 +354,36 @@
   transition: all 200ms var(--ease-out);
 }
 
+.orderCard--selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
 .orderCard:hover {
   border-color: var(--border-hover);
   box-shadow: var(--shadow-sm);
+}
+
+.orderCard--selected:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.orderCard__selectBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border-right: 1px solid var(--border);
+}
+
+.orderCard__checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #3b82f6;
 }
 
 .orderCard__header {
@@ -910,14 +1036,15 @@
 
 /* OrderDetailModal */
 .orderDetailModal {
-  background: var(--bg);
+  background: var(--bg, #ffffff);
+  background-color: #ffffff;
   border-radius: var(--radius-lg);
   width: 90%;
   max-width: 900px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 
@@ -1123,11 +1250,18 @@
 
 .orderDetailModal__item {
   display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  gap: 6px;
+}
+
+.orderDetailModal__itemMain {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 6px;
+  width: 100%;
 }
 
 .orderDetailModal__itemName {
@@ -1144,6 +1278,37 @@
 .orderDetailModal__itemPrice {
   font-weight: 700;
   color: var(--accent);
+}
+
+.orderDetailModal__itemExtras {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border, #e5e7eb);
+}
+
+.orderDetailModal__itemExtra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.orderDetailModal__itemExtraName {
+  flex: 1;
+}
+
+.orderDetailModal__itemExtraQty {
+  margin: 0 12px;
+  opacity: 0.7;
+}
+
+.orderDetailModal__itemExtraPrice {
+  font-weight: 500;
+  color: var(--accent, #22c55e);
 }
 
 .orderDetailModal__comment {

@@ -33,7 +33,8 @@ export async function listOrdersByTenantId(tenantId) {
         name,
         unit_price,
         qty,
-        line_total
+        line_total,
+        extras
       )
     `)
     .eq('tenant_id', tenantId)
@@ -58,9 +59,13 @@ export async function listOrdersByTenantId(tenantId) {
       id: item.id,
       productId: item.product_id,
       name: item.name,
+      product_name: item.name,
       unit_price: Number(item.unit_price),
+      price: Number(item.unit_price),
       qty: item.qty,
+      quantity: item.qty,
       line_total: Number(item.line_total),
+      extras: item.extras || [],
     })),
   }))
 }
@@ -90,10 +95,11 @@ export async function createOrderWithItems({ tenantId, items, total, customer, d
   const rows = items.map((it) => ({
     order_id: order.id,
     product_id: it.productId || null,
-    name: it.name,
-    unit_price: it.unitPrice,
-    qty: it.qty,
+    name: it.name || it.product_name,
+    unit_price: it.unitPrice || it.price,
+    qty: it.qty || it.quantity,
     line_total: it.lineTotal,
+    extras: it.extras || [],
   }))
 
   const { error: itemsError } = await supabase.from('order_items').insert(rows)
@@ -142,7 +148,8 @@ export async function updateOrderStatus(orderId, newStatus) {
         name,
         unit_price,
         qty,
-        line_total
+        line_total,
+        extras
       )
     `)
     .single()
@@ -175,22 +182,32 @@ export async function updateOrderStatus(orderId, newStatus) {
 
 export async function deleteOrder(orderId) {
   ensureSupabase()
+  console.log('🔄 supabaseOrdersApi.deleteOrder() - orderId:', orderId)
 
   // Primero eliminamos los items del pedido (por si no tiene ON DELETE CASCADE)
-  const { error: itemsError } = await supabase
+  const { data: deletedItems, error: itemsError } = await supabase
     .from('order_items')
     .delete()
     .eq('order_id', orderId)
+    .select()
 
+  console.log('📦 Items eliminados:', deletedItems, 'Error:', itemsError)
   if (itemsError) throw itemsError
 
   // Luego eliminamos el pedido
-  const { error } = await supabase
+  const { data: deletedOrder, error } = await supabase
     .from('orders')
     .delete()
     .eq('id', orderId)
+    .select()
 
+  console.log('📋 Pedido eliminado:', deletedOrder, 'Error:', error)
   if (error) throw error
+
+  // Si no se eliminó ningún registro, puede ser un problema de RLS
+  if (!deletedOrder || deletedOrder.length === 0) {
+    console.warn('⚠️ No se eliminó ningún registro. Posible problema de RLS policies.')
+  }
 
   return { success: true, orderId }
 }

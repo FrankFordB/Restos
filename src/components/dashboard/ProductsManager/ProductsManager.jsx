@@ -25,9 +25,15 @@ export default function ProductsManager({ tenantId }) {
     dispatch(fetchProductsForTenant(tenantId))
   }, [dispatch, tenantId])
 
+  // Selección múltiple de productos
+  const [selectedProductIds, setSelectedProductIds] = useState(new Set())
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false)
+
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
+  const [category, setCategory] = useState('')
+  const [stock, setStock] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
 
@@ -213,6 +219,74 @@ export default function ProductsManager({ tenantId }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cropState.open])
 
+  // =====================
+  // FUNCIONES DE SELECCIÓN MÚLTIPLE
+  // =====================
+  
+  const toggleProductSelection = (productId) => {
+    setSelectedProductIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(productId)) {
+        newSet.delete(productId)
+      } else {
+        newSet.add(productId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAllProducts = () => {
+    if (selectedProductIds.size === products.length) {
+      setSelectedProductIds(new Set())
+    } else {
+      setSelectedProductIds(new Set(products.map((p) => p.id)))
+    }
+  }
+
+  const clearProductSelection = () => {
+    setSelectedProductIds(new Set())
+  }
+
+  // Eliminar productos seleccionados de la base de datos
+  const bulkDeleteProducts = async () => {
+    if (selectedProductIds.size === 0) return
+    if (!confirm(`¿Eliminar ${selectedProductIds.size} producto(s)? Esta acción no se puede deshacer.`)) return
+    setIsBulkActionLoading(true)
+    try {
+      const promises = Array.from(selectedProductIds).map((productId) =>
+        dispatch(deleteProduct({ tenantId, productId })).unwrap()
+      )
+      await Promise.all(promises)
+      clearProductSelection()
+      // Refrescar para sincronizar con la base de datos
+      setTimeout(() => dispatch(fetchProductsForTenant(tenantId)), 500)
+    } catch (e) {
+      console.error('Error eliminando productos:', e)
+      dispatch(fetchProductsForTenant(tenantId))
+    } finally {
+      setIsBulkActionLoading(false)
+    }
+  }
+
+  // Activar/desactivar productos seleccionados
+  const bulkToggleActive = async (active) => {
+    if (selectedProductIds.size === 0) return
+    setIsBulkActionLoading(true)
+    try {
+      const promises = Array.from(selectedProductIds).map((productId) =>
+        dispatch(patchProduct({ tenantId, productId, patch: { active } })).unwrap()
+      )
+      await Promise.all(promises)
+      clearProductSelection()
+    } catch (e) {
+      console.error('Error actualizando productos:', e)
+    } finally {
+      setIsBulkActionLoading(false)
+    }
+  }
+
+  const allProductsSelected = products.length > 0 && selectedProductIds.size === products.length
+
   return (
     <div className="products">
       <Card
@@ -248,6 +322,8 @@ export default function ProductsManager({ tenantId }) {
                       name: name.trim(),
                       price: parsedPrice,
                       description: description.trim(),
+                      category: category.trim() || null,
+                      stock: stock.trim() ? parseInt(stock, 10) : null,
                       ...(mockImageUrl ? { imageUrl: mockImageUrl } : null),
                     },
                   }),
@@ -282,6 +358,8 @@ export default function ProductsManager({ tenantId }) {
               setName('')
               setPrice('')
               setDescription('')
+              setCategory('')
+              setStock('')
               setImageFile(null)
               if (createFileInputRef.current) createFileInputRef.current.value = ''
             }}
@@ -301,6 +379,15 @@ export default function ProductsManager({ tenantId }) {
             autoComplete="off"
           />
           <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
+          <Input label="Categoría" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
+          <Input
+            label="Stock"
+            value={stock}
+            onChange={setStock}
+            placeholder="Cantidad disponible"
+            inputMode="numeric"
+            autoComplete="off"
+          />
           <label className="products__file">
             <span className="products__fileLabel">Foto</span>
             <input
@@ -452,12 +539,81 @@ export default function ProductsManager({ tenantId }) {
       ) : null}
 
       <Card title="Productos">
+        {/* Barra de acciones masivas */}
+        {selectedProductIds.size > 0 && (
+          <div className="products__bulkActions">
+            <div className="products__bulkInfo">
+              <input
+                type="checkbox"
+                checked={allProductsSelected}
+                onChange={toggleSelectAllProducts}
+                className="products__bulkCheckbox"
+              />
+              <span>{selectedProductIds.size} producto(s) seleccionado(s)</span>
+              <button className="products__bulkClear" onClick={clearProductSelection}>
+                ✕ Limpiar
+              </button>
+            </div>
+            <div className="products__bulkButtons">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => bulkToggleActive(true)}
+                disabled={isBulkActionLoading}
+              >
+                ✅ Activar
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => bulkToggleActive(false)}
+                disabled={isBulkActionLoading}
+              >
+                ⏸️ Desactivar
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={bulkDeleteProducts}
+                disabled={isBulkActionLoading}
+              >
+                🗑️ Eliminar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Header de selección */}
+        {products.length > 0 && selectedProductIds.size === 0 && (
+          <div className="products__listHeader">
+            <label className="products__selectAllLabel">
+              <input
+                type="checkbox"
+                checked={allProductsSelected}
+                onChange={toggleSelectAllProducts}
+                className="products__checkbox"
+              />
+              <span>Seleccionar todos ({products.length})</span>
+            </label>
+          </div>
+        )}
+
         {products.length === 0 ? (
           <p className="muted">Aún no tienes productos.</p>
         ) : (
           <div className="products__list">
             {products.map((p) => (
-              <div key={p.id} className="products__row">
+              <div key={p.id} className={`products__row ${selectedProductIds.has(p.id) ? 'products__row--selected' : ''}`}>
+                {/* Checkbox de selección */}
+                <div className="products__selectBox">
+                  <input
+                    type="checkbox"
+                    checked={selectedProductIds.has(p.id)}
+                    onChange={() => toggleProductSelection(p.id)}
+                    className="products__checkbox"
+                  />
+                </div>
+                
                 <div className="products__rowMain">
                   <input
                     className="products__inline"
@@ -512,6 +668,29 @@ export default function ProductsManager({ tenantId }) {
                   }
                   placeholder="Descripción"
                 />
+
+                <div className="products__rowMeta">
+                  <input
+                    className="products__inline products__category"
+                    value={p.category || ''}
+                    onChange={(e) =>
+                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { category: e.target.value } }))
+                    }
+                    placeholder="Categoría"
+                  />
+                  <input
+                    className="products__inline products__stock"
+                    type="number"
+                    min="0"
+                    value={p.stock ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      const stockVal = val === '' ? null : parseInt(val, 10)
+                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { stock: stockVal } }))
+                    }}
+                    placeholder="Stock"
+                  />
+                </div>
 
                 <div className="products__imageRow">
                   {p.imageUrl ? (

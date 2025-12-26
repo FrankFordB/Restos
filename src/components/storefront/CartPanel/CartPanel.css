@@ -99,6 +99,47 @@
   color: var(--accent);
 }
 
+/* Extras in cart */
+.cart__extras {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.cart__extraItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.cart__extraName {
+  font-weight: 500;
+}
+
+.cart__extraPrice {
+  color: var(--success, #059669);
+  font-weight: 600;
+}
+
+/* Comment in cart */
+.cart__comment {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+}
+
+.cart__commentText {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .cart__footer {
   padding: 18px 20px;
   border-top: 1px solid var(--border);

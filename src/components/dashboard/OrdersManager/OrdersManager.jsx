@@ -95,6 +95,10 @@ export default function OrdersManager({ tenantId }) {
   const lastOrderCountRef = useRef(orders.length)
   const audioRef = useRef(null)
   
+  // Selección múltiple de pedidos
+  const [selectedOrderIds, setSelectedOrderIds] = useState(new Set())
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false)
+  
   // Configuración de tipos de envío disponibles (persiste en Supabase o localStorage como fallback)
   const deliveryConfigKey = `deliveryConfig.${tenantId}`
   const [deliveryConfig, setDeliveryConfig] = useState({
@@ -297,6 +301,20 @@ export default function OrdersManager({ tenantId }) {
           handleRefresh()
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        (payload) => {
+          console.log('Pedido eliminado:', payload)
+          // Refrescar cuando se elimine un pedido
+          handleRefresh()
+        }
+      )
       .subscribe()
 
     return () => {
@@ -365,6 +383,126 @@ export default function OrdersManager({ tenantId }) {
       }
     }
   }
+
+  // =====================
+  // FUNCIONES DE SELECCIÓN MÚLTIPLE
+  // =====================
+  
+  // Toggle selección de un pedido
+  const toggleOrderSelection = (orderId) => {
+    setSelectedOrderIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId)
+      } else {
+        newSet.add(orderId)
+      }
+      return newSet
+    })
+  }
+
+  // Seleccionar/deseleccionar todos los pedidos filtrados
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrders.length) {
+      setSelectedOrderIds(new Set())
+    } else {
+      setSelectedOrderIds(new Set(filteredOrders.map((o) => o.id)))
+    }
+  }
+
+  // Limpiar selección
+  const clearSelection = () => {
+    setSelectedOrderIds(new Set())
+  }
+
+  // Acción masiva: Cambiar estado
+  const bulkChangeStatus = async (newStatus) => {
+    if (selectedOrderIds.size === 0) return
+    setIsBulkActionLoading(true)
+    try {
+      const promises = Array.from(selectedOrderIds).map((orderId) =>
+        dispatch(updateOrder({ tenantId, orderId, newStatus })).unwrap()
+      )
+      await Promise.all(promises)
+      clearSelection()
+      // Pequeño delay para que Supabase procese, luego refresh
+      setTimeout(() => handleRefresh(), 500)
+    } catch (e) {
+      console.error('Error en acción masiva:', e)
+      handleRefresh()
+    } finally {
+      setIsBulkActionLoading(false)
+    }
+  }
+
+  // Acción masiva: Eliminar pedidos
+  const bulkDeleteOrders = async () => {
+    if (selectedOrderIds.size === 0) return
+    if (!confirm(`¿Eliminar ${selectedOrderIds.size} pedido(s)? Esta acción no se puede deshacer.`)) return
+    setIsBulkActionLoading(true)
+    try {
+      const orderIdsToDelete = Array.from(selectedOrderIds)
+      console.log('🗑️ Intentando eliminar pedidos:', orderIdsToDelete)
+      
+      const results = await Promise.allSettled(
+        orderIdsToDelete.map((orderId) =>
+          dispatch(deleteOrder({ tenantId, orderId })).unwrap()
+        )
+      )
+      
+      // Log resultados
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          console.log(`✅ Pedido ${orderIdsToDelete[index]} eliminado`)
+        } else {
+          console.error(`❌ Error eliminando pedido ${orderIdsToDelete[index]}:`, result.reason)
+        }
+      })
+      
+      const successCount = results.filter(r => r.status === 'fulfilled').length
+      const failCount = results.filter(r => r.status === 'rejected').length
+      
+      if (failCount > 0) {
+        alert(`Se eliminaron ${successCount} pedido(s). ${failCount} fallaron. Revisa la consola para más detalles.`)
+      }
+      
+      clearSelection()
+      // Pequeño delay para que Supabase procese los deletes, luego refresh
+      setTimeout(() => handleRefresh(), 500)
+    } catch (e) {
+      console.error('Error eliminando pedidos:', e)
+      alert('Error eliminando pedidos: ' + (e.message || e))
+      handleRefresh()
+    } finally {
+      setIsBulkActionLoading(false)
+    }
+  }
+
+  // Acción masiva: Marcar como pagados (localStorage)
+  const bulkMarkAsPaid = () => {
+    if (selectedOrderIds.size === 0) return
+    const paidOrdersKey = `paidOrders.${tenantId}`
+    const currentPaid = loadJson(paidOrdersKey, {})
+    const updated = { ...currentPaid }
+    selectedOrderIds.forEach((id) => {
+      updated[id] = true
+    })
+    saveJson(paidOrdersKey, updated)
+    clearSelection()
+    handleRefresh()
+  }
+
+  // Acción masiva: Imprimir todos
+  const bulkPrintOrders = () => {
+    if (selectedOrderIds.size === 0) return
+    const ordersToPrint = orders.filter((o) => selectedOrderIds.has(o.id))
+    ordersToPrint.forEach((order) => {
+      printOrder(order)
+    })
+  }
+
+  // Verificar si todos están seleccionados
+  const allSelected = filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length
 
   return (
     <div className="ordersManager">
@@ -733,8 +871,91 @@ export default function OrdersManager({ tenantId }) {
             )}
           </div>
 
+          {/* Barra de acciones masivas */}
+          {selectedOrderIds.size > 0 && (
+            <div className="ordersManager__bulkActions">
+              <div className="ordersManager__bulkInfo">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="ordersManager__bulkCheckbox"
+                />
+                <span>{selectedOrderIds.size} pedido(s) seleccionado(s)</span>
+                <button className="ordersManager__bulkClear" onClick={clearSelection}>
+                  ✕ Limpiar
+                </button>
+              </div>
+              <div className="ordersManager__bulkButtons">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => bulkChangeStatus('in_progress')}
+                  disabled={isBulkActionLoading}
+                >
+                  ✅ Aceptar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => bulkChangeStatus('completed')}
+                  disabled={isBulkActionLoading}
+                >
+                  ✔️ Finalizar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={bulkMarkAsPaid}
+                  disabled={isBulkActionLoading}
+                >
+                  💵 Marcar Pagado
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={bulkPrintOrders}
+                  disabled={isBulkActionLoading}
+                >
+                  🖨️ Imprimir
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => bulkChangeStatus('cancelled')}
+                  disabled={isBulkActionLoading}
+                >
+                  ❌ Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={bulkDeleteOrders}
+                  disabled={isBulkActionLoading}
+                >
+                  🗑️ Eliminar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Lista de pedidos */}
           <div className="ordersManager__list">
+            {/* Header de selección */}
+            {filteredOrders.length > 0 && (
+              <div className="ordersManager__listHeader">
+                <label className="ordersManager__selectAllLabel">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="ordersManager__checkbox"
+                  />
+                  <span>Seleccionar todos ({filteredOrders.length})</span>
+                </label>
+              </div>
+            )}
+            
             {filteredOrders.length === 0 ? (
               <div className="ordersManager__empty">
                 <div className="ordersManager__emptyIcon">📦</div>
@@ -748,6 +969,8 @@ export default function OrdersManager({ tenantId }) {
                   order={order}
                   tenantId={tenantId}
                   onOpenDetail={(o) => setSelectedOrder(o)}
+                  isSelected={selectedOrderIds.has(order.id)}
+                  onToggleSelect={() => toggleOrderSelection(order.id)}
                 />
               ))
             )}
@@ -790,7 +1013,7 @@ export default function OrdersManager({ tenantId }) {
 }
 
 // Card de orden individual - Compacta, clic abre modal
-function OrderCard({ order, tenantId, onOpenDetail }) {
+function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggleSelect }) {
   const dispatch = useAppDispatch()
   const [isUpdating, setIsUpdating] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -904,7 +1127,17 @@ function OrderCard({ order, tenantId, onOpenDetail }) {
   const isPaid = isOrderCompleted || isPaymentConfirmed
 
   return (
-    <div className="orderCard orderCard--compact" onClick={() => onOpenDetail(order)}>
+    <div className={`orderCard orderCard--compact ${isSelected ? 'orderCard--selected' : ''}`} onClick={() => onOpenDetail(order)}>
+      {/* Checkbox de selección */}
+      <div className="orderCard__selectBox" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          className="orderCard__checkbox"
+        />
+      </div>
+      
       {/* Header compacto */}
       <div className="orderCard__header">
         <div className="orderCard__status" style={{ borderLeftColor: status.color }}>
@@ -1379,11 +1612,31 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
               <div className="orderDetailModal__items">
                 {order.items?.map((item, idx) => (
                   <div key={idx} className="orderDetailModal__item">
-                    <span className="orderDetailModal__itemName">{item.product_name || item.name}</span>
-                    <span className="orderDetailModal__itemQty">x{item.quantity || item.qty}</span>
-                    <span className="orderDetailModal__itemPrice">
-                      ${(Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}
-                    </span>
+                    <div className="orderDetailModal__itemMain">
+                      <span className="orderDetailModal__itemName">{item.product_name || item.name}</span>
+                      <span className="orderDetailModal__itemQty">x{item.quantity || item.qty}</span>
+                      <span className="orderDetailModal__itemPrice">
+                        ${(Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}
+                      </span>
+                    </div>
+                    {/* Extras del producto */}
+                    {item.extras && item.extras.length > 0 && (
+                      <div className="orderDetailModal__itemExtras">
+                        {item.extras.map((extra, extraIdx) => (
+                          <div key={extraIdx} className="orderDetailModal__itemExtra">
+                            <span className="orderDetailModal__itemExtraName">
+                              + {extra.name}{extra.selectedOption ? ` (${extra.selectedOption})` : ''}
+                            </span>
+                            {extra.quantity > 1 && (
+                              <span className="orderDetailModal__itemExtraQty">x{extra.quantity}</span>
+                            )}
+                            <span className="orderDetailModal__itemExtraPrice">
+                              +${(Number(extra.price || 0) * (extra.quantity || 1)).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1654,7 +1907,24 @@ function printOrder(order) {
         .value { color: #666; }
         .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .items-table th { border-bottom: 2px solid #333; padding: 10px; text-align: left; font-weight: bold; }
-        .items-table td { border-bottom: 1px solid #ddd; padding: 10px; }
+        .items-table th:nth-child(2),
+        .items-table th:nth-child(3),
+        .items-table th:nth-child(4) { text-align: right; }
+        .items-table td { border-bottom: 1px solid #ddd; padding: 10px; vertical-align: top; }
+        .items-table td:nth-child(2),
+        .items-table td:nth-child(3),
+        .items-table td:nth-child(4) { text-align: right; vertical-align: top; }
+        .items-table td.item-qty { font-size: 14px; font-weight: 600; }
+        .items-table td.item-price { font-size: 16px; font-weight: 700; color: #333; }
+        .items-table td.item-subtotal { font-size: 18px; font-weight: 800; color: #000; }
+        .item-name { font-size: 15px; font-weight: 600; display: block; margin-bottom: 6px; }
+        .item-name-price { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .item-name-text { font-size: 15px; font-weight: 600; }
+        .item-name-amount { font-size: 16px; font-weight: 700; color: #000; }
+        .item-extras { padding-left: 16px; border-left: 2px solid #ddd; margin-top: 4px; }
+        .item-extra { font-size: 13px; color: #555; padding: 3px 0; display: flex; justify-content: space-between; align-items: center; }
+        .item-extra-name { color: #555; }
+        .item-extra-price { color: #22c55e; font-weight: 600; font-size: 12px; margin-left: 12px; white-space: nowrap; }
         .total-section { border-top: 2px solid #333; padding-top: 10px; margin-top: 15px; }
         .total-row { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; }
         .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
@@ -1708,21 +1978,44 @@ function printOrder(order) {
         <table class="items-table">
           <thead>
             <tr>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Precio</th>
-              <th>Subtotal</th>
+              <th style="width: 50%;">Producto</th>
+              <th style="width: 15%;">Cant.</th>
+              <th style="width: 15%;">Precio</th>
+              <th style="width: 20%;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            ${order.items?.map(item => `
+            ${order.items?.map(item => {
+              const name = item.product_name || item.name || 'Producto'
+              const qty = item.quantity || item.qty || 1
+              const price = Number(item.price || item.unit_price || 0)
+              const subtotal = price * qty
+              const extrasHtml = item.extras && item.extras.length > 0 
+                ? `<div class="item-extras">
+                    ${item.extras.map(extra => {
+                      const extraPrice = Number(extra.price || 0) * (extra.quantity || 1)
+                      const extraName = extra.name || ''
+                      return `<div class="item-extra">
+                        <span class="item-extra-name">+ ${extraName}</span>
+                        <span class="item-extra-price">+$${extraPrice.toFixed(2)}</span>
+                      </div>`
+                    }).join('')}
+                  </div>`
+                : ''
+              return `
               <tr>
-                <td>${item.product_name}</td>
-                <td>${item.quantity}</td>
-                <td>$${Number(item.price).toFixed(2)}</td>
-                <td>$${(Number(item.price) * item.quantity).toFixed(2)}</td>
+                <td>
+                  <div class="item-name-price">
+                    <span class="item-name-text">${name}</span>
+                    <span class="item-name-amount">$${price.toFixed(2)}</span>
+                  </div>
+                  ${extrasHtml}
+                </td>
+                <td class="item-qty">${qty}</td>
+                <td class="item-price">$${price.toFixed(2)}</td>
+                <td class="item-subtotal">$${subtotal.toFixed(2)}</td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       </div>

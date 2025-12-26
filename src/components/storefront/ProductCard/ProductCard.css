@@ -17,6 +17,10 @@
   position: relative;
 }
 
+.productCard--clickable {
+  cursor: pointer;
+}
+
 .productCard:hover {
   transform: translateY(-4px);
   border-color: rgba(249, 115, 22, 0.3);
@@ -198,6 +202,41 @@
   font-size: 0.9rem;
   transition: all 200ms var(--ease-out);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.productCard__configExtrasBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 200ms var(--ease-out);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  color: var(--text-muted);
+  position: relative;
+}
+
+.productCard__configExtrasBtn:hover {
+  background: var(--accent);
+  color: white;
+  transform: scale(1.1);
+}
+
+.productCard__extrasIndicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success, #10b981);
+  border: 2px solid white;
 }
 
 .productCard__editBtn:hover {

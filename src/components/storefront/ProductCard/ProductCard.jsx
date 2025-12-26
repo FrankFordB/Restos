@@ -1,16 +1,22 @@
 import './ProductCard.css'
 import Button from '../../ui/Button/Button'
+import { Settings } from 'lucide-react'
 
 export default function ProductCard({ 
   product, 
   quantity = 0, 
   onAdd, 
   onRemove,
+  onClick,
   onEdit,
   onDelete,
+  onConfigExtras,
   layout = 'classic',
   colors = {},
   isEditable = false,
+  hasExtras = false,
+  hasProductExtras = false,
+  isPremium = false,
 }) {
   const layoutClass = `productCard--${layout}`
   
@@ -30,16 +36,53 @@ export default function ProductCard({
   const isBanner = layout === 'banner'
   const isHorizontal = layout === 'horizontal' || layout === 'compact'
 
+  // Handle card click (for opening product detail modal)
+  const handleCardClick = (e) => {
+    // Don't trigger if clicking on edit/delete buttons or stepper or config extras
+    if (e.target.closest('.productCard__editActions') || 
+        e.target.closest('.stepper') ||
+        e.target.closest('.productCard__actions') ||
+        e.target.closest('.productCard__overlayActions') ||
+        e.target.closest('.productCard__configExtrasBtn')) {
+      return
+    }
+    
+    // Always call onClick to open the product detail modal
+    onClick?.(product)
+  }
+
   return (
-    <article className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''}`} style={cardStyle}>
+    <article 
+      className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''} ${(onClick && !isEditable) || isEditable ? 'productCard--clickable' : ''}`} 
+      style={cardStyle}
+      onClick={handleCardClick}
+    >
       {/* Editable actions */}
       {isEditable && (
         <div className="productCard__editActions">
+          {onConfigExtras && (
+            <button 
+              className="productCard__configExtrasBtn" 
+              type="button" 
+              onClick={(e) => {
+                e.stopPropagation()
+                onConfigExtras()
+              }}
+              aria-label="Configurar extras"
+              title="Configurar extras/toppings"
+            >
+              <Settings size={14} />
+              {hasProductExtras && <span className="productCard__extrasIndicator" />}
+            </button>
+          )}
           {onEdit && (
             <button 
               className="productCard__editBtn" 
               type="button" 
-              onClick={() => onEdit(product)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(product)
+              }}
               aria-label="Editar producto"
             >
               ✏️
@@ -49,7 +92,10 @@ export default function ProductCard({
             <button 
               className="productCard__deleteBtn" 
               type="button" 
-              onClick={() => onDelete(product)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(product)
+              }}
               aria-label="Eliminar producto"
             >
               🗑️

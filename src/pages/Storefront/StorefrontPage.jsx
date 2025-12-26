@@ -5,10 +5,15 @@ import { useAppSelector } from '../../app/hooks'
 import { useAppDispatch } from '../../app/hooks'
 import { fetchTenantBySlug, selectTenantBySlug, selectTenantFetchError, selectTenantFetchStatus } from '../../features/tenants/tenantsSlice'
 import { fetchProductsForTenant, selectProductsForTenant, createProduct, patchProduct, deleteProduct } from '../../features/products/productsSlice'
+import { fetchCategoriesForTenant, selectCategoriesForTenant, createCategory, patchCategory, deleteCategory } from '../../features/categories/categoriesSlice'
+import { fetchExtrasForTenant, fetchExtraGroupsForTenant, selectExtrasForTenant, selectExtraGroupsForTenant } from '../../features/extras/extrasSlice'
 import ThemeApplier from '../../components/theme/ThemeApplier'
 import { fetchTenantTheme, selectThemeForTenant, saveTenantTheme, upsertTenantTheme } from '../../features/theme/themeSlice'
 import { selectUser } from '../../features/auth/authSlice'
 import ProductCard from '../../components/storefront/ProductCard/ProductCard'
+import ProductDetailModal from '../../components/storefront/ProductDetailModal/ProductDetailModal'
+import ProductExtrasConfigModal from '../../components/storefront/ProductExtrasConfigModal/ProductExtrasConfigModal'
+import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import CartPanel from '../../components/storefront/CartPanel/CartPanel'
 import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
 import { createPaidOrder } from '../../features/orders/ordersSlice'
@@ -73,20 +78,87 @@ export default function StorefrontPage() {
 
   // Check if current user is admin of this tenant or super_admin
   const isSuperAdmin = user?.role === 'super_admin'
-  const isAdmin = (user?.tenantId === tenantId && user?.role === 'tenant_admin') || isSuperAdmin
+  // tenant_admin can manage:
+  // 1. Their own tenant (user.tenantId === tenantId)
+  // 2. Demo tenant if they don't have a tenant assigned yet (for testing)
+  const isTenantAdmin = user?.role === 'tenant_admin' && (
+    user?.tenantId === tenantId || 
+    (tenantId === 'tenant_demo' && !user?.tenantId) ||
+    user?.tenantId === tenantId
+  )
+  const isAdmin = isTenantAdmin || isSuperAdmin
 
   const products = useAppSelector(selectProductsForTenant(tenantId || 'tenant_demo'))
+  const categories = useAppSelector(selectCategoriesForTenant(tenantId || 'tenant_demo'))
+  const extras = useAppSelector(selectExtrasForTenant(tenantId || 'tenant_demo'))
+  const extraGroups = useAppSelector(selectExtraGroupsForTenant(tenantId || 'tenant_demo'))
   const visible = useMemo(() => products.filter((p) => p.active), [products])
 
-  const [cart, setCart] = useState({})
+  // Category navigation state
+  const [selectedCategory, setSelectedCategory] = useState(null) // null = first category or "Sin asignar"
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [editingCategoryName, setEditingCategoryName] = useState('')
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+
+  // Get unique categories from products (for showing product count)
+  const categoryCounts = useMemo(() => {
+    const counts = { __unassigned__: 0 }
+    visible.forEach((p) => {
+      if (p.category) {
+        counts[p.category] = (counts[p.category] || 0) + 1
+      } else {
+        counts.__unassigned__ = (counts.__unassigned__ || 0) + 1
+      }
+    })
+    return counts
+  }, [visible])
+
+  // Check if there are unassigned products
+  const hasUnassignedProducts = categoryCounts.__unassigned__ > 0
+
+  // Sorted active categories
+  const sortedCategories = useMemo(() => {
+    return categories.filter(c => c.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+  }, [categories])
+
+  // Default selected category to first one if null
+  const effectiveSelectedCategory = useMemo(() => {
+    if (selectedCategory !== null) return selectedCategory
+    if (sortedCategories.length > 0) return sortedCategories[0].name
+    if (hasUnassignedProducts) return '__unassigned__'
+    return null
+  }, [selectedCategory, sortedCategories, hasUnassignedProducts])
+
+  // Filter products by selected category
+  const filteredProducts = useMemo(() => {
+    if (effectiveSelectedCategory === '__unassigned__') {
+      return visible.filter((p) => !p.category)
+    }
+    if (!effectiveSelectedCategory) return visible
+    return visible.filter((p) => p.category === effectiveSelectedCategory)
+  }, [visible, effectiveSelectedCategory])
+
+  const [cart, setCart] = useState({}) // { cartItemId: { product, quantity, extras, extrasTotal, comment } }
   const [paid, setPaid] = useState(false)
   const [lastOrderId, setLastOrderId] = useState(null)
   const checkoutRef = useRef(null)
 
-  // Product modal state
+  // Product detail modal state (for customer)
+  const [showProductDetailModal, setShowProductDetailModal] = useState(false)
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState(null)
+
+  // Product extras config modal state (for admin)
+  const [showProductExtrasConfigModal, setShowProductExtrasConfigModal] = useState(false)
+  const [productToConfigExtras, setProductToConfigExtras] = useState(null)
+
+  // Extras manager modal state (for admin - global extras)
+  const [showExtrasManagerModal, setShowExtrasManagerModal] = useState(false)
+
+  // Product modal state (for admin)
   const [showProductModal, setShowProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
-  const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '' })
+  const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '', category: '' })
   const [savingProduct, setSavingProduct] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
@@ -322,72 +394,169 @@ export default function StorefrontPage() {
 
   const hasAnyChanges = hasCardChanges || hasHeroChanges
 
+  // Cart now stores complex items: { cartItemId: { productId, product, quantity, extras, extrasTotal, unitPrice, totalPrice, comment } }
+  // For simple adds (no extras modal), we use productId as cartItemId
+  // For adds with extras, we generate a unique ID
+  
   const cartCount = useMemo(
-    () => Object.values(cart).reduce((acc, n) => acc + (Number(n) || 0), 0),
+    () => Object.values(cart).reduce((acc, item) => acc + (Number(item?.quantity || item) || 0), 0),
     [cart],
   )
 
   const cartTotal = useMemo(() => {
-    const map = new Map(visible.map((p) => [p.id, p]))
-    const total = Object.entries(cart).reduce((acc, [productId, qty]) => {
-      const p = map.get(productId)
-      if (!p) return acc
-      const price = parseFloat(p.price) || 0
-      const quantity = parseInt(qty, 10) || 0
-      return acc + (price * quantity)
+    const total = Object.values(cart).reduce((acc, item) => {
+      // Support both old format (just quantity) and new format (object with extras)
+      if (typeof item === 'number') {
+        // Old format: just quantity, find product by key
+        return acc // This shouldn't happen with new format
+      }
+      // New format: item with product, quantity, extras
+      return acc + (Number(item.totalPrice) || 0)
     }, 0)
-    // Redondear a 2 decimales para evitar overflow numérico
     return Math.round(total * 100) / 100
-  }, [cart, visible])
+  }, [cart])
 
   const cartItems = useMemo(() => {
-    const map = new Map(visible.map((p) => [p.id, p]))
     return Object.entries(cart)
-      .map(([productId, qty]) => {
-        const product = map.get(productId)
-        if (!product) return null
-        const safeQty = Number(qty) || 0
+      .map(([cartItemId, item]) => {
+        if (typeof item === 'number') return null // Skip old format
         return {
-          product,
-          qty: safeQty,
-          lineTotal: Number(product.price) * safeQty,
+          ...item,
+          cartItemId,
+          qty: item.quantity,
+          lineTotal: item.totalPrice,
         }
       })
       .filter(Boolean)
       .sort((a, b) => b.lineTotal - a.lineTotal)
-  }, [cart, visible])
+  }, [cart])
 
   const orderItemsPayload = useMemo(() => {
     return cartItems.map((it) => ({
       productId: it.product.id,
+      product_name: it.product.name,
       name: it.product.name,
-      unitPrice: Number(it.product.price),
-      qty: it.qty,
-      lineTotal: it.lineTotal,
+      unitPrice: Number(it.unitPrice),
+      qty: it.quantity,
+      quantity: it.quantity,
+      lineTotal: it.totalPrice,
+      price: it.unitPrice,
+      extras: it.extras?.map((e) => ({ 
+        id: e.id, 
+        name: e.name, 
+        price: e.price,
+        quantity: e.quantity || 1,
+        selectedOption: e.selectedOption || null,
+      })) || [],
+      extrasTotal: it.extrasTotal || 0,
+      comment: it.comment || null,
     }))
   }, [cartItems])
 
-  const addOne = (productId) =>
-    setCart((c) => {
-      setPaid(false)
-      return { ...c, [productId]: (c[productId] || 0) + 1 }
-    })
+  // Open product detail modal (for customer to select extras)
+  const openProductDetail = (product) => {
+    setSelectedProductForDetail(product)
+    setShowProductDetailModal(true)
+  }
 
-  const removeOne = (productId) =>
+  // Add item to cart (with extras support)
+  const addItemToCart = ({ product, quantity, selectedExtras, extrasTotal, unitPrice, totalPrice, comment }) => {
+    const cartItemId = `${product.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setCart((c) => ({
+      ...c,
+      [cartItemId]: {
+        productId: product.id,
+        product,
+        quantity,
+        extras: selectedExtras,
+        extrasTotal,
+        unitPrice,
+        totalPrice,
+        comment,
+      },
+    }))
+    setPaid(false)
+  }
+
+  // Simple add (no extras, for quick add or when no extras configured)
+  const addOne = (productId) => {
+    const product = visible.find((p) => p.id === productId)
+    if (!product) return
+    
+    // If there are extras configured, open the modal instead
+    if (extraGroups.length > 0) {
+      openProductDetail(product)
+      return
+    }
+    
+    // No extras, add directly
+    const cartItemId = productId // Use productId as cartItemId for simple items
+    setCart((c) => {
+      const existing = c[cartItemId]
+      if (existing && typeof existing === 'object') {
+        // Update quantity of existing item
+        return {
+          ...c,
+          [cartItemId]: {
+            ...existing,
+            quantity: existing.quantity + 1,
+            totalPrice: existing.unitPrice * (existing.quantity + 1),
+          },
+        }
+      }
+      // New simple item
+      return {
+        ...c,
+        [cartItemId]: {
+          productId: product.id,
+          product,
+          quantity: 1,
+          extras: [],
+          extrasTotal: 0,
+          unitPrice: Number(product.price),
+          totalPrice: Number(product.price),
+          comment: null,
+        },
+      }
+    })
+    setPaid(false)
+  }
+
+  const removeOne = (cartItemId) =>
     setCart((c) => {
       setPaid(false)
-      const next = Math.max(0, (c[productId] || 0) - 1)
+      const item = c[cartItemId]
+      if (!item) return c
+      
+      if (typeof item === 'object') {
+        const newQty = Math.max(0, item.quantity - 1)
+        if (newQty === 0) {
+          const { [cartItemId]: _removed, ...rest } = c
+          return rest
+        }
+        return {
+          ...c,
+          [cartItemId]: {
+            ...item,
+            quantity: newQty,
+            totalPrice: item.unitPrice * newQty,
+          },
+        }
+      }
+      
+      // Old format
+      const next = Math.max(0, (item || 0) - 1)
       if (next === 0) {
-        const { [productId]: _removed, ...rest } = c
+        const { [cartItemId]: _removed, ...rest } = c
         return rest
       }
-      return { ...c, [productId]: next }
+      return { ...c, [cartItemId]: next }
     })
 
   // Product management functions
   const openAddProduct = () => {
     setEditingProduct(null)
-    setProductForm({ name: '', price: '', description: '', imageUrl: '' })
+    setProductForm({ name: '', price: '', description: '', imageUrl: '', category: '' })
     setShowProductModal(true)
   }
 
@@ -398,6 +567,7 @@ export default function StorefrontPage() {
       price: String(product.price || ''),
       description: product.description || '',
       imageUrl: product.imageUrl || '',
+      category: product.category || '',
     })
     setShowProductModal(true)
   }
@@ -416,15 +586,19 @@ export default function StorefrontPage() {
             price: Number(productForm.price),
             description: productForm.description.trim(),
             imageUrl: productForm.imageUrl.trim() || null,
+            category: productForm.category.trim() || null,
           }
         })).unwrap()
       } else {
         await dispatch(createProduct({
           tenantId,
-          name: productForm.name.trim(),
-          price: Number(productForm.price),
-          description: productForm.description.trim(),
-          imageUrl: productForm.imageUrl.trim() || null,
+          product: {
+            name: productForm.name.trim(),
+            price: Number(productForm.price),
+            description: productForm.description.trim(),
+            imageUrl: productForm.imageUrl.trim() || null,
+            category: productForm.category.trim() || null,
+          }
         })).unwrap()
       }
       setShowProductModal(false)
@@ -451,6 +625,26 @@ export default function StorefrontPage() {
     }
   }
 
+  // Open extras config modal for admin
+  const openProductExtrasConfig = (product) => {
+    setProductToConfigExtras(product)
+    setShowProductExtrasConfigModal(true)
+  }
+
+  // Save product extras (updates productExtras field on the product)
+  const handleSaveProductExtras = async (productId, productExtras) => {
+    try {
+      await dispatch(patchProduct({
+        tenantId,
+        productId,
+        patch: { productExtras },
+      })).unwrap()
+    } catch (e) {
+      console.error('Error saving product extras:', e)
+      throw e
+    }
+  }
+
   useEffect(() => {
     if (!slug) return
     dispatch(fetchTenantBySlug(slug))
@@ -459,7 +653,10 @@ export default function StorefrontPage() {
   useEffect(() => {
     if (!tenantId) return
     dispatch(fetchProductsForTenant(tenantId))
+    dispatch(fetchCategoriesForTenant(tenantId))
     dispatch(fetchTenantTheme(tenantId))
+    dispatch(fetchExtraGroupsForTenant(tenantId))
+    dispatch(fetchExtrasForTenant(tenantId))
   }, [dispatch, tenantId])
 
   // Add/remove body class for preview mode (to hide global header)
@@ -570,12 +767,154 @@ export default function StorefrontPage() {
                 }}>
                   <LayoutGrid size={14} /> Personalizar Cards
                 </Button>
+                <Button size="sm" variant="secondary" onClick={() => setShowExtrasManagerModal(true)}>
+                  <Layers size={14} /> Extras / Toppings
+                </Button>
                 <Button size="sm" onClick={openAddProduct}>
                   <Plus size={14} /> Agregar producto
                 </Button>
               </div>
             </div>
           )}
+
+          {/* Category Navigation Tabs */}
+          <div className="store__categoryTabs">
+            {sortedCategories.map((cat) => (
+              <div key={cat.id} className="store__categoryTabWrapper">
+                {editingCategoryId === cat.id && isAdmin ? (
+                  <div className="store__categoryEdit">
+                    <input
+                      type="text"
+                      className="store__categoryInput"
+                      value={editingCategoryName}
+                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editingCategoryName.trim()) {
+                          dispatch(patchCategory({ tenantId, categoryId: cat.id, patch: { name: editingCategoryName.trim() } }))
+                          setEditingCategoryId(null)
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingCategoryId(null)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editingCategoryName.trim() && editingCategoryName !== cat.name) {
+                          dispatch(patchCategory({ tenantId, categoryId: cat.id, patch: { name: editingCategoryName.trim() } }))
+                        }
+                        setEditingCategoryId(null)
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="store__categoryDeleteBtn"
+                      onClick={() => {
+                        if (confirm('¿Eliminar esta categoría?')) {
+                          dispatch(deleteCategory({ tenantId, categoryId: cat.id }))
+                          if (selectedCategory === cat.name) setSelectedCategory(null)
+                        }
+                        setEditingCategoryId(null)
+                      }}
+                      title="Eliminar categoría"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="store__categoryTabGroup">
+                    <button
+                      type="button"
+                      className={`store__categoryTab ${effectiveSelectedCategory === cat.name ? 'store__categoryTab--active' : ''}`}
+                      onClick={() => setSelectedCategory(cat.name)}
+                    >
+                      {cat.name}
+                      <span className="store__categoryCount">{categoryCounts[cat.name] || 0}</span>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="store__categoryEditBtn"
+                        onClick={() => {
+                          setEditingCategoryId(cat.id)
+                          setEditingCategoryName(cat.name)
+                        }}
+                        title="Editar categoría"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {/* Sin asignar - only shows if there are unassigned products */}
+            {hasUnassignedProducts && (
+              <button
+                type="button"
+                className={`store__categoryTab store__categoryTab--unassigned ${effectiveSelectedCategory === '__unassigned__' ? 'store__categoryTab--active' : ''}`}
+                onClick={() => setSelectedCategory('__unassigned__')}
+              >
+                Sin asignar
+                <span className="store__categoryCount">{categoryCounts.__unassigned__}</span>
+              </button>
+            )}
+            
+            {/* Add category button (only for admin) */}
+            {isAdmin && (
+              creatingCategory ? (
+                <div className="store__categoryEdit">
+                  <input
+                    type="text"
+                    className="store__categoryInput"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Nueva categoría"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newCategoryName.trim()) {
+                        dispatch(createCategory({ 
+                          tenantId, 
+                          category: { 
+                            name: newCategoryName.trim(),
+                            sortOrder: categories.length 
+                          } 
+                        }))
+                        setNewCategoryName('')
+                        setCreatingCategory(false)
+                      }
+                      if (e.key === 'Escape') {
+                        setNewCategoryName('')
+                        setCreatingCategory(false)
+                      }
+                    }}
+                    onBlur={() => {
+                      if (newCategoryName.trim()) {
+                        dispatch(createCategory({ 
+                          tenantId, 
+                          category: { 
+                            name: newCategoryName.trim(),
+                            sortOrder: categories.length 
+                          } 
+                        }))
+                      }
+                      setNewCategoryName('')
+                      setCreatingCategory(false)
+                    }}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="store__categoryTab store__categoryTab--add"
+                  onClick={() => setCreatingCategory(true)}
+                  title="Agregar categoría"
+                >
+                  <Plus size={16} />
+                </button>
+              )
+            )}
+          </div>
 
           {/* Hero Customization Panel */}
           {isAdmin && showHeroPanel && (
@@ -948,20 +1287,42 @@ export default function StorefrontPage() {
           )}
           
           <div className="store__grid">
-            {visible.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                quantity={cart[p.id] || 0}
-                onAdd={() => addOne(p.id)}
-                onRemove={() => removeOne(p.id)}
-                layout={cardLayout}
-                colors={cardColors}
-                isEditable={isAdmin}
-                onEdit={openEditProduct}
-                onDelete={handleDeleteProduct}
-              />
-            ))}
+            {filteredProducts.map((p) => {
+              // Calculate quantity for this product across all cart items
+              const productQty = Object.values(cart).reduce((sum, item) => {
+                if (typeof item === 'object' && item.productId === p.id) {
+                  return sum + item.quantity
+                }
+                return sum
+              }, 0)
+              
+              return (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  quantity={productQty}
+                  onAdd={() => addOne(p.id)}
+                  onRemove={() => {
+                    // Find the first cart item for this product and remove from it
+                    const cartItemId = Object.keys(cart).find((id) => {
+                      const item = cart[id]
+                      return typeof item === 'object' && item.productId === p.id
+                    })
+                    if (cartItemId) removeOne(cartItemId)
+                  }}
+                  onClick={() => openProductDetail(p)}
+                  onConfigExtras={() => openProductExtrasConfig(p)}
+                  layout={cardLayout}
+                  colors={cardColors}
+                  isEditable={isAdmin}
+                  onEdit={openEditProduct}
+                  onDelete={handleDeleteProduct}
+                  hasExtras={extraGroups.length > 0 || (p.productExtras?.length > 0)}
+                  hasProductExtras={p.productExtras?.length > 0}
+                  isPremium={effectiveTier !== SUBSCRIPTION_TIERS.FREE}
+                />
+              )
+            })}
             
             {/* Add product card for admin */}
             {isAdmin && (
@@ -973,6 +1334,13 @@ export default function StorefrontPage() {
                 <span className="store__addIcon"><Plus size={24} /></span>
                 <span className="store__addText">Agregar producto</span>
               </button>
+            )}
+            
+            {/* Empty state for category */}
+            {filteredProducts.length === 0 && selectedCategory && (
+              <div className="store__emptyCategory">
+                <p>No hay productos en esta categoría.</p>
+              </div>
             )}
           </div>
         </section>
@@ -1100,6 +1468,20 @@ export default function StorefrontPage() {
                 onChange={(v) => setProductForm(f => ({ ...f, description: v }))}
                 placeholder="Descripción del producto..."
               />
+
+              <div className="store__formGroup">
+                <label className="store__formLabel">Categoría</label>
+                <select
+                  className="store__formSelect"
+                  value={productForm.category}
+                  onChange={(e) => setProductForm(f => ({ ...f, category: e.target.value }))}
+                >
+                  <option value="">Sin asignar</option>
+                  {sortedCategories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
               
               <Input
                 label="URL de imagen (opcional)"
@@ -1134,6 +1516,54 @@ export default function StorefrontPage() {
       {deleteConfirm && (
         <div className="store__deleteToast">
           <AlertTriangle size={16} /> Haz clic de nuevo para confirmar la eliminación
+        </div>
+      )}
+
+      {/* Product Detail Modal (for customer to select extras) */}
+      {showProductDetailModal && selectedProductForDetail && (
+        <ProductDetailModal
+          product={selectedProductForDetail}
+          groups={extraGroups}
+          extras={extras}
+          onClose={() => {
+            setShowProductDetailModal(false)
+            setSelectedProductForDetail(null)
+          }}
+          onAddToCart={addItemToCart}
+        />
+      )}
+
+      {/* Product Extras Config Modal (for admin to configure product-specific extras) */}
+      {showProductExtrasConfigModal && productToConfigExtras && (
+        <ProductExtrasConfigModal
+          product={productToConfigExtras}
+          onClose={() => {
+            setShowProductExtrasConfigModal(false)
+            setProductToConfigExtras(null)
+          }}
+          onSave={handleSaveProductExtras}
+          isPremium={effectiveTier !== SUBSCRIPTION_TIERS.FREE}
+        />
+      )}
+
+      {/* Extras Manager Modal (for admin to manage global extras/toppings) */}
+      {showExtrasManagerModal && (
+        <div className="store__modalOverlay" onClick={() => setShowExtrasManagerModal(false)}>
+          <div className="store__extrasManagerModal" onClick={(e) => e.stopPropagation()}>
+            <div className="store__modalHeader">
+              <h3><Layers size={18} /> Extras y Toppings</h3>
+              <button 
+                className="store__modalClose" 
+                type="button"
+                onClick={() => setShowExtrasManagerModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="store__extrasManagerBody">
+              <ExtrasManager tenantId={tenantId || 'tenant_demo'} />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1263,8 +1693,8 @@ function CheckoutPage({
 
             {/* Detalle de items */}
             <div className="checkoutPage__items">
-              {cartItems?.map((item) => (
-                <div key={item.product?.id} className="checkoutPage__item">
+              {cartItems?.map((item, index) => (
+                <div key={`${item.product?.id}-${index}`} className="checkoutPage__item">
                   <span className="checkoutPage__itemName">{item.product?.name}</span>
                   <span className="checkoutPage__itemQty">x{item.qty}</span>
                   <span className="checkoutPage__itemPrice">${item.lineTotal?.toFixed(2)}</span>

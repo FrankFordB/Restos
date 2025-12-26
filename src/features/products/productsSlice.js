@@ -20,6 +20,8 @@ const seed = isSupabaseConfigured
           name: 'Hamburguesa clásica',
           price: 8.99,
           description: 'Carne, queso, lechuga, tomate',
+          category: 'Hamburguesas',
+          stock: 50,
           active: true,
         },
         {
@@ -27,6 +29,8 @@ const seed = isSupabaseConfigured
           name: 'Papas fritas',
           price: 3.5,
           description: 'Crocantes y doradas',
+          category: 'Acompañamientos',
+          stock: 100,
           active: true,
         },
         {
@@ -34,6 +38,8 @@ const seed = isSupabaseConfigured
           name: 'Hamburguesa BBQ',
           price: 10.49,
           description: 'Salsa BBQ, cebolla crispy, queso cheddar',
+          category: 'Hamburguesas',
+          stock: 30,
           active: true,
         },
         {
@@ -41,6 +47,8 @@ const seed = isSupabaseConfigured
           name: 'Hamburguesa Doble',
           price: 12.99,
           description: 'Doble carne, doble queso, pepinillos',
+          category: 'Hamburguesas',
+          stock: 25,
           active: true,
         },
         {
@@ -48,6 +56,8 @@ const seed = isSupabaseConfigured
           name: 'Hamburguesa Pollo Crunch',
           price: 9.99,
           description: 'Pollo crispy, mayo, lechuga',
+          category: 'Hamburguesas',
+          stock: 40,
           active: true,
         },
         {
@@ -55,6 +65,8 @@ const seed = isSupabaseConfigured
           name: 'Aros de cebolla',
           price: 4.25,
           description: 'Porción mediana',
+          category: 'Acompañamientos',
+          stock: 80,
           active: true,
         },
         {
@@ -62,6 +74,8 @@ const seed = isSupabaseConfigured
           name: 'Nuggets (8u)',
           price: 5.75,
           description: 'Incluye salsa',
+          category: 'Acompañamientos',
+          stock: 60,
           active: true,
         },
         {
@@ -69,6 +83,8 @@ const seed = isSupabaseConfigured
           name: 'Refresco',
           price: 2.25,
           description: '350ml',
+          category: 'Bebidas',
+          stock: 200,
           active: true,
         },
         {
@@ -76,6 +92,8 @@ const seed = isSupabaseConfigured
           name: 'Agua',
           price: 1.5,
           description: '500ml',
+          category: 'Bebidas',
+          stock: 150,
           active: true,
         },
         {
@@ -83,6 +101,8 @@ const seed = isSupabaseConfigured
           name: 'Combo Clásico',
           price: 12.49,
           description: 'Hamburguesa clásica + papas + bebida',
+          category: 'Combos',
+          stock: 20,
           active: true,
         },
       ],
@@ -116,6 +136,8 @@ export const createProduct = createAsyncThunk(
         price: product.price,
         description: product.description || null,
         image_url: product.imageUrl || null,
+        category: product.category || null,
+        stock: product.stock ?? null,
         active: product.active ?? true,
       }
       return { tenantId, row }
@@ -185,7 +207,10 @@ const productsSlice = createSlice({
           price: Number(r.price),
           description: r.description,
           imageUrl: r.image_url || null,
+          category: r.category || null,
+          stock: r.stock ?? null,
           active: r.active,
+          productExtras: r.product_extras || [],
         }))
         persist(state)
       })
@@ -201,7 +226,10 @@ const productsSlice = createSlice({
             price: Number(row.price),
             description: row.description,
             imageUrl: row.image_url || null,
+            category: row.category || null,
+            stock: row.stock ?? null,
             active: row.active,
+            productExtras: row.product_extras || [],
           })
           persist(state)
         }
@@ -212,13 +240,18 @@ const productsSlice = createSlice({
         const idx = list.findIndex((p) => p.id === productId)
         if (idx < 0) return
         if (row) {
+          // Keep productExtras from existing product if not in response
+          const existingProductExtras = list[idx].productExtras
           list[idx] = {
             id: row.id,
             name: row.name,
             price: Number(row.price),
             description: row.description,
             imageUrl: row.image_url || null,
+            category: row.category || null,
+            stock: row.stock ?? null,
             active: row.active,
+            productExtras: row.product_extras || existingProductExtras || [],
           }
         } else {
           list[idx] = { ...list[idx], ...patch }

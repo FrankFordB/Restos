@@ -152,6 +152,8 @@ create table if not exists public.products (
   price numeric(10,2) not null,
   description text null,
   image_url text null,
+  category text null,
+  stock integer null default null,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -159,6 +161,12 @@ create table if not exists public.products (
 -- Migración segura (si ya existía la tabla antes de agregar image_url)
 alter table if exists public.products
   add column if not exists image_url text;
+
+-- Migración segura para category y stock
+alter table if exists public.products
+  add column if not exists category text;
+alter table if exists public.products
+  add column if not exists stock integer;
 
 create index if not exists products_tenant_id_idx on public.products(tenant_id);
 

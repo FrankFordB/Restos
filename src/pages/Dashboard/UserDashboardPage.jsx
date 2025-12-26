@@ -12,6 +12,7 @@ import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
 import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
 import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
+import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import { createTenant } from '../../features/tenants/tenantsSlice'
 import { selectOrdersForTenant, updateOrder, deleteOrder } from '../../features/orders/ordersSlice'
@@ -401,6 +402,17 @@ export default function UserDashboardPage() {
               <p className="muted">Administra los productos de tu restaurante.</p>
             </header>
             <ProductsManager tenantId={user.tenantId} />
+          </>
+        )}
+
+        {/* Extras Tab */}
+        {activeTab === 'extras' && (
+          <>
+            <header className="dash__header">
+              <h1>Extras y Toppings</h1>
+              <p className="muted">Configura los extras que se pueden agregar a cualquier producto.</p>
+            </header>
+            <ExtrasManager tenantId={user.tenantId} />
           </>
         )}
 
