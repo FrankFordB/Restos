@@ -31,10 +31,12 @@ drop policy if exists "themes_modify" on public.tenant_themes;
 
 drop policy if exists "orders_select" on public.orders;
 drop policy if exists "orders_insert" on public.orders;
+drop policy if exists "orders_insert_anon" on public.orders;
 drop policy if exists "orders_update" on public.orders;
 
 drop policy if exists "order_items_select" on public.order_items;
 drop policy if exists "order_items_insert" on public.order_items;
+drop policy if exists "order_items_insert_anon" on public.order_items;
 drop policy if exists "order_items_update" on public.order_items;
 
 -- Helper: role del usuario
@@ -197,12 +199,16 @@ using (
   or tenant_id = public.current_tenant_id()
 );
 
-create policy "orders_insert" on public.orders
+-- INSERT: usuarios anónimos y autenticados pueden crear pedidos en tenants públicos
+create policy "orders_insert_anon" on public.orders
 for insert
-to authenticated
+to anon, authenticated
 with check (
-  public.is_super_admin()
-  or tenant_id = public.current_tenant_id()
+  exists (
+    select 1 from public.tenants t
+    where t.id = orders.tenant_id
+      and t.is_public = true
+  )
 );
 
 create policy "orders_update" on public.orders
@@ -231,16 +237,14 @@ using (
   )
 );
 
-create policy "order_items_insert" on public.order_items
+-- INSERT: usuarios anónimos y autenticados pueden agregar items a pedidos existentes
+create policy "order_items_insert_anon" on public.order_items
 for insert
-to authenticated
+to anon, authenticated
 with check (
-  public.is_super_admin()
-  or exists (
-    select 1
-    from public.orders o
+  exists (
+    select 1 from public.orders o
     where o.id = order_items.order_id
-      and o.tenant_id = public.current_tenant_id()
   )
 );
 
