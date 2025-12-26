@@ -17,6 +17,7 @@ export default function ProductCard({
   hasExtras = false,
   hasProductExtras = false,
   isPremium = false,
+  disabled = false, // For when store is closed
 }) {
   const layoutClass = `productCard--${layout}`
   
@@ -53,7 +54,7 @@ export default function ProductCard({
 
   return (
     <article 
-      className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''} ${(onClick && !isEditable) || isEditable ? 'productCard--clickable' : ''}`} 
+      className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''} ${(onClick && !isEditable) || isEditable ? 'productCard--clickable' : ''} ${disabled ? 'productCard--disabled' : ''}`} 
       style={cardStyle}
       onClick={handleCardClick}
     >
@@ -125,14 +126,21 @@ export default function ProductCard({
             <h3 className="productCard__title">{product.name}</h3>
             <div className="productCard__price">${Number(product.price).toFixed(2)}</div>
             <div className="productCard__overlayActions">
-              {quantity > 0 ? (
+              {quantity > 0 && !disabled ? (
                 <div className="stepper stepper--overlay" role="group" aria-label="Cantidad">
                   <button className="stepper__btn" type="button" onClick={onRemove} aria-label="Quitar uno">−</button>
                   <span className="stepper__value">{quantity}</span>
                   <button className="stepper__btn" type="button" onClick={onAdd} aria-label="Agregar uno">+</button>
                 </div>
               ) : (
-                <button className="productCard__overlayBtn" type="button" onClick={onAdd}>+</button>
+                <button 
+                  className={`productCard__overlayBtn ${disabled ? 'productCard__overlayBtn--disabled' : ''}`} 
+                  type="button" 
+                  onClick={onAdd}
+                  disabled={disabled}
+                >
+                  {disabled ? '🔒' : '+'}
+                </button>
               )}
             </div>
           </div>
@@ -152,15 +160,15 @@ export default function ProductCard({
           )}
 
           <div className={`productCard__actions ${isMinimal ? 'productCard__actions--hover' : ''}`}>
-            {quantity > 0 ? (
+            {quantity > 0 && !disabled ? (
               <div className="stepper" role="group" aria-label="Cantidad">
                 <button className="stepper__btn" type="button" onClick={onRemove} aria-label="Quitar uno">−</button>
                 <span className="stepper__value">{quantity}</span>
                 <button className="stepper__btn" type="button" onClick={onAdd} aria-label="Agregar uno">+</button>
               </div>
             ) : (
-              <Button size="sm" onClick={onAdd}>
-                {isPolaroid ? '+' : 'Agregar'}
+              <Button size="sm" onClick={onAdd} disabled={disabled}>
+                {disabled ? '🔒 Cerrado' : isPolaroid ? '+' : 'Agregar'}
               </Button>
             )}
 

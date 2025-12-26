@@ -1,7 +1,7 @@
 import './CartPanel.css'
 import Button from '../../ui/Button/Button'
 
-export default function CartPanel({ items, total, onClear, onCheckout, onAdd, onRemove }) {
+export default function CartPanel({ items, total, onClear, onCheckout, onAdd, onRemove, storeStatus }) {
   // Format price helper
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -11,6 +11,9 @@ export default function CartPanel({ items, total, onClear, onCheckout, onAdd, on
       maximumFractionDigits: 0,
     }).format(price)
   }
+
+  // Check if store is closed (and has a schedule defined)
+  const isClosed = storeStatus && !storeStatus.isOpen && !storeStatus.noSchedule
 
   return (
     <aside className="cart" aria-label="Carrito">
@@ -80,8 +83,17 @@ export default function CartPanel({ items, total, onClear, onCheckout, onAdd, on
           <span>Total</span>
           <strong>{formatPrice(total)}</strong>
         </div>
-        <Button onClick={onCheckout} disabled={items.length === 0}>
-          Ir a pagar
+        {isClosed && (
+          <div className="cart__closedAlert">
+            <span className="cart__closedIcon">🔴</span>
+            <div className="cart__closedText">
+              <strong>Cerrado</strong>
+              {storeStatus.nextOpen && <span>Abre {storeStatus.nextOpen}</span>}
+            </div>
+          </div>
+        )}
+        <Button onClick={onCheckout} disabled={items.length === 0 || isClosed}>
+          {isClosed ? 'Local cerrado' : 'Ir a pagar'}
         </Button>
       </footer>
     </aside>

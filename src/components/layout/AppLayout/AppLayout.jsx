@@ -6,11 +6,13 @@ import ThemeApplier from '../../theme/ThemeApplier'
 import ConfirmModal from '../../ui/ConfirmModal/ConfirmModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { clearBannedInfo, clearWelcomeInfo, selectAuth, signOut } from '../../../features/auth/authSlice'
+import { DashboardProvider, useDashboard } from '../../../contexts/DashboardContext'
 
-export default function AppLayout() {
+function AppLayoutContent() {
   const dispatch = useAppDispatch()
   const auth = useAppSelector(selectAuth)
   const location = useLocation()
+  const dashboard = useDashboard()
 
   const user = auth.user
   const tenantId = user?.tenantId || null
@@ -59,11 +61,19 @@ Cuenta: ${bannedEmail}` : bannedMessage}
         onCancel={() => dispatch(clearWelcomeInfo())}
       />
       <ThemeApplier tenantId={tenantId} key={location.pathname} />
-      {showGlobalHeader && <Header />}
+      {showGlobalHeader && <Header onTabChange={dashboard?.changeTab} />}
       <main className={`app__main ${isStorePage ? 'app__main--store' : 'container'}`}>
         <Outlet />
       </main>
       {showGlobalHeader && <Footer />}
     </div>
+  )
+}
+
+export default function AppLayout() {
+  return (
+    <DashboardProvider>
+      <AppLayoutContent />
+    </DashboardProvider>
   )
 }

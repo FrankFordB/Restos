@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import './DashboardPages.css'
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
@@ -14,12 +15,15 @@ import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
 import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
+import AccountSection from './AccountSection'
+import StoreEditor from './StoreEditor'
 import { createTenant } from '../../features/tenants/tenantsSlice'
 import { selectOrdersForTenant, updateOrder, deleteOrder } from '../../features/orders/ordersSlice'
 import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug } from '../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS } from '../../shared/subscriptions'
 import { ROLES } from '../../shared/constants'
+import { useDashboard } from '../../contexts/DashboardContext'
 import { 
   QrCode, 
   Copy, 
@@ -52,6 +56,8 @@ function slugify(value) {
 export default function UserDashboardPage() {
   const dispatch = useAppDispatch()
   const user = useAppSelector(selectUser)
+  const location = useLocation()
+  const dashboard = useDashboard()
 
   const [tenantName, setTenantName] = useState('')
   const [tenantSlug, setTenantSlug] = useState('')
@@ -63,8 +69,20 @@ export default function UserDashboardPage() {
   const [tenantLoadError, setTenantLoadError] = useState(null)
   const [savingVisibility, setSavingVisibility] = useState(false)
 
-  // Tab navigation
-  const [activeTab, setActiveTab] = useState('overview')
+  // Tab navigation - use context if available, otherwise local state
+  const activeTab = dashboard?.activeTab || 'overview'
+  const setActiveTab = dashboard?.setActiveTab || (() => {})
+  
+  // Solo sincronizar desde URL al montar o cuando cambia location.search
+  // (no incluir activeTab en dependencias para evitar loops)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const tabFromUrl = params.get('tab')
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search])
   
   // Sidebar collapsed state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -244,6 +262,7 @@ export default function UserDashboardPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         tenantName={currentTenant?.name || 'Mi Restaurante'}
+        tenantLogo={currentTenant?.logo || ''}
         tenantSlug={currentTenant?.slug || ''}
         subscriptionTier={subscriptionTier}
         pendingOrdersCount={pendingOrdersCount}
@@ -450,21 +469,9 @@ export default function UserDashboardPage() {
           </>
         )}
 
-        {/* Customers Tab */}
-        {activeTab === 'customers' && (
-          <>
-            <header className="dash__header">
-              <h1>Clientes</h1>
-              <p className="muted">Gestiona tu base de clientes.</p>
-            </header>
-            <Card title="Base de clientes">
-              <div className="dash__emptyState">
-                <Users size={48} />
-                <h3>Próximamente</h3>
-                <p className="muted">La gestión de clientes y CRM estará disponible pronto.</p>
-              </div>
-            </Card>
-          </>
+        {/* Store Editor Tab */}
+        {activeTab === 'store-editor' && (
+          <StoreEditor />
         )}
 
         {/* Settings Tab */}
@@ -584,6 +591,10 @@ export default function UserDashboardPage() {
 
         {activeTab === 'reports' && (
           <ReportsSection tenantId={currentTenant?.id} />
+        )}
+
+        {activeTab === 'account' && (
+          <AccountSection subscriptionTier={subscriptionTier} />
         )}
       </main>
     </div>

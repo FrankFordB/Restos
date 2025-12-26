@@ -7,7 +7,7 @@ import {
   UtensilsCrossed,
   ChefHat,
   Package,
-  Users,
+  Store,
   Settings,
   Eye,
   QrCode,
@@ -23,13 +23,13 @@ import {
 
 const MENU_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'store-editor', label: 'Editar mi tienda', icon: Store },
   { id: 'orders', label: 'Pedidos', icon: ClipboardList },
   { id: 'sales', label: 'Ventas', icon: DollarSign },
   { id: 'menu', label: 'Menú', icon: UtensilsCrossed },
   { id: 'extras', label: 'Extras / Toppings', icon: Layers },
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
-  { id: 'customers', label: 'Clientes', icon: Users },
   { id: 'settings', label: 'Configuraciones', icon: Settings },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },
   { id: 'preview', label: 'Vista previa', icon: Eye },
@@ -40,6 +40,7 @@ export default function Sidebar({
   activeTab, 
   onTabChange, 
   tenantName = 'Mi Restaurante',
+  tenantLogo = '',
   tenantSlug = '',
   subscriptionTier = 'free',
   pendingOrdersCount = 0,
@@ -109,7 +110,11 @@ export default function Sidebar({
           {!isCollapsed && (
             <div className="sidebar__brand">
               <div className="sidebar__brandIcon">
-                <UtensilsCrossed size={20} />
+                {tenantLogo ? (
+                  <img src={tenantLogo} alt={tenantName} className="sidebar__brandLogo" />
+                ) : (
+                  <UtensilsCrossed size={20} />
+                )}
               </div>
               <div className="sidebar__brandInfo">
                 <span className="sidebar__brandName">{tenantName}</span>
@@ -123,7 +128,11 @@ export default function Sidebar({
           )}
           {isCollapsed && (
             <div className="sidebar__brandIcon sidebar__brandIcon--collapsed">
-              <UtensilsCrossed size={24} />
+              {tenantLogo ? (
+                <img src={tenantLogo} alt={tenantName} className="sidebar__brandLogo sidebar__brandLogo--collapsed" />
+              ) : (
+                <UtensilsCrossed size={24} />
+              )}
             </div>
           )}
         </div>

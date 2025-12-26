@@ -40,6 +40,21 @@
   border-radius: 10px;
   color: white;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar__brandLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.sidebar__brandLogo--collapsed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
 }
 
 .sidebar__brandIcon--collapsed {

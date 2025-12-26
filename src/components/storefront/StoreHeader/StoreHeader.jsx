@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import './StoreHeader.css'
 import { STORE_HERO_STYLES } from '../../../shared/subscriptions'
+import { checkIsStoreOpen } from '../../../shared/openingHours'
 
 export default function StoreHeader({
   tenant,
@@ -12,11 +13,25 @@ export default function StoreHeader({
   overlayOpacity = 50,
   cart = {},
   onOpenCart,
+  openingHours = [],
 }) {
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true })
 
   const heroConfig = STORE_HERO_STYLES[heroStyle] || STORE_HERO_STYLES.simple
   const hasCarousel = heroConfig.hasCarousel && slides.length > 1
+
+  // Check store open status
+  useEffect(() => {
+    const checkStatus = () => {
+      const status = checkIsStoreOpen(openingHours)
+      setStoreStatus(status)
+    }
+    checkStatus()
+    // Re-check every minute
+    const interval = setInterval(checkStatus, 60000)
+    return () => clearInterval(interval)
+  }, [openingHours])
 
   // Auto-advance carousel
   useEffect(() => {
@@ -60,9 +75,19 @@ export default function StoreHeader({
     <header className={`storeHeader storeHeader--${heroConfig.layout} storeHeader--${heroConfig.animation || 'none'}`}>
       {/* Navigation Bar */}
       <nav className="storeHeader__nav">
-        <Link to="/" className="storeHeader__logo">
-          {tenant?.name || 'Tienda'}
-        </Link>
+        <div className="storeHeader__brand">
+          {tenant?.logo && (
+            <img src={tenant.logo} alt={tenant.name} className="storeHeader__brandLogo" />
+          )}
+          <div className="storeHeader__brandText">
+            <Link to="/" className="storeHeader__logo">
+              {tenant?.name || 'Tienda'}
+            </Link>
+            {tenant?.slogan && (
+              <span className="storeHeader__slogan">{tenant.slogan}</span>
+            )}
+          </div>
+        </div>
         
         <div className="storeHeader__navLinks">
           <a href="#productos" className="storeHeader__navLink">Productos</a>
@@ -71,6 +96,12 @@ export default function StoreHeader({
         </div>
 
         <div className="storeHeader__actions">
+          {/* Open/Closed Badge */}
+          {!storeStatus.noSchedule && (
+            <span className={`storeHeader__statusBadge ${storeStatus.isOpen ? 'storeHeader__statusBadge--open' : 'storeHeader__statusBadge--closed'}`}>
+              {storeStatus.isOpen ? '🟢 Abierto' : '🔴 Cerrado'}
+            </span>
+          )}
           {cartCount > 0 && (
             <button className="storeHeader__cartBtn" onClick={onOpenCart}>
               🛒 <span className="storeHeader__cartCount">{cartCount}</span>

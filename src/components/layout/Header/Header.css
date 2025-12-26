@@ -178,6 +178,197 @@
 .header__tierBadge .tier-name {
   white-space: nowrap;
 }
+
+/* User Menu Dropdown */
+.header__userMenu {
+  position: relative;
+}
+
+.header__userMenuTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text);
+  transition: all 200ms ease;
+}
+
+.header__userMenuTrigger:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--accent);
+}
+
+.header__userMenuLogo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.header__userMenuDefaultLogo {
+  font-size: 1.2rem;
+}
+
+.header__userMenuEmail {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header__userMenuArrow {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: transform 200ms ease;
+}
+
+.header__userMenuArrow.open {
+  transform: rotate(180deg);
+}
+
+.header__userMenuDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 280px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  z-index: 1100;
+  animation: menuSlideDown 200ms ease;
+  overflow: hidden;
+}
+
+@keyframes menuSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header__userMenuHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.header__userMenuHeaderLogo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header__userMenuHeaderDefaultLogo {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header__userMenuHeaderInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.header__userMenuHeaderName {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.header__userMenuHeaderEmail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header__userMenuHeaderRole {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(255, 107, 53, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.header__userMenuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+
+.header__userMenuSection {
+  padding: 8px 0;
+}
+
+.header__userMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.header__userMenuItem:hover {
+  background: #f8fafc;
+}
+
+.header__userMenuItemIcon {
+  width: 20px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.header__userMenuItem--highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.header__userMenuItem--highlight:hover {
+  background: rgba(255, 107, 53, 0.08);
+}
+
+.header__userMenuItem--logout {
+  color: #dc2626;
+}
+
+.header__userMenuItem--logout:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
 /* Responsive - En mobile no desplazar header */
 @media (max-width: 1024px) {
   .app--withSidebar .app__header {

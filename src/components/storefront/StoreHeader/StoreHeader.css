@@ -17,12 +17,44 @@
   background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
 }
 
+.storeHeader__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.storeHeader__brandLogo {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+.storeHeader__brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .storeHeader__logo {
   font-size: 1.5rem;
   font-weight: 800;
   color: #fff;
   text-decoration: none;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  line-height: 1.2;
+}
+
+.storeHeader__slogan {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: rgba(255,255,255,0.8);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  font-style: italic;
+  letter-spacing: 0.02em;
 }
 
 .storeHeader__navLinks {
@@ -46,6 +78,35 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.storeHeader__statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  animation: pulse 2s infinite;
+}
+
+.storeHeader__statusBadge--open {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+}
+
+.storeHeader__statusBadge--closed {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .storeHeader__cartBtn {

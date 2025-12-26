@@ -1,0 +1,221 @@
+.storeClosedModal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.storeClosedModal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Header with gradient using CSS variables from theme */
+.storeClosedModal__header {
+  position: relative;
+  background: linear-gradient(135deg, var(--modal-primary, #1a1a2e) 0%, var(--modal-accent, #f59e0b) 100%);
+  padding: 32px 24px 28px;
+  text-align: center;
+  color: white;
+}
+
+.storeClosedModal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s;
+}
+
+.storeClosedModal__close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.storeClosedModal__icon {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.storeClosedModal__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.storeClosedModal__subtitle {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* Body */
+.storeClosedModal__body {
+  padding: 24px;
+}
+
+.storeClosedModal__message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fef3c7;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.storeClosedModal__message svg {
+  flex-shrink: 0;
+  color: #d97706;
+  margin-top: 2px;
+}
+
+.storeClosedModal__message p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.storeClosedModal__nextOpen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.storeClosedModal__nextOpenLabel {
+  font-size: 0.875rem;
+  color: #166534;
+}
+
+.storeClosedModal__nextOpenTime {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.storeClosedModal__schedule {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.storeClosedModal__scheduleTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+
+.storeClosedModal__scheduleList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storeClosedModal__scheduleItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.storeClosedModal__scheduleDays {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.storeClosedModal__scheduleHours {
+  font-size: 0.875rem;
+  color: var(--modal-accent, #f59e0b);
+  font-weight: 600;
+}
+
+.storeClosedModal__noSchedule {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+  padding: 16px;
+  margin: 0;
+}
+
+/* Footer */
+.storeClosedModal__footer {
+  padding: 0 24px 24px;
+}
+
+.storeClosedModal__button {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, var(--modal-primary, #1a1a2e) 0%, var(--modal-accent, #f59e0b) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.storeClosedModal__button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.2);
+}
+
+.storeClosedModal__button:active {
+  transform: translateY(0);
+}

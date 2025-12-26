@@ -55,6 +55,70 @@ export async function upsertProfile({ userId, role, tenantId }) {
   return data
 }
 
+// Update user profile personal info
+export async function updateProfileInfo({ userId, fullName, phoneCountryCode, phoneNumber, documentType, documentNumber, billingAddress }) {
+  ensureSupabase()
+  
+  // Try to update with all fields first
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      phone_country_code: phoneCountryCode,
+      phone_number: phoneNumber,
+      document_type: documentType,
+      document_number: documentNumber,
+      billing_address: billingAddress,
+    })
+    .eq('user_id', userId)
+    .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
+    .single()
+
+  // If error (columns don't exist), try with only basic fields
+  if (error && error.message?.includes('does not exist')) {
+    console.warn('updateProfileInfo: Some columns may not exist, updating only full_name', error.message)
+    const { data: basicData, error: basicError } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName })
+      .eq('user_id', userId)
+      .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
+      .single()
+    
+    if (basicError) throw basicError
+    return basicData
+  }
+  
+  if (error) throw error
+  return data
+}
+
+// Fetch profile with all fields (including optional new columns)
+export async function fetchFullProfile(userId) {
+  ensureSupabase()
+  
+  // First try with all fields
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  // If error (columns don't exist), fallback to basic fields
+  if (error) {
+    console.warn('fetchFullProfile: Some columns may not exist, using basic fields', error.message)
+    const { data: basicData, error: basicError } = await supabase
+      .from('profiles')
+      .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
+      .eq('user_id', userId)
+      .maybeSingle()
+    
+    if (basicError) throw basicError
+    return basicData
+  }
+  
+  return data
+}
+
 // -------------------------
 // Admin (super_admin)
 // -------------------------
@@ -211,7 +275,7 @@ export async function adminListTenants() {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at, logo, description, slogan')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -295,7 +359,7 @@ export async function listTenants() {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
@@ -307,7 +371,7 @@ export async function listPublicTenants() {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
     .eq('is_public', true)
     .order('created_at', { ascending: false })
 
@@ -319,7 +383,7 @@ export async function fetchTenantBySlug(slug) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
     .eq('slug', slug)
     .maybeSingle()
   if (error) throw error
@@ -374,7 +438,7 @@ export async function fetchTenantById(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
     .eq('id', tenantId)
     .maybeSingle()
 
@@ -388,11 +452,182 @@ export async function updateTenantVisibility({ tenantId, isPublic }) {
     .from('tenants')
     .update({ is_public: isPublic })
     .eq('id', tenantId)
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image')
     .single()
 
   if (error) throw error
   return data
+}
+
+// Update tenant branding and info
+// Note: columns logo, description, slogan may not exist - handle gracefully
+export async function updateTenantInfo({ tenantId, name, logo, description, slogan }) {
+  ensureSupabase()
+  
+  // First, try with all fields
+  const patch = {}
+  if (name !== undefined) patch.name = name
+  if (logo !== undefined) patch.logo = logo
+  if (description !== undefined) patch.description = description
+  if (slogan !== undefined) patch.slogan = slogan
+
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update(patch)
+      .eq('id', tenantId)
+      .select('id, name, slug, is_public, premium_until, subscription_tier')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    // If error mentions missing columns, try with only basic fields
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      console.warn('updateTenantInfo: Some columns may not exist, trying with basic fields only')
+      const basicPatch = {}
+      if (name !== undefined) basicPatch.name = name
+      
+      if (Object.keys(basicPatch).length === 0) {
+        // Nothing to update with basic fields
+        const { data } = await supabase
+          .from('tenants')
+          .select('id, name, slug, is_public, premium_until, subscription_tier')
+          .eq('id', tenantId)
+          .single()
+        return data
+      }
+      
+      const { data, error: err2 } = await supabase
+        .from('tenants')
+        .update(basicPatch)
+        .eq('id', tenantId)
+        .select('id, name, slug, is_public, premium_until, subscription_tier')
+        .single()
+
+      if (err2) throw err2
+      return data
+    }
+    throw err
+  }
+}
+
+// Update tenant welcome modal settings
+// Note: welcome_modal_* columns may not exist - handle gracefully
+export async function updateTenantWelcomeModal({ tenantId, enabled, title, message, image }) {
+  ensureSupabase()
+  const patch = {}
+  if (enabled !== undefined) patch.welcome_modal_enabled = enabled
+  if (title !== undefined) patch.welcome_modal_title = title
+  if (message !== undefined) patch.welcome_modal_message = message
+  if (image !== undefined) patch.welcome_modal_image = image
+
+  if (Object.keys(patch).length === 0) {
+    // Nothing to update
+    return fetchTenantFull(tenantId)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update(patch)
+      .eq('id', tenantId)
+      .select('id, name, slug, is_public, premium_until, subscription_tier')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      console.warn('updateTenantWelcomeModal: Welcome modal columns may not exist yet. Run migration.')
+      // Just return current tenant data
+      const { data } = await supabase
+        .from('tenants')
+        .select('id, name, slug, is_public, premium_until, subscription_tier')
+        .eq('id', tenantId)
+        .single()
+      return data
+    }
+    throw err
+  }
+}
+
+// Update tenant opening hours
+// Format: array of { day: string, open: string, close: string, enabled: boolean }
+export async function updateTenantOpeningHours({ tenantId, openingHours }) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update({ opening_hours: openingHours })
+      .eq('id', tenantId)
+      .select('id, name, slug, opening_hours')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      console.warn('updateTenantOpeningHours: opening_hours column may not exist yet. Run migration.')
+      return null
+    }
+    throw err
+  }
+}
+
+// Fetch tenant with all customization fields
+// Falls back gracefully if customization columns don't exist
+export async function fetchTenantFull(tenantId) {
+  ensureSupabase()
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, opening_hours, owner_user_id')
+      .eq('id', tenantId)
+      .single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      // Fall back to basic columns
+      const { data, error: err2 } = await supabase
+        .from('tenants')
+        .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id')
+        .eq('id', tenantId)
+        .single()
+      if (err2) throw err2
+      return data
+    }
+    throw err
+  }
+}
+
+// Fetch tenant by slug with all customization fields
+// Falls back gracefully if customization columns don't exist
+export async function fetchTenantBySlugFull(slug) {
+  ensureSupabase()
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, opening_hours')
+      .eq('slug', slug)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      // Fall back to basic columns
+      const { data, error: err2 } = await supabase
+        .from('tenants')
+        .select('id, name, slug, is_public, premium_until, subscription_tier')
+        .eq('slug', slug)
+        .maybeSingle()
+      if (err2) throw err2
+      return data
+    }
+    throw err
+  }
 }
 
 export async function fetchProductsByTenantId(tenantId) {

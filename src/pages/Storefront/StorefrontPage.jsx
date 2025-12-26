@@ -19,9 +19,12 @@ import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
 import { createPaidOrder } from '../../features/orders/ordersSlice'
 import Button from '../../components/ui/Button/Button'
 import Input from '../../components/ui/Input/Input'
+import WelcomeModal from '../../components/storefront/WelcomeModal/WelcomeModal'
+import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
 import { loadJson, saveJson } from '../../shared/storage'
-import { fetchDeliveryConfig } from '../../lib/supabaseApi'
+import { fetchDeliveryConfig, fetchTenantBySlugFull } from '../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
+import { checkIsStoreOpen } from '../../shared/openingHours'
 import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
@@ -64,6 +67,7 @@ import {
   FolderUp,
   ChevronRight,
   Settings,
+  Clock,
 } from 'lucide-react'
 
 export default function StorefrontPage() {
@@ -169,6 +173,11 @@ export default function StorefrontPage() {
 
   // Cart panel state
   const [showCart, setShowCart] = useState(false)
+
+  // Welcome modal state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [tenantFullData, setTenantFullData] = useState(null)
+  const welcomeModalShownKey = `welcomeModal.shown.${slug}`
   
   // Checkout page state - replaces the cards view
   const [isCheckingOut, setIsCheckingOut] = useState(false)
@@ -191,6 +200,40 @@ export default function StorefrontPage() {
     mesa: true,
   })
   const [loadingDeliveryConfig, setLoadingDeliveryConfig] = useState(true)
+
+  // Hero customization panel state - declared early for use in effects
+  const [showHeroPanel, setShowHeroPanel] = useState(false)
+  const [localHeroTheme, setLocalHeroTheme] = useState(null)
+  const [heroPreviewMode, setHeroPreviewMode] = useState(false)
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
+  const heroFileInputRef = useRef(null)
+  const heroPanelRef = useRef(null)
+  const cardPanelRef = useRef(null)
+
+  // Store open/closed status based on opening hours
+  const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true, nextOpen: null })
+  const [showClosedModal, setShowClosedModal] = useState(false)
+  
+  // Calculate if store is closed for blocking cart
+  const isStoreClosed = !storeStatus.isOpen && !storeStatus.noSchedule
+  
+  // Check store status periodically
+  useEffect(() => {
+    const checkStatus = () => {
+      const openingHours = tenantFullData?.opening_hours || []
+      const status = checkIsStoreOpen(openingHours)
+      console.log('[Store Status]', { 
+        openingHours, 
+        isOpen: status.isOpen, 
+        noSchedule: status.noSchedule,
+        nextOpen: status.nextOpen 
+      })
+      setStoreStatus(status)
+    }
+    checkStatus()
+    const interval = setInterval(checkStatus, 60000) // Check every minute
+    return () => clearInterval(interval)
+  }, [tenantFullData?.opening_hours])
 
   // Cargar deliveryConfig desde Supabase cuando cambia el tenantId
   useEffect(() => {
@@ -220,14 +263,68 @@ export default function StorefrontPage() {
     loadConfig()
   }, [tenantId, deliveryConfigKey])
 
-  // Hero customization panel state
-  const [showHeroPanel, setShowHeroPanel] = useState(false)
-  const [localHeroTheme, setLocalHeroTheme] = useState(null)
-  const [heroPreviewMode, setHeroPreviewMode] = useState(false)
-  const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
-  const heroFileInputRef = useRef(null)
-  const heroPanelRef = useRef(null)
-  const cardPanelRef = useRef(null)
+  // Load full tenant data for welcome modal
+  useEffect(() => {
+    const loadTenantFull = async () => {
+      if (!slug) return
+      try {
+        if (isSupabaseConfigured) {
+          const fullTenant = await fetchTenantBySlugFull(slug)
+          setTenantFullData(fullTenant)
+        } else {
+          // In mock mode, load from localStorage
+          const mockTenantKey = 'mock.tenantCustomization'
+          const mockData = loadJson(mockTenantKey, {})
+          if (tenantId && mockData[tenantId]) {
+            setTenantFullData({
+              ...tenant,
+              ...mockData[tenantId],
+              logo: mockData[tenantId].logo || tenant?.logo || '',
+              slogan: mockData[tenantId].slogan || tenant?.slogan || '',
+              description: mockData[tenantId].description || tenant?.description || '',
+              welcome_modal_enabled: mockData[tenantId].welcomeModalEnabled,
+              welcome_modal_title: mockData[tenantId].welcomeModalTitle,
+              welcome_modal_message: mockData[tenantId].welcomeModalMessage,
+              welcome_modal_image: mockData[tenantId].welcomeModalImage,
+              opening_hours: mockData[tenantId].openingHours || [],
+            })
+          } else if (tenant) {
+            setTenantFullData(tenant)
+          }
+        }
+      } catch (err) {
+        console.error('Error loading full tenant data:', err)
+        setTenantFullData(tenant)
+      }
+    }
+    loadTenantFull()
+  }, [slug, tenant, tenantId])
+
+  // Show welcome modal for non-logged users or preview mode
+  useEffect(() => {
+    if (!tenantFullData) return
+    
+    // Check if modal is enabled
+    const modalEnabled = tenantFullData.welcome_modal_enabled !== false
+    if (!modalEnabled) return
+    
+    // Check if already shown in this session
+    const alreadyShown = sessionStorage.getItem(welcomeModalShownKey)
+    if (alreadyShown && !heroPreviewMode) return
+    
+    // Show modal only for non-logged users or in preview mode
+    const shouldShow = !user || heroPreviewMode
+    if (shouldShow) {
+      // Small delay to let the page load
+      const timer = setTimeout(() => {
+        setShowWelcomeModal(true)
+        if (!heroPreviewMode) {
+          sessionStorage.setItem(welcomeModalShownKey, 'true')
+        }
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [tenantFullData, user, heroPreviewMode, welcomeModalShownKey])
 
   // Hero/carousel state (local for preview, or saved)
   const heroTheme = localHeroTheme || theme || {}
@@ -461,6 +558,12 @@ export default function StorefrontPage() {
 
   // Add item to cart (with extras support)
   const addItemToCart = ({ product, quantity, selectedExtras, extrasTotal, unitPrice, totalPrice, comment }) => {
+    // Block if store is closed
+    if (isStoreClosed) {
+      setShowClosedModal(true)
+      return
+    }
+    
     const cartItemId = `${product.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     setCart((c) => ({
       ...c,
@@ -480,6 +583,12 @@ export default function StorefrontPage() {
 
   // Simple add (no extras, for quick add or when no extras configured)
   const addOne = (productId) => {
+    // Block if store is closed
+    if (isStoreClosed) {
+      setShowClosedModal(true)
+      return
+    }
+    
     const product = visible.find((p) => p.id === productId)
     if (!product) return
     
@@ -708,6 +817,11 @@ export default function StorefrontPage() {
         <div className="store__previewBar">
           <span className="store__previewBarText"><Eye size={16} /> Vista previa — Así ven tu tienda los clientes</span>
           <div className="store__previewBarActions">
+            {tenantFullData?.welcome_modal_enabled !== false && (
+              <Button size="sm" variant="secondary" onClick={() => setShowWelcomeModal(true)}>
+                <PartyPopper size={14} /> Ver Bienvenida
+              </Button>
+            )}
             {hasAnyChanges && (
               <Button size="sm" variant="primary" onClick={saveAllChanges} disabled={savingTheme}>
                 {savingTheme ? <><Loader2 size={14} className="icon-spin" /> Guardando...</> : <><Save size={14} /> Guardar cambios</>}
@@ -724,7 +838,7 @@ export default function StorefrontPage() {
       
       {/* Store Header with Carousel */}
       <StoreHeader
-        tenant={tenant}
+        tenant={tenantFullData || tenant}
         theme={theme}
         heroStyle={heroStyle}
         slides={heroSlides}
@@ -732,6 +846,7 @@ export default function StorefrontPage() {
         overlayOpacity={heroOverlayOpacity}
         cart={cart}
         onOpenCart={() => setShowCart(true)}
+        openingHours={tenantFullData?.opening_hours || []}
       />
 
       <div className="store__layout" id="productos">
@@ -915,6 +1030,29 @@ export default function StorefrontPage() {
               )
             )}
           </div>
+
+          {/* Store Closed Banner */}
+          {isStoreClosed && (
+            <div className="store__closedBanner">
+              <div className="store__closedBannerContent">
+                <div className="store__closedBannerIcon">
+                  <Clock size={24} />
+                </div>
+                <div className="store__closedBannerText">
+                  <span className="store__closedBannerTitle">Estamos cerrados</span>
+                  {storeStatus.nextOpen && (
+                    <span className="store__closedBannerNext">Abrimos: {storeStatus.nextOpen}</span>
+                  )}
+                </div>
+                <button 
+                  className="store__closedBannerBtn"
+                  onClick={() => setShowClosedModal(true)}
+                >
+                  Ver horarios
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Hero Customization Panel */}
           {isAdmin && showHeroPanel && (
@@ -1320,6 +1458,7 @@ export default function StorefrontPage() {
                   hasExtras={extraGroups.length > 0 || (p.productExtras?.length > 0)}
                   hasProductExtras={p.productExtras?.length > 0}
                   isPremium={effectiveTier !== SUBSCRIPTION_TIERS.FREE}
+                  disabled={isStoreClosed && !isAdmin}
                 />
               )
             })}
@@ -1351,6 +1490,7 @@ export default function StorefrontPage() {
             total={cartTotal}
             onAdd={addOne}
             onRemove={removeOne}
+            storeStatus={storeStatus}
             onClear={() => {
               setPaid(false)
               setCart({})
@@ -1566,6 +1706,24 @@ export default function StorefrontPage() {
           </div>
         </div>
       )}
+
+      {/* Welcome Modal for non-logged users and preview mode */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        tenant={tenantFullData}
+        isPreviewMode={heroPreviewMode}
+      />
+
+      {/* Store Closed Modal with schedule */}
+      <StoreClosedModal
+        isOpen={showClosedModal}
+        onClose={() => setShowClosedModal(false)}
+        openingHours={tenantFullData?.opening_hours || []}
+        nextOpen={storeStatus.nextOpen}
+        theme={theme}
+        tenantName={tenant?.name}
+      />
     </div>
   )
 }
