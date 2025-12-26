@@ -8,6 +8,8 @@ import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { addTenant, createTenant, fetchTenants, selectTenants } from '../../../features/tenants/tenantsSlice'
 import { createId } from '../../../shared/ids'
 import { selectUser } from '../../../features/auth/authSlice'
+import { generateUniqueSlug } from '../../../lib/supabaseApi'
+import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 
 function slugify(value) {
   return value
@@ -40,8 +42,17 @@ export default function TenantsManager() {
             size="sm"
             onClick={async () => {
               const finalName = name.trim()
-              const finalSlug = (slug.trim() || suggestedSlug).trim()
+              let finalSlug = (slug.trim() || suggestedSlug).trim()
               if (!finalName || !finalSlug) return
+
+              // Si Supabase está configurado, verificar slug único
+              if (isSupabaseConfigured) {
+                try {
+                  finalSlug = await generateUniqueSlug(finalSlug)
+                } catch (err) {
+                  console.error('Error verificando slug:', err)
+                }
+              }
 
               const localTenant = {
                 id: createId('tenant'),
@@ -55,8 +66,8 @@ export default function TenantsManager() {
               // Supabase (si está configurado) crea también en DB
               try {
                 if (user?.id) await dispatch(createTenant({ name: finalName, slug: finalSlug, ownerUserId: user.id })).unwrap()
-              } catch {
-                // ignore (RLS / no config)
+              } catch (err) {
+                console.error('Error creando tenant:', err)
               }
 
               setName('')

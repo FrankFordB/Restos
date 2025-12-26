@@ -14,6 +14,9 @@ import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
 import { createPaidOrder } from '../../features/orders/ordersSlice'
 import Button from '../../components/ui/Button/Button'
 import Input from '../../components/ui/Input/Input'
+import { loadJson, saveJson } from '../../shared/storage'
+import { fetchDeliveryConfig } from '../../lib/supabaseApi'
+import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
@@ -22,6 +25,41 @@ import {
   isFeatureAvailable,
 } from '../../shared/subscriptions'
 import { uploadHeroImage } from '../../lib/supabaseStorage'
+import {
+  Wrench,
+  Eye,
+  EyeOff,
+  Pencil,
+  Plus,
+  Palette,
+  LayoutGrid,
+  Image,
+  Save,
+  Trash2,
+  X,
+  Lock,
+  Star,
+  Crown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Upload,
+  Loader2,
+  PartyPopper,
+  AlertTriangle,
+  ArrowRight,
+  Sparkles,
+  Grid3X3,
+  Rows3,
+  Layers,
+  Package,
+  Newspaper,
+  Camera,
+  Tag,
+  FolderUp,
+  ChevronRight,
+  Settings,
+} from 'lucide-react'
 
 export default function StorefrontPage() {
   const { slug } = useParams()
@@ -59,6 +97,56 @@ export default function StorefrontPage() {
 
   // Cart panel state
   const [showCart, setShowCart] = useState(false)
+  
+  // Checkout page state - replaces the cards view
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [checkoutData, setCheckoutData] = useState({
+    customerName: '',
+    customerPhone: '',
+    deliveryType: 'mostrador',
+    deliveryAddress: '',
+    deliveryNotes: '',
+    paymentMethod: 'efectivo',
+  })
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState(null)
+  
+  // Configuración de tipos de envío (cargada desde Supabase, con localStorage como cache)
+  const deliveryConfigKey = `deliveryConfig.${tenantId}`
+  const [deliveryConfig, setDeliveryConfig] = useState({
+    mostrador: true,
+    domicilio: true,
+    mesa: true,
+  })
+  const [loadingDeliveryConfig, setLoadingDeliveryConfig] = useState(true)
+
+  // Cargar deliveryConfig desde Supabase cuando cambia el tenantId
+  useEffect(() => {
+    const loadConfig = async () => {
+      if (!tenantId) return
+      setLoadingDeliveryConfig(true)
+      try {
+        if (isSupabaseConfigured) {
+          const config = await fetchDeliveryConfig(tenantId)
+          setDeliveryConfig(config)
+          // Guardar en localStorage como cache
+          saveJson(deliveryConfigKey, config)
+        } else {
+          // Fallback a localStorage si no hay Supabase
+          const cached = loadJson(deliveryConfigKey, { mostrador: true, domicilio: true, mesa: true })
+          setDeliveryConfig(cached)
+        }
+      } catch (err) {
+        console.error('Error loading delivery config:', err)
+        // Fallback a localStorage
+        const cached = loadJson(deliveryConfigKey, { mostrador: true, domicilio: true, mesa: true })
+        setDeliveryConfig(cached)
+      } finally {
+        setLoadingDeliveryConfig(false)
+      }
+    }
+    loadConfig()
+  }, [tenantId, deliveryConfigKey])
 
   // Hero customization panel state
   const [showHeroPanel, setShowHeroPanel] = useState(false)
@@ -66,6 +154,8 @@ export default function StorefrontPage() {
   const [heroPreviewMode, setHeroPreviewMode] = useState(false)
   const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
   const heroFileInputRef = useRef(null)
+  const heroPanelRef = useRef(null)
+  const cardPanelRef = useRef(null)
 
   // Hero/carousel state (local for preview, or saved)
   const heroTheme = localHeroTheme || theme || {}
@@ -77,7 +167,25 @@ export default function StorefrontPage() {
   const heroOverlayOpacity = heroTheme?.heroOverlayOpacity ?? 50
 
   // Get subscription tier from tenant (super_admin bypasses tier restrictions)
-  const subscriptionTier = tenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  // Check if premium is still active (not expired)
+  const subscriptionTier = (() => {
+    const tier = tenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
+    const premiumUntil = tenant?.premium_until
+    
+    if (tier !== SUBSCRIPTION_TIERS.FREE && premiumUntil) {
+      try {
+        const expiryDate = new Date(premiumUntil)
+        const now = new Date()
+        if (!isNaN(expiryDate.getTime()) && expiryDate > now) {
+          return tier
+        }
+      } catch (e) {
+        console.warn('Error calculando premium_until:', e)
+      }
+    }
+    return SUBSCRIPTION_TIERS.FREE
+  })()
+  
   const effectiveTier = isSuperAdmin ? SUBSCRIPTION_TIERS.PREMIUM_PRO : subscriptionTier
 
   // Hero limits by tier
@@ -195,6 +303,25 @@ export default function StorefrontPage() {
 
   const hasHeroChanges = localHeroTheme !== null
 
+  // Save all changes (hero + cards)
+  const saveAllChanges = async () => {
+    setSavingTheme(true)
+    try {
+      const mergedTheme = {
+        ...(theme || {}),
+        ...(localCardTheme || {}),
+        ...(localHeroTheme || {}),
+      }
+      await dispatch(saveTenantTheme({ tenantId, theme: mergedTheme }))
+      setLocalCardTheme(null)
+      setLocalHeroTheme(null)
+    } finally {
+      setSavingTheme(false)
+    }
+  }
+
+  const hasAnyChanges = hasCardChanges || hasHeroChanges
+
   const cartCount = useMemo(
     () => Object.values(cart).reduce((acc, n) => acc + (Number(n) || 0), 0),
     [cart],
@@ -202,11 +329,15 @@ export default function StorefrontPage() {
 
   const cartTotal = useMemo(() => {
     const map = new Map(visible.map((p) => [p.id, p]))
-    return Object.entries(cart).reduce((acc, [productId, qty]) => {
+    const total = Object.entries(cart).reduce((acc, [productId, qty]) => {
       const p = map.get(productId)
       if (!p) return acc
-      return acc + Number(p.price) * Number(qty)
+      const price = parseFloat(p.price) || 0
+      const quantity = parseInt(qty, 10) || 0
+      return acc + (price * quantity)
     }, 0)
+    // Redondear a 2 decimales para evitar overflow numérico
+    return Math.round(total * 100) / 100
   }, [cart, visible])
 
   const cartItems = useMemo(() => {
@@ -378,10 +509,17 @@ export default function StorefrontPage() {
       {/* Preview Mode Bar - appears at top when in preview */}
       {isAdmin && heroPreviewMode && (
         <div className="store__previewBar">
-          <span className="store__previewBarText">👁️ Vista previa — Así ven tu tienda los clientes</span>
-          <Button size="sm" onClick={() => setHeroPreviewMode(false)}>
-            ✏️ Salir de vista previa
-          </Button>
+          <span className="store__previewBarText"><Eye size={16} /> Vista previa — Así ven tu tienda los clientes</span>
+          <div className="store__previewBarActions">
+            {hasAnyChanges && (
+              <Button size="sm" variant="primary" onClick={saveAllChanges} disabled={savingTheme}>
+                {savingTheme ? <><Loader2 size={14} className="icon-spin" /> Guardando...</> : <><Save size={14} /> Guardar cambios</>}
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setHeroPreviewMode(false)}>
+              <EyeOff size={14} /> Salir de vista previa
+            </Button>
+          </div>
         </div>
       )}
 
@@ -403,16 +541,37 @@ export default function StorefrontPage() {
         <section className="store__products" aria-label="Productos">
           {isAdmin && (
             <div className="store__adminBar">
-              <span className="store__adminLabel">🔧 Modo administrador</span>
+              <span className="store__adminLabel"><Wrench size={14} /> Modo administrador</span>
               <div className="store__adminActions">
-                <Button size="sm" variant="secondary" onClick={() => setShowHeroPanel(!showHeroPanel)}>
-                  🖼️ Header / Carrusel
+                <Button 
+                  size="sm" 
+                  variant={heroPreviewMode ? 'primary' : 'secondary'}
+                  onClick={() => setHeroPreviewMode(!heroPreviewMode)}
+                >
+                  {heroPreviewMode ? <><Pencil size={14} /> Salir de vista previa</> : <><Eye size={14} /> Ver como cliente</>}
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setShowCardPanel(!showCardPanel)}>
-                  🎨 Personalizar Cards
+                <Button size="sm" variant="secondary" onClick={() => {
+                  const willShow = !showHeroPanel
+                  setShowHeroPanel(willShow)
+                  if (willShow) {
+                    setShowCardPanel(false)
+                    setTimeout(() => heroPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                  }
+                }}>
+                  <Image size={14} /> Header / Carrusel
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => {
+                  const willShow = !showCardPanel
+                  setShowCardPanel(willShow)
+                  if (willShow) {
+                    setShowHeroPanel(false)
+                    setTimeout(() => cardPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                  }
+                }}>
+                  <LayoutGrid size={14} /> Personalizar Cards
                 </Button>
                 <Button size="sm" onClick={openAddProduct}>
-                  ➕ Agregar producto
+                  <Plus size={14} /> Agregar producto
                 </Button>
               </div>
             </div>
@@ -420,30 +579,30 @@ export default function StorefrontPage() {
 
           {/* Hero Customization Panel */}
           {isAdmin && showHeroPanel && (
-            <div className="store__heroPanelWrapper">
-              {/* Preview Toggle Button - at the top */}
-              <div className="store__heroPreviewToggle">
-                <Button 
-                  size="sm" 
-                  variant={heroPreviewMode ? 'primary' : 'secondary'}
-                  onClick={() => setHeroPreviewMode(!heroPreviewMode)}
-                >
-                  {heroPreviewMode ? '✏️ Salir de vista previa' : '👁️ Ver como cliente'}
-                </Button>
-                {heroPreviewMode && (
-                  <span className="store__heroPreviewHint">↑ Mira arriba cómo se ve tu tienda</span>
-                )}
-              </div>
-
-              <div className="store__heroPanel">
-                <div className="store__heroPanelHeader">
-                  <h4>🖼️ Personalizar Header / Carrusel</h4>
+            <div className="store__heroPanelWrapper" ref={heroPanelRef}>
+              {/* Preview Toggle Button - at the top - hidden in preview mode */}
+              {!heroPreviewMode && (
+                <div className="store__heroPreviewToggle">
                   <button type="button" className="store__heroPanelClose" onClick={() => {
                     setShowHeroPanel(false)
                     setHeroPreviewMode(false)
-                  }}>✕</button>
+                  }}><X size={16} /></button>
+                  <span className="store__heroPreviewHint"><Eye size={14} /> Activa la vista previa para ver los cambios</span>
                 </div>
+              )}
 
+              {/* Floating button to exit preview mode */}
+              {heroPreviewMode && (
+                <div className="store__heroPreviewExit">
+                  <Button size="sm" onClick={() => setHeroPreviewMode(false)}>
+                    <Pencil size={14} /> Volver a editar
+                  </Button>
+                </div>
+              )}
+
+              {!heroPreviewMode && (
+              <div className="store__heroPanel">
+                
                 {/* Editing controls - hidden in preview mode */}
                 {!heroPreviewMode && (
                   <>
@@ -463,10 +622,11 @@ export default function StorefrontPage() {
                           disabled={!available}
                           title={available ? config.description : `Requiere ${TIER_LABELS[config.tier]}`}
                         >
+                          <span className="store__heroStyleIcon">{config.icon || ''}</span>
                           <span className="store__heroStyleLabel">{config.label}</span>
                           {!available && (
                             <span className="store__heroStyleTier">
-                              {config.tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                              {config.tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
                             </span>
                           )}
                         </button>
@@ -486,7 +646,7 @@ export default function StorefrontPage() {
                         className={`store__heroPositionBtn ${heroTitlePosition === pos ? 'store__heroPositionBtn--selected' : ''}`}
                         onClick={() => updateHeroTheme({ heroTitlePosition: pos })}
                       >
-                        {pos === 'left' ? '⬅️ Izquierda' : pos === 'center' ? '↔️ Centro' : '➡️ Derecha'}
+                        {pos === 'left' ? <><AlignLeft size={14} /> Izquierda</> : pos === 'center' ? <><AlignCenter size={14} /> Centro</> : <><AlignRight size={14} /> Derecha</>}
                       </button>
                     ))}
                   </div>
@@ -511,17 +671,17 @@ export default function StorefrontPage() {
                     <label className="store__heroSectionTitle">
                       Slides del Carrusel ({heroSlides.length}/{maxHeroSlides})
                       {effectiveTier === SUBSCRIPTION_TIERS.FREE && (
-                        <span className="store__heroTierNote"> - ⭐ Premium para imágenes</span>
+                        <span className="store__heroTierNote"> - <Star size={12} /> Premium para imágenes</span>
                       )}
                     </label>
                     {canAddMoreSlides ? (
                       <Button size="sm" variant="secondary" onClick={addHeroSlide}>
-                        + Añadir Slide
+                        <Plus size={14} /> Añadir Slide
                       </Button>
                     ) : (
                       <span className="store__heroLimitNote">
                         {effectiveTier === SUBSCRIPTION_TIERS.PREMIUM 
-                          ? '👑 Pro para más slides' 
+                          ? <><Crown size={12} /> Pro para más slides</> 
                           : 'Máximo alcanzado'}
                       </span>
                     )}
@@ -556,7 +716,7 @@ export default function StorefrontPage() {
                                 className="store__heroSlideInput"
                               />
                               <label className="store__heroUploadBtn">
-                                {uploadingHeroImage === index ? '⏳' : '📁'}
+                                {uploadingHeroImage === index ? <Loader2 size={16} className="icon-spin" /> : <FolderUp size={16} />}
                                 <input
                                   type="file"
                                   accept="image/*"
@@ -572,7 +732,7 @@ export default function StorefrontPage() {
                             </div>
                           ) : (
                             <div className="store__heroLockedField">
-                              🔒 Imagen de fondo disponible con ⭐ Premium
+                              <Lock size={14} /> Imagen de fondo disponible con <Star size={12} /> Premium
                             </div>
                           )}
                           <div className="store__heroSlideRow">
@@ -598,7 +758,7 @@ export default function StorefrontPage() {
                             className="store__heroSlideDelete"
                             onClick={() => deleteHeroSlide(index)}
                           >
-                            🗑️
+                            <Trash2 size={16} />
                           </button>
                         )}
                       </div>
@@ -611,7 +771,7 @@ export default function StorefrontPage() {
                 {/* Preview mode message */}
                 {heroPreviewMode && (
                   <div className="store__heroPreviewMessage">
-                    <p>🎉 ¡Perfecto! Así verán los clientes tu tienda</p>
+                    <p><PartyPopper size={16} /> ¡Perfecto! Así verán los clientes tu tienda</p>
                     <p className="muted">Los cambios se aplican en tiempo real</p>
                   </div>
                 )}
@@ -624,7 +784,7 @@ export default function StorefrontPage() {
                       Descartar
                     </Button>
                     <Button size="sm" onClick={saveHeroTheme} disabled={savingTheme || !hasHeroChanges}>
-                      {savingTheme ? 'Guardando...' : '💾 Guardar'}
+                      {savingTheme ? 'Guardando...' : <><Save size={14} /> Guardar</>}
                     </Button>
                   </div>
                 </div>
@@ -640,21 +800,22 @@ export default function StorefrontPage() {
                       setShowCardPanel(true)
                     }}
                   >
-                    🎨 Ir a personalizar Cards
+                    <Palette size={14} /> Ir a personalizar Cards
                   </Button>
                 </div>
               </div>
+              )}
             </div>
           )}
 
           {/* Card Customization Panel */}
           {isAdmin && showCardPanel && (
-            <div className="store__cardPanelWrapper">
+            <div className="store__cardPanelWrapper" ref={cardPanelRef}>
               {/* Panel de controles */}
               <div className="store__cardPanel">
                 <div className="store__cardPanelHeader">
-                  <h4>🃏 Personalizar Cards</h4>
-                  <button type="button" className="store__cardPanelClose" onClick={() => setShowCardPanel(false)}>✕</button>
+                  <h4><LayoutGrid size={16} /> Personalizar Cards</h4>
+                  <button type="button" className="store__cardPanelClose" onClick={() => setShowCardPanel(false)}><X size={16} /></button>
                 </div>
 
                 {/* Layout Selector */}
@@ -675,19 +836,19 @@ export default function StorefrontPage() {
                           title={config.description}
                         >
                           <span className="store__layoutIcon">
-                            {layoutId === 'classic' && '📐'}
-                            {layoutId === 'horizontal' && '↔️'}
-                            {layoutId === 'overlay' && '🖼️'}
-                            {layoutId === 'compact' && '📦'}
-                            {layoutId === 'magazine' && '📰'}
-                            {layoutId === 'minimal' && '✨'}
-                            {layoutId === 'polaroid' && '📸'}
-                            {layoutId === 'banner' && '🏷️'}
+                            {layoutId === 'classic' && <Grid3X3 size={18} />}
+                            {layoutId === 'horizontal' && <Rows3 size={18} />}
+                            {layoutId === 'overlay' && <Layers size={18} />}
+                            {layoutId === 'compact' && <Package size={18} />}
+                            {layoutId === 'magazine' && <Newspaper size={18} />}
+                            {layoutId === 'minimal' && <Sparkles size={18} />}
+                            {layoutId === 'polaroid' && <Camera size={18} />}
+                            {layoutId === 'banner' && <Tag size={18} />}
                           </span>
                           <span className="store__layoutName">{config.label}</span>
-                          {!available && <span className="store__layoutLock">🔒</span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM && <span className="store__tierBadge premium">⭐</span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO && <span className="store__tierBadge pro">👑</span>}
+                          {!available && <span className="store__layoutLock"><Lock size={12} /></span>}
+                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM && <span className="store__tierBadge premium"><Star size={10} /></span>}
+                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO && <span className="store__tierBadge pro"><Crown size={10} /></span>}
                         </button>
                       )
                     })}
@@ -762,7 +923,7 @@ export default function StorefrontPage() {
               {/* Vista previa en vivo */}
               <div className="store__cardPreview">
                 <div className="store__cardPreviewHeader">
-                  <h4>👁️ Vista Previa</h4>
+                  <h4><Eye size={16} /> Vista Previa</h4>
                   {hasCardChanges && <span className="store__previewBadge">Sin guardar</span>}
                 </div>
                 <div className="store__cardPreviewContent">
@@ -809,79 +970,98 @@ export default function StorefrontPage() {
                 onClick={openAddProduct}
                 type="button"
               >
-                <span className="store__addIcon">➕</span>
+                <span className="store__addIcon"><Plus size={24} /></span>
                 <span className="store__addText">Agregar producto</span>
               </button>
             )}
           </div>
         </section>
 
-        <CartPanel
-          items={cartItems}
-          total={cartTotal}
-          onAdd={addOne}
-          onRemove={removeOne}
-          onClear={() => {
-            setPaid(false)
-            setCart({})
-          }}
-          onCheckout={() => checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        />
+        {!isCheckingOut && (
+          <CartPanel
+            items={cartItems}
+            total={cartTotal}
+            onAdd={addOne}
+            onRemove={removeOne}
+            onClear={() => {
+              setPaid(false)
+              setCart({})
+            }}
+            onCheckout={() => {
+              setIsCheckingOut(true)
+              setCheckoutError(null)
+              checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          />
+        )}
       </div>
 
       {visible.length === 0 ? <p className="muted">No hay productos activos.</p> : null}
 
-      <section className="checkout" ref={checkoutRef} aria-label="Checkout">
-        <h2 className="checkout__title">Pagar</h2>
-        <p className="muted">Esto es una simulación (sin pasarela de pago). Sirve para probar el flujo.</p>
+      {/* Checkout Page - Single Page Checkout */}
+      {isCheckingOut && (
+        <CheckoutPage
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          tenantId={tenantId}
+          orderItemsPayload={orderItemsPayload}
+          checkoutData={checkoutData}
+          setCheckoutData={setCheckoutData}
+          checkoutLoading={checkoutLoading}
+          checkoutError={checkoutError}
+          deliveryConfig={deliveryConfig}
+          onBack={() => {
+            setIsCheckingOut(false)
+            setCheckoutError(null)
+            // No borrar los datos - el usuario puede continuar luego
+          }}
+          onSuccess={(orderId) => {
+            setPaid(true)
+            setLastOrderId(orderId)
+            setCart({})
+            // Solo borrar datos cuando se confirma exitosamente
+            setCheckoutData({ customerName: '', customerPhone: '', deliveryType: 'mostrador', deliveryAddress: '', deliveryNotes: '', paymentMethod: 'efectivo' })
+            setIsCheckingOut(false)
+          }}
+          dispatch={dispatch}
+          setCheckoutLoading={setCheckoutLoading}
+          setCheckoutError={setCheckoutError}
+        />
+      )}
 
-        <div className="checkout__box">
-          <div className="checkout__row">
-            <span>Items</span>
-            <strong>{cartCount}</strong>
-          </div>
-          <div className="checkout__row">
-            <span>Total</span>
-            <strong>${cartTotal.toFixed(2)}</strong>
-          </div>
+      {/* Cart Checkout View - Only when NOT checking out */}
+      {!isCheckingOut && (
+        <section className="checkout" ref={checkoutRef} aria-label="Checkout">
+          <h2 className="checkout__title">Pagar</h2>
+          <p className="muted">Ingresa tus datos para procesar el pedido.</p>
 
-          <button
-            className="checkout__payBtn"
-            type="button"
-            disabled={cartCount === 0}
-            onClick={async () => {
-              if (cartCount === 0) return
-              setPaid(false)
-              setLastOrderId(null)
-
-              try {
-                const res = await dispatch(
-                  createPaidOrder({
-                    tenantId,
-                    items: orderItemsPayload,
-                    total: cartTotal,
-                    customer: null,
-                  }),
-                ).unwrap()
-
-                setPaid(true)
-                setLastOrderId(res?.order?.id || null)
-                setCart({})
-              } catch {
-                // fallback: keep cart
-              }
-            }}
-          >
-            Pagar
-          </button>
-
-          {paid ? (
-            <div className="checkout__success">
-              Pago registrado. Pedido creado{lastOrderId ? `: ${lastOrderId}` : ''}.
+          <div className="checkout__box">
+            <div className="checkout__row">
+              <span>Items</span>
+              <strong>{cartCount}</strong>
             </div>
-          ) : null}
-        </div>
-      </section>
+            <div className="checkout__row">
+              <span>Total</span>
+              <strong>${cartTotal.toFixed(2)}</strong>
+            </div>
+
+            <button
+              className="checkout__payBtn"
+              type="button"
+              disabled={cartCount === 0}
+              onClick={() => setIsCheckingOut(true)}
+            >
+              Procesar Pedido
+            </button>
+
+            {paid ? (
+              <div className="checkout__success">
+                ✓ Pedido creado exitosamente{lastOrderId ? `: ${lastOrderId}` : ''}.
+              </div>
+            ) : null}
+          </div>
+        </section>
+      )}
 
       {/* Product Modal */}
       {showProductModal && (
@@ -953,9 +1133,295 @@ export default function StorefrontPage() {
       {/* Delete confirmation toast */}
       {deleteConfirm && (
         <div className="store__deleteToast">
-          ⚠️ Haz clic de nuevo para confirmar la eliminación
+          <AlertTriangle size={16} /> Haz clic de nuevo para confirmar la eliminación
         </div>
       )}
     </div>
   )
 }
+
+// Modal de checkout con datos del cliente
+function CheckoutPage({ 
+  cartItems, 
+  cartTotal, 
+  tenantId, 
+  orderItemsPayload, 
+  checkoutData, 
+  setCheckoutData,
+  checkoutLoading,
+  checkoutError,
+  deliveryConfig,
+  onBack,
+  onSuccess,
+  dispatch,
+  setCheckoutLoading,
+  setCheckoutError,
+}) {
+  // Validación de datos completados
+  const isNameValid = checkoutData.customerName.trim().length > 0
+  const isPhoneValid = checkoutData.customerPhone.trim().length > 0
+  const isAddressValid = checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress.trim().length > 0 : true
+  
+  // Validar que el tipo de entrega seleccionado esté habilitado
+  const isDeliveryTypeEnabled = deliveryConfig ? deliveryConfig[checkoutData.deliveryType] !== false : true
+  
+  // Si el tipo de entrega actual está deshabilitado, buscar uno habilitado
+  if (!isDeliveryTypeEnabled) {
+    const enabledTypes = ['mostrador', 'domicilio', 'mesa'].filter(type => !deliveryConfig || deliveryConfig[type] !== false)
+    if (enabledTypes.length > 0 && enabledTypes[0] !== checkoutData.deliveryType) {
+      setCheckoutData({ ...checkoutData, deliveryType: enabledTypes[0] })
+    }
+  }
+  
+  const isAllDataValid = isNameValid && isPhoneValid && isAddressValid && isDeliveryTypeEnabled
+  
+  // Boton procesar pago habilitado solo si todos los datos están válidos
+  const canProcessPayment = isAllDataValid && !checkoutLoading
+
+  const handleProcessPayment = async () => {
+    if (!canProcessPayment) return
+
+    // Verificar una vez más que el tipo de entrega esté habilitado
+    if (!isDeliveryTypeEnabled) {
+      setCheckoutError('El tipo de entrega seleccionado no está disponible. Por favor selecciona otro.')
+      return
+    }
+
+    setCheckoutLoading(true)
+    setCheckoutError(null)
+
+    try {
+      const res = await dispatch(
+        createPaidOrder({
+          tenantId,
+          items: orderItemsPayload,
+          total: Math.round(cartTotal * 100) / 100,
+          customer: {
+            name: checkoutData.customerName,
+            phone: checkoutData.customerPhone,
+          },
+          deliveryType: checkoutData.deliveryType,
+          deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
+          deliveryNotes: checkoutData.deliveryNotes,
+          paymentMethod: checkoutData.paymentMethod,
+        }),
+      ).unwrap()
+
+      onSuccess(res?.order?.id || null)
+    } catch (e) {
+      setCheckoutError(e?.message || 'Error al procesar el pedido')
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
+  const deliveryTypes = [
+    { key: 'mostrador', label: 'Retira en Mostrador', icon: '🍴' },
+    { key: 'domicilio', label: 'A Domicilio', icon: '🚚' },
+    { key: 'mesa', label: 'Para Comer en Mesa', icon: '🏠' },
+  ]
+
+  const paymentMethods = [
+    { key: 'efectivo', label: 'Efectivo', icon: '💵' },
+    { key: 'tarjeta', label: 'Tarjeta', icon: '💳' },
+    { key: 'qr', label: 'QR (Mercado Pago)', icon: '📱' },
+  ]
+
+  return (
+    <section className="checkoutPage" aria-label="Procesar Pedido">
+      {/* Header */}
+      <div className="checkoutPage__header">
+        <button 
+          className="checkoutPage__backBtn"
+          onClick={onBack}
+          disabled={checkoutLoading}
+          title="Volver al carrito"
+        >
+          ← Volver
+        </button>
+        <h2 className="checkoutPage__title">Procesar Pedido</h2>
+        <div className="checkoutPage__spacer"></div>
+      </div>
+
+      {/* Main Content */}
+      <div className="checkoutPage__container">
+        {/* Left: Form */}
+        <div className="checkoutPage__form">
+          {/* Resumen del Carrito */}
+          <div className="checkoutPage__summary">
+            <h3>Resumen del Pedido</h3>
+            <div className="checkoutPage__summaryBox">
+              <div className="checkoutPage__summaryRow">
+                <span>Items:</span>
+                <strong>{cartItems?.length || 0}</strong>
+              </div>
+              <div className="checkoutPage__summaryRow">
+                <span>Total:</span>
+                <strong className="checkoutPage__totalPrice">${cartTotal.toFixed(2)}</strong>
+              </div>
+            </div>
+
+            {/* Detalle de items */}
+            <div className="checkoutPage__items">
+              {cartItems?.map((item) => (
+                <div key={item.product?.id} className="checkoutPage__item">
+                  <span className="checkoutPage__itemName">{item.product?.name}</span>
+                  <span className="checkoutPage__itemQty">x{item.qty}</span>
+                  <span className="checkoutPage__itemPrice">${item.lineTotal?.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Datos del Cliente */}
+          <div className="checkoutPage__section">
+            <h4 className="checkoutPage__sectionTitle">Datos del Cliente</h4>
+            
+            <div className="checkoutPage__field">
+              <label className="checkoutPage__label">Nombre *</label>
+              <input
+                type="text"
+                value={checkoutData.customerName}
+                onChange={(e) => setCheckoutData({ ...checkoutData, customerName: e.target.value })}
+                placeholder="Nombre completo"
+                className={`checkoutPage__input ${isNameValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
+                disabled={checkoutLoading}
+              />
+              {isNameValid && <span className="checkoutPage__fieldOk">✓</span>}
+            </div>
+
+            <div className="checkoutPage__field">
+              <label className="checkoutPage__label">Teléfono *</label>
+              <input
+                type="tel"
+                value={checkoutData.customerPhone}
+                onChange={(e) => setCheckoutData({ ...checkoutData, customerPhone: e.target.value })}
+                placeholder="+54 9 11 2000-0000"
+                className={`checkoutPage__input ${isPhoneValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
+                disabled={checkoutLoading}
+              />
+              {isPhoneValid && <span className="checkoutPage__fieldOk">✓</span>}
+            </div>
+          </div>
+
+          {/* Tipo de Entrega */}
+          <div className="checkoutPage__section">
+            <h4 className="checkoutPage__sectionTitle">Tipo de Entrega</h4>
+            <div className="checkoutPage__deliveryTypes">
+              {deliveryTypes.map((type) => {
+                const isEnabled = deliveryConfig ? deliveryConfig[type.key] !== false : true
+                return (
+                  <button
+                    key={type.key}
+                    className={`checkoutPage__deliveryType ${checkoutData.deliveryType === type.key ? 'checkoutPage__deliveryType--active' : ''} ${!isEnabled ? 'checkoutPage__deliveryType--disabled' : ''}`}
+                    onClick={() => setCheckoutData({ ...checkoutData, deliveryType: type.key })}
+                    disabled={checkoutLoading || !isEnabled}
+                    title={!isEnabled ? `${type.label} está deshabilitado en el dashboard` : ''}
+                  >
+                    <span>{type.icon}</span>
+                    <span>{type.label}</span>
+                    {!isEnabled && <span className="checkoutPage__disabledBadge">No disponible</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Dirección si es Domicilio */}
+          {checkoutData.deliveryType === 'domicilio' && (
+            <div className="checkoutPage__section">
+              <div className="checkoutPage__field">
+                <label className="checkoutPage__label">Dirección de Entrega *</label>
+                <input
+                  type="text"
+                  value={checkoutData.deliveryAddress}
+                  onChange={(e) => setCheckoutData({ ...checkoutData, deliveryAddress: e.target.value })}
+                  placeholder="Calle, número, apartamento"
+                  className={`checkoutPage__input ${isAddressValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
+                  disabled={checkoutLoading}
+                />
+                {isAddressValid && <span className="checkoutPage__fieldOk">✓</span>}
+              </div>
+
+              <div className="checkoutPage__field">
+                <label className="checkoutPage__label">Notas (opcional)</label>
+                <textarea
+                  value={checkoutData.deliveryNotes}
+                  onChange={(e) => setCheckoutData({ ...checkoutData, deliveryNotes: e.target.value })}
+                  placeholder="Timbre roto, portón naranja, etc."
+                  className="checkoutPage__textarea"
+                  disabled={checkoutLoading}
+                  rows="3"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Forma de Pago */}
+          <div className="checkoutPage__section">
+            <h4 className="checkoutPage__sectionTitle">Forma de Pago</h4>
+            <div className="checkoutPage__paymentMethods">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method.key}
+                  className={`checkoutPage__paymentMethod ${checkoutData.paymentMethod === method.key ? 'checkoutPage__paymentMethod--active' : ''}`}
+                  onClick={() => setCheckoutData({ ...checkoutData, paymentMethod: method.key })}
+                  disabled={checkoutLoading}
+                >
+                  <span>{method.icon}</span>
+                  <span>{method.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Error */}
+          {checkoutError && (
+            <div className="checkoutPage__error">
+              ⚠️ {checkoutError}
+            </div>
+          )}
+
+          {/* Validación de campos */}
+          {!isAllDataValid && (
+            <div className="checkoutPage__validation">
+              <p className="checkoutPage__validationText">
+                Completa todos los campos requeridos (*) para procesar el pago
+              </p>
+              {!isNameValid && <div className="checkoutPage__validationItem">• Nombre del cliente</div>}
+              {!isPhoneValid && <div className="checkoutPage__validationItem">• Teléfono del cliente</div>}
+              {!isAddressValid && <div className="checkoutPage__validationItem">• Dirección de entrega</div>}
+              {!isDeliveryTypeEnabled && <div className="checkoutPage__validationItem">• Tipo de entrega (está deshabilitado en el dashboard)</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Sticky Action Buttons */}
+        <div className="checkoutPage__actions">
+          <button
+            className="checkoutPage__btnBack"
+            onClick={onBack}
+            disabled={checkoutLoading}
+          >
+            ← Volver al Carrito
+          </button>
+
+          <button
+            className={`checkoutPage__btnProcess ${canProcessPayment ? 'checkoutPage__btnProcess--enabled' : 'checkoutPage__btnProcess--disabled'}`}
+            onClick={handleProcessPayment}
+            disabled={!canProcessPayment}
+          >
+            {checkoutLoading ? (
+              <>⏳ Procesando...</>
+            ) : canProcessPayment ? (
+              <>✓ Procesar Pago</>
+            ) : (
+              <>Completa los datos (deshabilitado)</>
+            )}
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+

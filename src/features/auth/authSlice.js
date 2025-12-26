@@ -10,6 +10,7 @@ import {
   fetchTenantByOwnerUserId,
   upsertProfile,
   supabaseResetPasswordForEmail,
+  generateUniqueSlug,
 } from '../../lib/supabaseApi'
 import { ROLES } from '../../shared/constants'
 
@@ -129,17 +130,23 @@ export const registerWithEmail = createAsyncThunk(
     // Puede crear su restaurante, pero no tiene permisos admin hasta que el super_admin lo promueva.
     let createdTenant = null
     try {
+      // Generar slug base y asegurar que sea único
+      const baseSlug = tenantName
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+      
+      const uniqueSlug = await generateUniqueSlug(baseSlug)
+      
       createdTenant = await sbCreateTenant({
         name: tenantName.trim(),
-        slug: tenantName
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, ''),
+        slug: uniqueSlug,
         ownerUserId: authed.id,
       })
-    } catch {
+    } catch (err) {
       // Si RLS bloquea creación para rol user, igual dejamos creado el user.
+      console.error('Error creando tenant:', err)
       createdTenant = null
     }
 
@@ -201,6 +208,13 @@ const authSlice = createSlice({
       const tenantId = action.payload || null
       if (state.user) {
         state.user = { ...state.user, tenantId }
+        persist(state)
+      }
+    },
+    setUserRole(state, action) {
+      const role = action.payload || null
+      if (state.user) {
+        state.user = { ...state.user, role }
         persist(state)
       }
     },
@@ -291,6 +305,7 @@ export const {
   signOut,
   setMode,
   setTenantId,
+  setUserRole,
   setAdminManagedTenantId,
   clearBannedInfo,
   clearWelcomeInfo,

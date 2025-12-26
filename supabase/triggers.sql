@@ -9,13 +9,24 @@
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (user_id, role, tenant_id, account_status, premium_until, premium_source)
-  values (new.id, 'tenant_admin', null, 'active', null, null)
-  on conflict (user_id) do nothing;
+  insert into public.profiles (user_id, email, role, tenant_id, account_status, premium_until, premium_source)
+  values (new.id, new.email, 'tenant_admin', null, 'active', null, null)
+  on conflict (user_id) do update
+    set email = excluded.email;
 
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
+
+-- Asignar owner a postgres para bypasear RLS
+do $$
+begin
+  alter function public.handle_new_user() owner to postgres;
+exception
+  when insufficient_privilege then
+    raise notice 'No se pudo cambiar owner a postgres. Ejecuta como supabase_admin.';
+end;
+$$;
 
 -- Recrea trigger de forma segura (idempotente)
 drop trigger if exists on_auth_user_created on auth.users;

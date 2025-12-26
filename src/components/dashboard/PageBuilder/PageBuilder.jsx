@@ -103,15 +103,15 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
     <div className="pageBuilder">
       <div className="pageBuilder__header">
         <h3 className="pageBuilder__title">
-          🎨 Constructor de Página
+           Constructor de Página
           {renderTierBadge(subscriptionTier)}
         </h3>
         <div className="pageBuilder__actions">
           <Button variant="secondary" size="sm">
-            👁️ Vista previa
+             Vista previa
           </Button>
           <Button size="sm">
-            💾 Publicar
+             Publicar
           </Button>
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
             <>
               <div className="pageBuilder__section">
                 <div className="pageBuilder__sectionHeader">
-                  📦 Widgets Disponibles
+                   Widgets Disponibles
                 </div>
                 <div className="pageBuilder__sectionBody">
                   {allWidgets.map(([type, config]) => {
@@ -175,7 +175,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
 
               {subscriptionTier === SUBSCRIPTION_TIERS.FREE && (
                 <div className="upgradePrompt">
-                  <div className="upgradePrompt__icon">🚀</div>
+                  <div className="upgradePrompt__icon"></div>
                   <h4 className="upgradePrompt__title">Desbloquea más widgets</h4>
                   <p className="upgradePrompt__text">
                     Accede a carruseles, galerías, testimonios y más.

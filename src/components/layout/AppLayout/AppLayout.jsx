@@ -25,6 +25,9 @@ export default function AppLayout() {
   const isLoggedIn = auth.status === 'authenticated' && user
   const showGlobalHeader = isLoggedIn || !isStorePage
 
+  // Detect if we're in a dashboard page with sidebar
+  const isDashboardPage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/admin')
+
   const bannedMessage = (() => {
     if (bannedInfo?.message) return bannedInfo.message
     if (accountCancelled) return 'Tu cuenta está baneada por no respetar nuestros términos y condiciones.'
@@ -34,7 +37,7 @@ export default function AppLayout() {
   const bannedEmail = bannedInfo?.email || user?.email || null
 
   return (
-    <div className="app">
+    <div className={`app ${isDashboardPage ? 'app--withSidebar' : ''}`}>
       <ConfirmModal
         open={showBannedModal}
         title="Cuenta baneada"

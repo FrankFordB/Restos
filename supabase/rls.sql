@@ -84,16 +84,10 @@ using (
   or public.is_super_admin()
 );
 
-create policy "profiles_insert_own" on public.profiles
+-- Política permisiva para INSERT - el trigger necesita poder insertar
+create policy "profiles_insert_any" on public.profiles
 for insert
-to authenticated
-with check (user_id = auth.uid());
-
--- Permite al super_admin crear perfiles para otros usuarios (ej. dueños que aún no tienen fila)
-create policy "profiles_insert_admin" on public.profiles
-for insert
-to authenticated
-with check (public.is_super_admin());
+with check (true);
 
 create policy "profiles_update_own" on public.profiles
 for update

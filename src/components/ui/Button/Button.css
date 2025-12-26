@@ -87,3 +87,17 @@
   padding: 16px 28px;
   font-size: 1.05rem;
 }
+.btn--whatsapp {
+  background: linear-gradient(135deg, #25d366 0%, #20ba5f 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.25);
+}
+
+.btn--whatsapp:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.35);
+}
+
+.btn--whatsapp:active:not(:disabled) {
+  transform: translateY(0);
+}

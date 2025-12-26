@@ -9,7 +9,7 @@ import { selectTenants } from '../../../features/tenants/tenantsSlice'
 import { ROLES } from '../../../shared/constants'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/subscriptions'
 
-export default function Header() {
+export default function Header({ sidebarCollapsed = false }) {
   const user = useAppSelector(selectUser)
   const tenants = useAppSelector(selectTenants)
   const dispatch = useAppDispatch()
@@ -23,14 +23,29 @@ export default function Header() {
 
   // Obtener el tier actual del tenant del usuario
   const currentTenant = user?.tenantId ? tenants.find((t) => t.id === user.tenantId) : null
-  const currentTier = currentTenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
-  const isPremiumUser = currentTier !== SUBSCRIPTION_TIERS.FREE && 
-    currentTenant?.premium_until && 
-    new Date(currentTenant.premium_until) > new Date()
+  const currentTier = (() => {
+    const tier = currentTenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
+    const premiumUntil = currentTenant?.premium_until
+    
+    if (tier !== SUBSCRIPTION_TIERS.FREE && premiumUntil) {
+      try {
+        const expiryDate = new Date(premiumUntil)
+        const now = new Date()
+        if (!isNaN(expiryDate.getTime()) && expiryDate > now) {
+          return tier
+        }
+      } catch (e) {
+        console.warn('Error calculando premium_until:', e)
+      }
+    }
+    return SUBSCRIPTION_TIERS.FREE
+  })()
+  
+  const isPremiumUser = currentTier !== SUBSCRIPTION_TIERS.FREE
 
   return (
     <>
-      <header className="header">
+      <header className={`header app__header ${sidebarCollapsed ? 'header--sidebarCollapsed' : ''}`}>
         <div className="container header__inner">
           <Link className="header__brand" to="/">
             Resto Proyect

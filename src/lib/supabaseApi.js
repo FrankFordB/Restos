@@ -326,6 +326,36 @@ export async function fetchTenantBySlug(slug) {
   return data
 }
 
+// Verifica si un slug ya existe en la base de datos
+export async function checkSlugExists(slug) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (error) throw error
+  return !!data
+}
+
+// Genera un slug único agregando un sufijo numérico si es necesario
+export async function generateUniqueSlug(baseSlug) {
+  let slug = baseSlug
+  let counter = 1
+  
+  while (await checkSlugExists(slug)) {
+    slug = `${baseSlug}-${counter}`
+    counter++
+    // Seguridad: evitar loop infinito
+    if (counter > 100) {
+      slug = `${baseSlug}-${Date.now()}`
+      break
+    }
+  }
+  
+  return slug
+}
+
 export async function fetchTenantByOwnerUserId(ownerUserId) {
   ensureSupabase()
   const { data, error } = await supabase
@@ -461,4 +491,33 @@ export async function upsertTheme({ tenantId, theme }) {
 
   if (error) throw error
   return data
+}
+
+// -------------------------
+// Delivery Config
+// -------------------------
+
+export async function fetchDeliveryConfig(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('delivery_config')
+    .eq('id', tenantId)
+    .single()
+
+  if (error) throw error
+  return data?.delivery_config || { mostrador: true, domicilio: true, mesa: true }
+}
+
+export async function updateDeliveryConfig(tenantId, deliveryConfig) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .update({ delivery_config: deliveryConfig })
+    .eq('id', tenantId)
+    .select('delivery_config')
+    .single()
+
+  if (error) throw error
+  return data?.delivery_config
 }

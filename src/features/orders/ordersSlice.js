@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { createOrderWithItems, listOrdersByTenantId } from '../../lib/supabaseOrdersApi'
+import { createOrderWithItems, listOrdersByTenantId, updateOrderStatus, deleteOrder as deleteOrderApi } from '../../lib/supabaseOrdersApi'
 
 const PERSIST_KEY = 'state.orders'
 
@@ -22,26 +22,54 @@ export const fetchOrdersForTenant = createAsyncThunk('orders/fetchOrdersForTenan
 
 export const createPaidOrder = createAsyncThunk(
   'orders/createPaidOrder',
-  async ({ tenantId, items, total, customer }) => {
+  async ({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }) => {
     if (!isSupabaseConfigured) {
       return {
         tenantId,
         order: {
           id: createId('order'),
           tenantId,
-          status: 'paid',
+          status: 'pending',
           total,
           currency: 'USD',
-          createdAt: new Date().toISOString(),
-          customerName: customer?.name || null,
-          customerPhone: customer?.phone || null,
+          created_at: new Date().toISOString(),
+          customer_name: customer?.name || null,
+          customer_phone: customer?.phone || null,
+          delivery_type: deliveryType || 'mostrador',
+          delivery_address: deliveryAddress || null,
+          delivery_notes: deliveryNotes || null,
+          payment_method: paymentMethod || 'efectivo',
           items,
         },
       }
     }
 
-    const created = await createOrderWithItems({ tenantId, items, total, customer })
+    const created = await createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod })
     return { tenantId, order: created }
+  },
+)
+
+export const updateOrder = createAsyncThunk(
+  'orders/updateOrder',
+  async ({ tenantId, orderId, newStatus }) => {
+    if (!isSupabaseConfigured) {
+      return { tenantId, orderId, newStatus, isLocal: true }
+    }
+
+    const updated = await updateOrderStatus(orderId, newStatus)
+    return { tenantId, order: updated }
+  },
+)
+
+export const deleteOrder = createAsyncThunk(
+  'orders/deleteOrder',
+  async ({ tenantId, orderId }) => {
+    if (!isSupabaseConfigured) {
+      return { tenantId, orderId, isLocal: true }
+    }
+
+    await deleteOrderApi(orderId)
+    return { tenantId, orderId }
   },
 )
 
@@ -64,6 +92,37 @@ const ordersSlice = createSlice({
         if (!tenantId || !order) return
         if (!state.ordersByTenantId[tenantId]) state.ordersByTenantId[tenantId] = []
         state.ordersByTenantId[tenantId].unshift(order)
+        persist(state)
+      })
+      .addCase(updateOrder.fulfilled, (state, action) => {
+        const { tenantId, order, orderId, newStatus, isLocal } = action.payload
+        if (!tenantId) return
+        if (!state.ordersByTenantId[tenantId]) return
+        
+        if (isLocal) {
+          // Modo local: solo actualizar el status manteniendo los demás datos
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === orderId)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              status: newStatus,
+            }
+          }
+        } else if (order) {
+          // Modo Supabase: reemplazar con el pedido actualizado de la BD
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === order.id)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = order
+          }
+        }
+        persist(state)
+      })
+      .addCase(deleteOrder.fulfilled, (state, action) => {
+        const { tenantId, orderId } = action.payload
+        if (!tenantId || !orderId) return
+        if (!state.ordersByTenantId[tenantId]) return
+        
+        state.ordersByTenantId[tenantId] = state.ordersByTenantId[tenantId].filter((o) => o.id !== orderId)
         persist(state)
       })
   },

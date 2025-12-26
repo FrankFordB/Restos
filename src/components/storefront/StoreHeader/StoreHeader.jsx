@@ -81,8 +81,9 @@ export default function StoreHeader({
 
       {/* Hero Content */}
       <div className="storeHeader__hero">
-        {/* Background/Image */}
+        {/* Background/Image - key forces re-mount for animation on slide change */}
         <div 
+          key={`slide-bg-${currentSlide}`}
           className="storeHeader__heroBg"
           style={{
             backgroundImage: currentSlideData.imageUrl 
@@ -97,8 +98,11 @@ export default function StoreHeader({
           style={{ opacity: overlayOpacity / 100 }}
         />
 
-        {/* Content */}
-        <div className={`storeHeader__heroContent ${alignmentClass}`}>
+        {/* Content - key forces re-mount for animation on slide change */}
+        <div 
+          key={`slide-content-${currentSlide}`}
+          className={`storeHeader__heroContent ${alignmentClass}`}
+        >
           <h1 className="storeHeader__heroTitle">{currentSlideData.title}</h1>
           <p className="storeHeader__heroSubtitle">{currentSlideData.subtitle}</p>
           {currentSlideData.ctaText && (
