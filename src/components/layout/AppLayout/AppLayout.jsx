@@ -4,6 +4,7 @@ import Header from '../Header/Header'
 import Footer from '../Footer/Footer'
 import ThemeApplier from '../../theme/ThemeApplier'
 import ConfirmModal from '../../ui/ConfirmModal/ConfirmModal'
+import WelcomeModal from '../../ui/WelcomeModal/WelcomeModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { clearBannedInfo, clearWelcomeInfo, selectAuth, signOut } from '../../../features/auth/authSlice'
 
@@ -48,15 +49,10 @@ Cuenta: ${bannedEmail}` : bannedMessage}
         onConfirm={null}
         onCancel={null}
       />
-      <ConfirmModal
+      <WelcomeModal
         open={showWelcomeModal}
-        title="¡Bienvenido!"
-        message={welcomeInfo?.message || ''}
-        confirmLabel="Explorar"
-        confirmVariant="primary"
-        cancelLabel={null}
-        onConfirm={() => dispatch(clearWelcomeInfo())}
-        onCancel={() => dispatch(clearWelcomeInfo())}
+        userName={user?.name || user?.email?.split('@')[0]}
+        onClose={() => dispatch(clearWelcomeInfo())}
       />
       <ThemeApplier tenantId={tenantId} key={location.pathname} />
       {showGlobalHeader && <Header />}

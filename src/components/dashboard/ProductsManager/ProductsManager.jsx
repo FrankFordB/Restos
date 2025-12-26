@@ -14,20 +14,48 @@ import {
   patchProduct,
   selectProductsForTenant,
 } from '../../../features/products/productsSlice'
+import {
+  createCategory,
+  deleteCategory,
+  fetchCategoriesForTenant,
+  patchCategory,
+  selectCategoriesForTenant,
+} from '../../../features/categories/categoriesSlice'
 
 export default function ProductsManager({ tenantId }) {
   const dispatch = useAppDispatch()
   const products = useAppSelector(selectProductsForTenant(tenantId))
+  let categories = useAppSelector(selectCategoriesForTenant(tenantId))
 
   const createFileInputRef = useRef(null)
 
   useEffect(() => {
     dispatch(fetchProductsForTenant(tenantId))
+    dispatch(fetchCategoriesForTenant(tenantId))
   }, [dispatch, tenantId])
+
+  // Pestaña seleccionada (id de la categoría)
+  // Buscar o crear la categoría "Sin asignar"
+  const unassignedCategory = categories.find(c => c.name === 'Sin asignar')
+  const unassignedCategoryId = unassignedCategory?.id
+  if (!unassignedCategory) {
+    categories = [
+      { id: 'unassigned', name: 'Sin asignar', sort_order: -1, active: true },
+      ...categories
+    ]
+  }
+  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [editingCategory, setEditingCategory] = useState(null)
+  const [editingProduct, setEditingProduct] = useState(null)
 
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
+  const [stock, setStock] = useState('')
+  const [trackStock, setTrackStock] = useState(false)
+  const [productCategoryId, setProductCategoryId] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
 
@@ -220,6 +248,7 @@ export default function ProductsManager({ tenantId }) {
         actions={
           <Button
             size="sm"
+            disabled={trackStock && (parseInt(stock, 10) || 0) <= 0}
             onClick={async () => {
               setPhotoStatus(null)
               if (!name.trim() || parsedPrice === null) {
@@ -248,6 +277,9 @@ export default function ProductsManager({ tenantId }) {
                       name: name.trim(),
                       price: parsedPrice,
                       description: description.trim(),
+                      categoryId: productCategoryId || null,
+                      stock: trackStock ? (parseInt(stock, 10) || 0) : null,
+                      trackStock,
                       ...(mockImageUrl ? { imageUrl: mockImageUrl } : null),
                     },
                   }),
@@ -282,11 +314,14 @@ export default function ProductsManager({ tenantId }) {
               setName('')
               setPrice('')
               setDescription('')
+              setStock('')
+              setTrackStock(false)
+              setProductCategoryId('')
               setImageFile(null)
               if (createFileInputRef.current) createFileInputRef.current.value = ''
             }}
           >
-            Agregar
+            {trackStock && (parseInt(stock, 10) || 0) <= 0 ? 'Sin stock' : 'Agregar'}
           </Button>
         }
       >
@@ -301,6 +336,44 @@ export default function ProductsManager({ tenantId }) {
             autoComplete="off"
           />
           <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
+          
+          {/* Selector de categoría */}
+          <div className="products__field">
+            <label className="products__label">Categoría</label>
+            <select
+              className="products__select"
+              value={productCategoryId}
+              onChange={(e) => setProductCategoryId(e.target.value)}
+            >
+              <option value="">Sin categoría</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Stock */}
+          <div className="products__stockRow">
+            <label className="products__toggle">
+              <input
+                type="checkbox"
+                checked={trackStock}
+                onChange={(e) => setTrackStock(e.target.checked)}
+              />
+              <span>Controlar stock</span>
+            </label>
+            {trackStock && (
+              <Input
+                label="Stock disponible"
+                value={stock}
+                onChange={setStock}
+                placeholder="0"
+                type="number"
+                min="0"
+              />
+            )}
+          </div>
+          
           <label className="products__file">
             <span className="products__fileLabel">Foto</span>
             <input
@@ -451,12 +524,78 @@ export default function ProductsManager({ tenantId }) {
         </div>
       ) : null}
 
-      <Card title="Productos">
-        {products.length === 0 ? (
-          <p className="muted">Aún no tienes productos.</p>
+      <Card
+        title="Categorías y Productos"
+      >
+        {/* Pestañas de categorías */}
+        <div className="products__categoryTabs">
+          {categories.map((cat, idx) => (
+            <div key={cat.id} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <button
+                className={`products__categoryTab ${selectedCategory === cat.id ? 'products__categoryTab--active' : ''}`}
+                onClick={() => setSelectedCategory(cat.id)}
+              >
+                {cat.name}
+              </button>
+              {/* Si es la categoría seleccionada y no es 'Sin asignar', mostrar editar/borrar */}
+              {selectedCategory === cat.id && cat.name !== 'Sin asignar' && (
+                <span style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>
+                  <button
+                    className="products__categoryTabEdit"
+                    title="Editar categoría"
+                    onClick={() => {
+                      setEditingCategory(cat)
+                      setCategoryName(cat.name)
+                      setShowCategoryModal(true)
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}
+                  >
+                    <span role="img" aria-label="Editar">✏️</span>
+                  </button>
+                  <button
+                    className="products__categoryTabDelete"
+                    title="Eliminar categoría"
+                    onClick={async () => {
+                      if (window.confirm(`¿Eliminar la categoría "${cat.name}"? Los productos no se eliminarán, solo quedarán en "Sin asignar".`)) {
+                        await dispatch(deleteCategory({ tenantId, categoryId: cat.id }))
+                        if (selectedCategory === cat.id) {
+                          setSelectedCategory(unassignedCategoryId || 'unassigned')
+                        }
+                      }
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c00' }}
+                  >
+                    <span role="img" aria-label="Eliminar">🗑️</span>
+                  </button>
+                </span>
+              )}
+              {/* Botón + verde al final */}
+              {idx === categories.length - 1 && (
+                <button
+                  className="products__categoryTab"
+                  style={{ marginLeft: 8, color: '#16a34a', borderColor: '#16a34a' }}
+                  title="Agregar categoría"
+                  onClick={() => {
+                    setEditingCategory(null)
+                    setCategoryName('')
+                    setShowCategoryModal(true)
+                  }}
+                >
+                  <span role="img" aria-label="Agregar">➕</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Lista de productos filtrada */}
+        {products.filter((p) => (p.categoryId || 'unassigned') === selectedCategory).length === 0 ? (
+          <p className="muted">No hay productos en esta categoría.</p>
         ) : (
           <div className="products__list">
-            {products.map((p) => (
+            {products
+              .filter((p) => (p.categoryId || 'unassigned') === selectedCategory)
+              .map((p) => (
               <div key={p.id} className="products__row">
                 <div className="products__rowMain">
                   <input
@@ -495,6 +634,74 @@ export default function ProductsManager({ tenantId }) {
                     />
                     <span>Activo</span>
                   </label>
+
+                  {/* Stock toggle + input */}
+                  <label className="products__toggle">
+                    <input
+                      type="checkbox"
+                      checked={p.track_stock === true}
+                      onChange={(e) =>
+                        dispatch(
+                          patchProduct({
+                            tenantId,
+                            productId: p.id,
+                            patch: { track_stock: e.target.checked, stock: e.target.checked ? (p.stock ?? 0) : null },
+                          })
+                        )
+                      }
+                    />
+                    <span>Stock</span>
+                  </label>
+                  {p.track_stock && (
+                    <input
+                      type="number"
+                      className="products__stockInput"
+                      min="0"
+                      value={p.stock ?? 0}
+                      onChange={(e) =>
+                        dispatch(
+                          patchProduct({
+                            tenantId,
+                            productId: p.id,
+                            patch: { stock: Math.max(0, parseInt(e.target.value, 10) || 0) },
+                          })
+                        )
+                      }
+                    />
+                  )}
+
+                  {/* Selector de categoría */}
+                  <select
+                    className="products__categorySelect"
+                    value={p.categoryId || 'unassigned'}
+                    onChange={async (e) => {
+                      let value = e.target.value
+                      if (value === 'unassigned') {
+                        // Buscar la categoría "Sin asignar" real
+                        let realUnassigned = categories.find(c => c.name === 'Sin asignar')
+                        if (!realUnassigned) {
+                          const res = await dispatch(createCategory({ tenantId, category: { name: 'Sin asignar' } })).unwrap()
+                          value = res?.row?.id || null
+                        } else {
+                          value = realUnassigned.id
+                        }
+                      }
+                      dispatch(
+                        patchProduct({
+                          tenantId,
+                          productId: p.id,
+                          patch: { categoryId: value },
+                        })
+                      )
+                    }}
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+
                   <Button
                     variant="danger"
                     size="sm"
@@ -546,6 +753,63 @@ export default function ProductsManager({ tenantId }) {
           </div>
         )}
       </Card>
+
+      {/* Modal de categoría */}
+      {showCategoryModal && (
+        <div className="products__modal-overlay" onClick={() => setShowCategoryModal(false)}>
+          <div className="products__modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
+            <Input
+              label="Nombre de la categoría"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="Ej: Bebidas, Postres..."
+            />
+            <div className="products__modal-actions">
+              {editingCategory && (
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    dispatch(deleteCategory({ tenantId, categoryId: editingCategory.id }))
+                    setShowCategoryModal(false)
+                    setEditingCategory(null)
+                    setCategoryName('')
+                    if (selectedCategory === editingCategory.id) {
+                      setSelectedCategory(null)
+                    }
+                  }}
+                >
+                  Eliminar
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!categoryName.trim()) return
+                  if (editingCategory) {
+                    dispatch(
+                      patchCategory({
+                        tenantId,
+                        categoryId: editingCategory.id,
+                        patch: { name: categoryName.trim() },
+                      })
+                    )
+                  } else {
+                    dispatch(createCategory({ tenantId, category: { name: categoryName.trim() } }))
+                  }
+                  setShowCategoryModal(false)
+                  setEditingCategory(null)
+                  setCategoryName('')
+                }}
+              >
+                {editingCategory ? 'Guardar' : 'Crear'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

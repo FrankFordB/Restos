@@ -117,10 +117,27 @@ export const createProduct = createAsyncThunk(
         description: product.description || null,
         image_url: product.imageUrl || null,
         active: product.active ?? true,
+        category_id: product.categoryId || null,
+        stock: product.stock ?? null,
+        track_stock: product.trackStock ?? false,
+        sort_order: product.sortOrder ?? 0,
       }
       return { tenantId, row }
     }
-    const row = await insertProduct({ tenantId, product })
+    const row = await insertProduct({
+      tenantId,
+      product: {
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        imageUrl: product.imageUrl,
+        active: product.active,
+        categoryId: product.categoryId,
+        stock: product.stock,
+        trackStock: product.trackStock,
+        sortOrder: product.sortOrder,
+      },
+    })
     return { tenantId, row }
   },
 )
@@ -186,6 +203,10 @@ const productsSlice = createSlice({
           description: r.description,
           imageUrl: r.image_url || null,
           active: r.active,
+          categoryId: r.category_id || null,
+          stock: r.stock,
+          trackStock: r.track_stock ?? false,
+          sortOrder: r.sort_order ?? 0,
         }))
         persist(state)
       })
@@ -202,6 +223,10 @@ const productsSlice = createSlice({
             description: row.description,
             imageUrl: row.image_url || null,
             active: row.active,
+            categoryId: row.category_id || null,
+            stock: row.stock,
+            trackStock: row.track_stock ?? false,
+            sortOrder: row.sort_order ?? 0,
           })
           persist(state)
         }
@@ -219,6 +244,10 @@ const productsSlice = createSlice({
             description: row.description,
             imageUrl: row.image_url || null,
             active: row.active,
+            categoryId: row.category_id || null,
+            stock: row.stock,
+            trackStock: row.track_stock ?? false,
+            sortOrder: row.sort_order ?? 0,
           }
         } else {
           list[idx] = { ...list[idx], ...patch }

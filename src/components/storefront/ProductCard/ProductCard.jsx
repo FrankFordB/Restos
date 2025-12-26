@@ -30,6 +30,7 @@ export default function ProductCard({
   const isBanner = layout === 'banner'
   const isHorizontal = layout === 'horizontal' || layout === 'compact'
 
+  const isOutOfStock = product.trackStock && (product.stock ?? 0) <= 0;
   return (
     <article className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''}`} style={cardStyle}>
       {/* Editable actions */}
@@ -106,7 +107,12 @@ export default function ProductCard({
           )}
 
           <div className={`productCard__actions ${isMinimal ? 'productCard__actions--hover' : ''}`}>
-            {quantity > 0 ? (
+
+            {isOutOfStock ? (
+              <Button size="sm" disabled style={{ background: '#ccc', color: '#888', cursor: 'not-allowed' }}>
+                Sin stock
+              </Button>
+            ) : quantity > 0 ? (
               <div className="stepper" role="group" aria-label="Cantidad">
                 <button className="stepper__btn" type="button" onClick={onRemove} aria-label="Quitar uno">−</button>
                 <span className="stepper__value">{quantity}</span>
@@ -116,6 +122,13 @@ export default function ProductCard({
               <Button size="sm" onClick={onAdd}>
                 {isPolaroid ? '+' : 'Agregar'}
               </Button>
+            )}
+
+            {/* Mostrar stock solo si trackStock está activo y el stock es un número */}
+            {product.trackStock && Number.isFinite(product.stock) && (
+              <span className="productCard__meta" style={{ marginLeft: 8, color: '#888', fontSize: '0.9em' }}>
+                Stock: {product.stock}
+              </span>
             )}
 
             {!isMinimal && !isPolaroid && !isHorizontal && (
