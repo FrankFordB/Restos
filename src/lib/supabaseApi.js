@@ -399,8 +399,9 @@ export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('products')
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, active, category_id, stock, track_stock, sort_order')
     .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -418,8 +419,12 @@ export async function insertProduct({ tenantId, product }) {
       description: product.description || null,
       image_url: product.imageUrl || null,
       active: product.active ?? true,
+      category_id: product.categoryId || null,
+      stock: product.stock ?? null,
+      track_stock: product.trackStock ?? false,
+      sort_order: product.sortOrder ?? 0,
     })
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, active, category_id, stock, track_stock, sort_order')
     .single()
 
   if (error) throw error
@@ -436,10 +441,14 @@ export async function updateProductRow({ tenantId, productId, patch }) {
       ...('description' in patch ? { description: patch.description } : null),
       ...('imageUrl' in patch ? { image_url: patch.imageUrl || null } : null),
       ...('active' in patch ? { active: patch.active } : null),
+      ...('categoryId' in patch ? { category_id: patch.categoryId || null } : null),
+      ...('stock' in patch ? { stock: patch.stock } : null),
+      ...('trackStock' in patch ? { track_stock: patch.trackStock } : null),
+      ...('sortOrder' in patch ? { sort_order: patch.sortOrder } : null),
     })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
-    .select('id, tenant_id, name, price, description, image_url, active')
+    .select('id, tenant_id, name, price, description, image_url, active, category_id, stock, track_stock, sort_order')
     .single()
 
   if (error) throw error
@@ -521,3 +530,68 @@ export async function updateDeliveryConfig(tenantId, deliveryConfig) {
   if (error) throw error
   return data?.delivery_config
 }
+
+// -------------------------
+// Categorías de productos
+// -------------------------
+
+export async function fetchCategoriesByTenantId(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('id, tenant_id, name, description, sort_order, active')
+    .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export async function insertCategory({ tenantId, category }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .insert({
+      tenant_id: tenantId,
+      name: category.name,
+      description: category.description || null,
+      sort_order: category.sortOrder ?? 0,
+      active: category.active ?? true,
+    })
+    .select('id, tenant_id, name, description, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateCategoryRow({ tenantId, categoryId, patch }) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .update({
+      ...('name' in patch ? { name: patch.name } : null),
+      ...('description' in patch ? { description: patch.description } : null),
+      ...('sortOrder' in patch ? { sort_order: patch.sortOrder } : null),
+      ...('active' in patch ? { active: patch.active } : null),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('id', categoryId)
+    .select('id, tenant_id, name, description, sort_order, active')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteCategoryRow({ tenantId, categoryId }) {
+  ensureSupabase()
+  const { error } = await supabase
+    .from('product_categories')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('id', categoryId)
+
+  if (error) throw error
+}
+

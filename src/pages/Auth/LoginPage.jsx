@@ -4,7 +4,6 @@ import './AuthPages.css'
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
-import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import {
   clearAuthError,
@@ -22,10 +21,10 @@ export default function LoginPage() {
 
   const [resetInfo, setResetInfo] = useState('')
   const [resetCooldownUntil, setResetCooldownUntil] = useState(0)
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmingLogin, setConfirmingLogin] = useState(false)
 
   const cooldownSecondsLeft = Math.max(0, Math.ceil((resetCooldownUntil - Date.now()) / 1000))
   const resetDisabled = cooldownSecondsLeft > 0
@@ -36,26 +35,22 @@ export default function LoginPage() {
     return navigate(role === ROLES.SUPER_ADMIN ? '/admin' : '/dashboard')
   }
 
+  const handleLogin = async () => {
+    if (!email || !password) return
+    setIsLoggingIn(true)
+    dispatch(clearAuthError())
+    try {
+      const user = await dispatch(signInWithEmail({ email, password })).unwrap()
+      goAfter(user.role)
+    } catch {
+      // El slice maneja errores y bans
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+
   return (
     <div className="auth">
-      <ConfirmModal
-        open={confirmingLogin}
-        title="Confirmar inicio de sesión"
-        message="¿Deseas iniciar sesión con las credenciales ingresadas?"
-        confirmLabel="Sí, continuar"
-        cancelLabel="Cancelar"
-        onConfirm={async () => {
-          setConfirmingLogin(false)
-          dispatch(clearAuthError())
-          try {
-            const user = await dispatch(signInWithEmail({ email, password })).unwrap()
-            goAfter(user.role)
-          } catch {
-            // El slice maneja errores y bans
-          }
-        }}
-        onCancel={() => setConfirmingLogin(false)}
-      />
 
       <Card
         title="Iniciar sesión"
@@ -107,11 +102,10 @@ export default function LoginPage() {
 
           <div className="auth__actions">
             <Button
-              onClick={() => {
-                setConfirmingLogin(true)
-              }}
+              onClick={handleLogin}
+              disabled={isLoggingIn || !email || !password}
             >
-              Entrar
+              {isLoggingIn ? 'Entrando...' : 'Entrar'}
             </Button>
             <Button
               variant="secondary"

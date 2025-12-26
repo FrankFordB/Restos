@@ -1,0 +1,174 @@
+.welcomeModal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--text) 40%, transparent);
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
+  z-index: 10002222222;
+}
+
+.welcomeModal__card {
+  width: min(600px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--background, #fff);
+  color: var(--text, #111827);
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: 0 25px 80px -20px rgba(15, 23, 42, 0.5);
+  animation: welcomeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.welcomeModal__card--noHeader {
+  padding: 32px;
+}
+
+@keyframes welcomeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.welcomeModal__intro {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.welcomeModal__title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.welcomeModal__subtitle {
+  margin: 10px 0 0;
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.welcomeModal__subtitle strong {
+  color: var(--primary, #f97316);
+}
+
+.welcomeModal__benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.welcomeModal__benefit {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.welcomeModal__benefit:hover {
+  transform: translateX(4px);
+}
+
+.welcomeModal__benefit--highlight {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary, #f97316) 15%, transparent), color-mix(in srgb, var(--primary, #f97316) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--primary, #f97316) 30%, transparent);
+}
+
+.welcomeModal__benefitIcon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.welcomeModal__benefit strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.welcomeModal__benefit p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--text) 65%, transparent);
+  line-height: 1.45;
+}
+
+.welcomeModal__cta {
+  text-align: center;
+}
+
+.welcomeModal__ctaHighlight {
+  display: flex;
+  gap: 14px;
+  text-align: left;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #22c55e15, #16a34a10);
+  border: 1px solid #22c55e40;
+  border-radius: 12px;
+}
+
+.welcomeModal__ctaIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.welcomeModal__ctaHighlight strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  color: #16a34a;
+}
+
+.welcomeModal__ctaHighlight p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  line-height: 1.45;
+}
+
+.welcomeModal__cta button {
+  min-width: 220px;
+  font-size: 1.05rem;
+  padding: 14px 32px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .welcomeModal__card {
+    border-radius: 16px;
+  }
+  
+  .welcomeModal__card--noHeader {
+    padding: 24px 18px;
+  }
+  
+  .welcomeModal__title {
+    font-size: 1.35rem;
+  }
+  
+  .welcomeModal__benefit {
+    padding: 12px 14px;
+  }
+  
+  .welcomeModal__ctaHighlight {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .welcomeModal__ctaIcon {
+    align-self: center;
+  }
+}

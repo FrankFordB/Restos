@@ -5,6 +5,7 @@ import { useAppSelector } from '../../app/hooks'
 import { useAppDispatch } from '../../app/hooks'
 import { fetchTenantBySlug, selectTenantBySlug, selectTenantFetchError, selectTenantFetchStatus } from '../../features/tenants/tenantsSlice'
 import { fetchProductsForTenant, selectProductsForTenant, createProduct, patchProduct, deleteProduct } from '../../features/products/productsSlice'
+import { fetchCategoriesForTenant, selectCategoriesForTenant, createCategory, patchCategory, deleteCategory } from '../../features/categories/categoriesSlice'
 import ThemeApplier from '../../components/theme/ThemeApplier'
 import { fetchTenantTheme, selectThemeForTenant, saveTenantTheme, upsertTenantTheme } from '../../features/theme/themeSlice'
 import { selectUser } from '../../features/auth/authSlice'
@@ -76,7 +77,25 @@ export default function StorefrontPage() {
   const isAdmin = (user?.tenantId === tenantId && user?.role === 'tenant_admin') || isSuperAdmin
 
   const products = useAppSelector(selectProductsForTenant(tenantId || 'tenant_demo'))
+  let categories = useAppSelector(selectCategoriesForTenant(tenantId || 'tenant_demo'))
   const visible = useMemo(() => products.filter((p) => p.active), [products])
+
+  // Buscar o crear la categoría "Sin asignar"
+  const unassignedCategory = categories.find(c => c.name === 'Sin asignar')
+  const unassignedCategoryId = unassignedCategory?.id
+  if (!unassignedCategory) {
+    // Solo mostrar en UI, no crear en BD aquí
+    categories = [
+      { id: 'unassigned', name: 'Sin asignar', sort_order: -1, active: true },
+      ...categories
+    ]
+  }
+
+  // Category filter for storefront
+  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
+  const filteredProducts = useMemo(() => {
+    return visible.filter((p) => (p.categoryId || 'unassigned') === selectedCategoryId)
+  }, [visible, selectedCategoryId])
 
   const [cart, setCart] = useState({})
   const [paid, setPaid] = useState(false)
@@ -86,9 +105,17 @@ export default function StorefrontPage() {
   // Product modal state
   const [showProductModal, setShowProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
-  const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '' })
+  const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '', categoryId: '' })
   const [savingProduct, setSavingProduct] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  // Category management state
+  const [showCategoryPanel, setShowCategoryPanel] = useState(false)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [editingCategory, setEditingCategory] = useState(null)
+  const [categoryName, setCategoryName] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const categoryPanelRef = useRef(null)
 
   // Card customization panel state
   const [showCardPanel, setShowCardPanel] = useState(false)
@@ -387,7 +414,7 @@ export default function StorefrontPage() {
   // Product management functions
   const openAddProduct = () => {
     setEditingProduct(null)
-    setProductForm({ name: '', price: '', description: '', imageUrl: '' })
+    setProductForm({ name: '', price: '', description: '', imageUrl: '', categoryId: selectedCategoryId || unassignedCategoryId || 'unassigned' })
     setShowProductModal(true)
   }
 
@@ -398,6 +425,7 @@ export default function StorefrontPage() {
       price: String(product.price || ''),
       description: product.description || '',
       imageUrl: product.imageUrl || '',
+      categoryId: product.category_id || '',
     })
     setShowProductModal(true)
   }
@@ -419,12 +447,27 @@ export default function StorefrontPage() {
           }
         })).unwrap()
       } else {
+        let categoryId = productForm.categoryId
+        if (!categoryId || categoryId === 'unassigned') {
+          // Buscar la categoría "Sin asignar" real
+          let realUnassigned = categories.find(c => c.name === 'Sin asignar')
+          if (!realUnassigned) {
+            // Crear en BD si no existe
+            const res = await dispatch(createCategory({ tenantId, category: { name: 'Sin asignar' } })).unwrap()
+            categoryId = res?.row?.id || null
+          } else {
+            categoryId = realUnassigned.id
+          }
+        }
         await dispatch(createProduct({
           tenantId,
-          name: productForm.name.trim(),
-          price: Number(productForm.price),
-          description: productForm.description.trim(),
-          imageUrl: productForm.imageUrl.trim() || null,
+          product: {
+            name: productForm.name.trim(),
+            price: Number(productForm.price),
+            description: productForm.description.trim(),
+            imageUrl: productForm.imageUrl.trim() || null,
+            categoryId,
+          },
         })).unwrap()
       }
       setShowProductModal(false)
@@ -459,6 +502,7 @@ export default function StorefrontPage() {
   useEffect(() => {
     if (!tenantId) return
     dispatch(fetchProductsForTenant(tenantId))
+    dispatch(fetchCategoriesForTenant(tenantId))
     dispatch(fetchTenantTheme(tenantId))
   }, [dispatch, tenantId])
 
@@ -565,10 +609,22 @@ export default function StorefrontPage() {
                   setShowCardPanel(willShow)
                   if (willShow) {
                     setShowHeroPanel(false)
+                    setShowCategoryPanel(false)
                     setTimeout(() => cardPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
                   }
                 }}>
                   <LayoutGrid size={14} /> Personalizar Cards
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => {
+                  const willShow = !showCategoryPanel
+                  setShowCategoryPanel(willShow)
+                  if (willShow) {
+                    setShowHeroPanel(false)
+                    setShowCardPanel(false)
+                    setTimeout(() => categoryPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                  }
+                }}>
+                  <FolderUp size={14} /> Categorías
                 </Button>
                 <Button size="sm" onClick={openAddProduct}>
                   <Plus size={14} /> Agregar producto
@@ -946,9 +1002,145 @@ export default function StorefrontPage() {
               </div>
             </div>
           )}
+
+          {/* Panel de gestión de categorías */}
+          {isAdmin && showCategoryPanel && (
+            <div className="store__categoryPanelWrapper" ref={categoryPanelRef}>
+              <div className="store__categoryPanel">
+                <div className="store__categoryPanelHeader">
+                  <h4><FolderUp size={16} /> Gestionar Categorías</h4>
+                  <button type="button" className="store__panelClose" onClick={() => setShowCategoryPanel(false)}>
+                    <X size={16} />
+                  </button>
+                </div>
+                
+                <p className="store__categoryHint">
+                  Crea categorías para organizar tus productos. Los clientes podrán filtrar por categoría.
+                </p>
+
+                <div className="store__categoryList">
+                  {categories.length === 0 ? (
+                    <p className="muted">No hay categorías creadas.</p>
+                  ) : (
+                    categories.map((cat) => (
+                      <div key={cat.id} className="store__categoryItem">
+                        <span className="store__categoryItemName">{cat.name}</span>
+                        <span className="store__categoryItemCount">
+                          {products.filter(p => p.category_id === cat.id).length} productos
+                        </span>
+                        <div className="store__categoryItemActions">
+                          <button
+                            type="button"
+                            className="store__categoryItemBtn"
+                            onClick={() => {
+                              setEditingCategory(cat)
+                              setCategoryName(cat.name)
+                              setShowCategoryModal(true)
+                            }}
+                            title="Editar"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="store__categoryItemBtn store__categoryItemBtn--danger"
+                            onClick={async () => {
+                              if (window.confirm(`¿Eliminar la categoría "${cat.name}"? Los productos no se eliminarán, solo quedarán sin categoría.`)) {
+                                await dispatch(deleteCategory({ tenantId, categoryId: cat.id }))
+                                if (selectedCategoryId === cat.id) {
+                                  setSelectedCategoryId(null)
+                                }
+                              }
+                            }}
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditingCategory(null)
+                    setCategoryName('')
+                    setShowCategoryModal(true)
+                  }}
+                >
+                  <Plus size={14} /> Nueva Categoría
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Pestañas de categorías para el storefront */}
+          {categories.length > 0 && (
+            <div className="store__categoryTabs">
+              {categories.map((cat, idx) => (
+                <div key={cat.id} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <button
+                    className={`store__categoryTab ${selectedCategoryId === cat.id ? 'store__categoryTab--active' : ''}`}
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                  >
+                    {cat.name}
+                  </button>
+                  {/* Si es la categoría seleccionada y no es 'Sin asignar', mostrar editar/borrar */}
+                  {selectedCategoryId === cat.id && cat.name !== 'Sin asignar' && isAdmin && (
+                    <span style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>
+                      <button
+                        className="store__categoryTabEdit"
+                        title="Editar categoría"
+                        onClick={() => {
+                          setEditingCategory(cat)
+                          setCategoryName(cat.name)
+                          setShowCategoryModal(true)
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        className="store__categoryTabDelete"
+                        title="Eliminar categoría"
+                        onClick={async () => {
+                          if (window.confirm(`¿Eliminar la categoría "${cat.name}"? Los productos no se eliminarán, solo quedarán en "Sin asignar".`)) {
+                            await dispatch(deleteCategory({ tenantId, categoryId: cat.id }))
+                            if (selectedCategoryId === cat.id) {
+                              setSelectedCategoryId(unassignedCategoryId || 'unassigned')
+                            }
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c00' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </span>
+                  )}
+                  {/* Botón + verde al final */}
+                  {isAdmin && idx === categories.length - 1 && (
+                    <button
+                      className="store__categoryTab"
+                      style={{ marginLeft: 8, color: '#16a34a', borderColor: '#16a34a' }}
+                      title="Agregar categoría"
+                      onClick={() => {
+                        setEditingCategory(null)
+                        setCategoryName('')
+                        setShowCategoryModal(true)
+                      }}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           
           <div className="store__grid">
-            {visible.map((p) => (
+            {filteredProducts.map((p) => (
               <ProductCard
                 key={p.id}
                 product={p}
@@ -996,7 +1188,13 @@ export default function StorefrontPage() {
         )}
       </div>
 
-      {visible.length === 0 ? <p className="muted">No hay productos activos.</p> : null}
+      {filteredProducts.length === 0 ? (
+        <p className="muted">
+          {selectedCategoryId !== null 
+            ? 'No hay productos en esta categoría.' 
+            : 'No hay productos activos.'}
+        </p>
+      ) : null}
 
       {/* Checkout Page - Single Page Checkout */}
       {isCheckingOut && (
@@ -1107,6 +1305,21 @@ export default function StorefrontPage() {
                 onChange={(v) => setProductForm(f => ({ ...f, imageUrl: v }))}
                 placeholder="https://..."
               />
+
+              {/* Selector de categoría */}
+              <div className="store__formField">
+                <label className="store__formLabel">Categoría</label>
+                <select
+                  className="store__formSelect"
+                  value={productForm.categoryId}
+                  onChange={(e) => setProductForm(f => ({ ...f, categoryId: e.target.value }))}
+                >
+                  <option value="">Sin categoría</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
               
               {productForm.imageUrl && (
                 <div className="store__imagePreview">
@@ -1124,6 +1337,69 @@ export default function StorefrontPage() {
                 disabled={savingProduct || !productForm.name.trim() || !productForm.price}
               >
                 {savingProduct ? 'Guardando...' : (editingProduct ? 'Guardar cambios' : 'Crear producto')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <div className="store__modalOverlay" onClick={() => setShowCategoryModal(false)}>
+          <div className="store__modal store__modal--small" onClick={(e) => e.stopPropagation()}>
+            <div className="store__modalHeader">
+              <h3>{editingCategory ? 'Editar categoría' : 'Nueva categoría'}</h3>
+              <button 
+                className="store__modalClose" 
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="store__modalBody">
+              <Input
+                label="Nombre de la categoría"
+                value={categoryName}
+                onChange={(v) => setCategoryName(v)}
+                placeholder="Ej: Bebidas, Postres, Hamburguesas..."
+              />
+            </div>
+            
+            <div className="store__modalFooter">
+              <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={async () => {
+                  if (!categoryName.trim()) return
+                  setSavingCategory(true)
+                  try {
+                    if (editingCategory) {
+                      await dispatch(patchCategory({
+                        tenantId,
+                        categoryId: editingCategory.id,
+                        patch: { name: categoryName.trim() },
+                      })).unwrap()
+                    } else {
+                      await dispatch(createCategory({
+                        tenantId,
+                        category: { name: categoryName.trim() },
+                      })).unwrap()
+                    }
+                    setShowCategoryModal(false)
+                    setEditingCategory(null)
+                    setCategoryName('')
+                  } catch (e) {
+                    console.error('Error saving category:', e)
+                  } finally {
+                    setSavingCategory(false)
+                  }
+                }}
+                disabled={savingCategory || !categoryName.trim()}
+              >
+                {savingCategory ? 'Guardando...' : (editingCategory ? 'Guardar' : 'Crear')}
               </Button>
             </div>
           </div>

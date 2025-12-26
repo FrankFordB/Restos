@@ -153,6 +153,10 @@ create table if not exists public.products (
   description text null,
   image_url text null,
   active boolean not null default true,
+  category_id uuid null references public.product_categories(id) on delete set null,
+  stock integer,
+  track_stock boolean not null default false,
+  sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -161,6 +165,19 @@ alter table if exists public.products
   add column if not exists image_url text;
 
 create index if not exists products_tenant_id_idx on public.products(tenant_id);
+
+-- 4) Categorías de productos
+create table if not exists public.product_categories (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  name text not null,
+  description text null,
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists product_categories_tenant_id_idx on public.product_categories(tenant_id);
 
 -- 4) Tema por tenant (variables CSS)
 create table if not exists public.tenant_themes (
