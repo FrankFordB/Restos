@@ -385,12 +385,11 @@ function WidgetEditor({ widget, onSave, onClose }) {
   }
 
   return (
-    <div className="products__modalOverlay" onClick={onClose}>
+    <div className="products__modalOverlay">
       <Card
         className="products__modal"
         title={`Editar: ${WIDGET_CONFIG[widget.widget_type]?.label}`}
         actions={<Button variant="secondary" size="sm" onClick={onClose}>✕</Button>}
-        onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'grid', gap: '16px' }}>
           <div className="input">

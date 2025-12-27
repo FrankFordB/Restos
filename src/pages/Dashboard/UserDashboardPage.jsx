@@ -14,6 +14,7 @@ import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManage
 import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
 import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
+import MobilePreviewEditor from '../../components/dashboard/MobilePreviewEditor/MobilePreviewEditor'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
@@ -589,6 +590,16 @@ export default function UserDashboardPage() {
           </>
         )}
 
+        {activeTab === 'mobile-preview' && (
+          <MobilePreviewEditor 
+            tenantId={currentTenant?.id}
+            tenantName={currentTenant?.name || 'Mi Tienda'}
+            tenantLogo={currentTenant?.logo || ''}
+            tenantSlug={currentTenant?.slug || ''}
+            currentTier={subscriptionTier}
+          />
+        )}
+
         {activeTab === 'reports' && (
           <ReportsSection tenantId={currentTenant?.id} />
         )}
@@ -788,8 +799,8 @@ function PendingOrdersModal({ orders, tenantId, onClose }) {
   }
 
   return createPortal(
-    <div className="pendingModal__overlay" onClick={onClose}>
-      <div className="pendingModal" onClick={(e) => e.stopPropagation()}>
+    <div className="pendingModal__overlay">
+      <div className="pendingModal">
         <div className="pendingModal__header">
           <h3>🔔 Pedidos Pendientes ({orders.length})</h3>
           <button className="pendingModal__close" onClick={onClose}>

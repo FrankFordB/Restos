@@ -1,5 +1,5 @@
 import './StoreClosedModal.css'
-import { X, Clock, Calendar, AlertCircle } from 'lucide-react'
+import { X, Clock, Calendar, AlertCircle, Pause } from 'lucide-react'
 import { formatOpeningHours } from '../../../shared/openingHours'
 
 export default function StoreClosedModal({ 
@@ -8,7 +8,9 @@ export default function StoreClosedModal({
   openingHours = [], 
   nextOpen,
   theme = {},
-  tenantName = 'Restaurante'
+  tenantName = 'Restaurante',
+  isPaused = false,
+  pauseMessage = ''
 }) {
   if (!isOpen) return null
 
@@ -27,11 +29,51 @@ export default function StoreClosedModal({
     return acc
   }, [])
 
+  // If store is paused, show pause message instead of schedule
+  if (isPaused) {
+    return (
+      <div className="storeClosedModal__overlay">
+        <div 
+          className="storeClosedModal storeClosedModal--paused"
+          style={{ '--modal-accent': accentColor, '--modal-primary': primaryColor }}
+        >
+          {/* Header with themed gradient */}
+          <div className="storeClosedModal__header storeClosedModal__header--paused">
+            <button className="storeClosedModal__close" onClick={onClose}>
+              <X size={20} />
+            </button>
+            <div className="storeClosedModal__icon">
+              <Pause size={32} />
+            </div>
+            <h2 className="storeClosedModal__title">Tienda en pausa</h2>
+            <p className="storeClosedModal__subtitle">{tenantName}</p>
+          </div>
+
+          {/* Body */}
+          <div className="storeClosedModal__body">
+            <div className="storeClosedModal__message storeClosedModal__message--paused">
+              <AlertCircle size={18} />
+              <p>
+                {pauseMessage || 'La tienda está temporalmente cerrada. Por favor, vuelve más tarde.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="storeClosedModal__footer">
+            <button className="storeClosedModal__button" onClick={onClose}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="storeClosedModal__overlay" onClick={onClose}>
+    <div className="storeClosedModal__overlay">
       <div 
-        className="storeClosedModal" 
-        onClick={e => e.stopPropagation()}
+        className="storeClosedModal"
         style={{ '--modal-accent': accentColor, '--modal-primary': primaryColor }}
       >
         {/* Header with themed gradient */}

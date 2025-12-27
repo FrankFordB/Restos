@@ -93,8 +93,8 @@ export default function ProductExtrasConfigModal({
   }
 
   return (
-    <div className="productExtrasConfigModal__overlay" onClick={onClose}>
-      <div className="productExtrasConfigModal" onClick={(e) => e.stopPropagation()}>
+    <div className="productExtrasConfigModal__overlay">
+      <div className="productExtrasConfigModal">
         <div className="productExtrasConfigModal__header">
           <div className="productExtrasConfigModal__headerInfo">
             <h2>Configurar Extras</h2>

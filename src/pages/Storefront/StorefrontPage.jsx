@@ -8,6 +8,7 @@ import { fetchProductsForTenant, selectProductsForTenant, createProduct, patchPr
 import { fetchCategoriesForTenant, selectCategoriesForTenant, createCategory, patchCategory, deleteCategory } from '../../features/categories/categoriesSlice'
 import { fetchExtrasForTenant, fetchExtraGroupsForTenant, selectExtrasForTenant, selectExtraGroupsForTenant } from '../../features/extras/extrasSlice'
 import ThemeApplier from '../../components/theme/ThemeApplier'
+import MobileStylesProvider from '../../components/theme/MobileStylesProvider'
 import { fetchTenantTheme, selectThemeForTenant, saveTenantTheme, upsertTenantTheme } from '../../features/theme/themeSlice'
 import { selectUser } from '../../features/auth/authSlice'
 import ProductCard from '../../components/storefront/ProductCard/ProductCard'
@@ -22,7 +23,7 @@ import Input from '../../components/ui/Input/Input'
 import WelcomeModal from '../../components/storefront/WelcomeModal/WelcomeModal'
 import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
 import { loadJson, saveJson } from '../../shared/storage'
-import { fetchDeliveryConfig, fetchTenantBySlugFull } from '../../lib/supabaseApi'
+import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug } from '../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import { checkIsStoreOpen } from '../../shared/openingHours'
 import {
@@ -30,9 +31,11 @@ import {
   TIER_LABELS,
   PRODUCT_CARD_LAYOUTS,
   STORE_HERO_STYLES,
+  CAROUSEL_BUTTON_STYLES,
   isFeatureAvailable,
 } from '../../shared/subscriptions'
-import { uploadHeroImage } from '../../lib/supabaseStorage'
+import { uploadHeroImage, uploadProductImage } from '../../lib/supabaseStorage'
+import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
 import {
   Wrench,
   Eye,
@@ -68,6 +71,8 @@ import {
   ChevronRight,
   Settings,
   Clock,
+  Focus,
+  Link2,
 } from 'lucide-react'
 
 export default function StorefrontPage() {
@@ -165,6 +170,12 @@ export default function StorefrontPage() {
   const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '', category: '' })
   const [savingProduct, setSavingProduct] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  
+  // Product image cropper state
+  const [showProductImageCropper, setShowProductImageCropper] = useState(false)
+  const [productImageToCrop, setProductImageToCrop] = useState(null)
+  const [uploadingProductImage, setUploadingProductImage] = useState(false)
+  const productImageInputRef = useRef(null)
 
   // Card customization panel state
   const [showCardPanel, setShowCardPanel] = useState(false)
@@ -214,8 +225,71 @@ export default function StorefrontPage() {
   const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true, nextOpen: null })
   const [showClosedModal, setShowClosedModal] = useState(false)
   
-  // Calculate if store is closed for blocking cart
-  const isStoreClosed = !storeStatus.isOpen && !storeStatus.noSchedule
+  // Store paused status (from admin)
+  const [isPaused, setIsPaused] = useState(false)
+  const [pauseMessage, setPauseMessage] = useState('')
+  const [showPausedRealtimeModal, setShowPausedRealtimeModal] = useState(false)
+  const wasPausedRef = useRef(false) // Track previous pause state
+  
+  // Calculate if store is closed for blocking cart (including paused state)
+  const isStoreClosed = (!storeStatus.isOpen && !storeStatus.noSchedule) || isPaused
+  
+  // Poll pause status every 10 seconds (lightweight check for realtime pause detection)
+  useEffect(() => {
+    if (!slug) return
+    
+    const checkPauseStatus = async () => {
+      try {
+        let pauseStatus = { isPaused: false, pauseMessage: '' }
+        
+        if (isSupabaseConfigured) {
+          pauseStatus = await fetchTenantPauseStatusBySlug(slug)
+        } else {
+          // Mock mode: check localStorage
+          const pauseCache = loadJson(`pauseStatus.${tenantId}`, { isPaused: false, pauseMessage: '' })
+          pauseStatus = pauseCache
+        }
+        
+        // If store just got paused (wasn't paused before, now it is)
+        if (pauseStatus.isPaused && !wasPausedRef.current) {
+          setIsPaused(true)
+          setPauseMessage(pauseStatus.pauseMessage)
+          setShowPausedRealtimeModal(true) // Show realtime notification
+        } else if (!pauseStatus.isPaused && wasPausedRef.current) {
+          // Store was unpaused
+          setIsPaused(false)
+          setPauseMessage('')
+          setShowPausedRealtimeModal(false)
+        }
+        
+        wasPausedRef.current = pauseStatus.isPaused
+      } catch (err) {
+        console.error('Error checking pause status:', err)
+      }
+    }
+    
+    // Initial check (but don't show modal on page load)
+    const initialCheck = async () => {
+      try {
+        let pauseStatus = { isPaused: false, pauseMessage: '' }
+        if (isSupabaseConfigured) {
+          pauseStatus = await fetchTenantPauseStatusBySlug(slug)
+        } else {
+          const pauseCache = loadJson(`pauseStatus.${tenantId}`, { isPaused: false, pauseMessage: '' })
+          pauseStatus = pauseCache
+        }
+        wasPausedRef.current = pauseStatus.isPaused
+        setIsPaused(pauseStatus.isPaused)
+        setPauseMessage(pauseStatus.pauseMessage)
+      } catch (err) {
+        console.error('Error initial pause check:', err)
+      }
+    }
+    
+    initialCheck()
+    const interval = setInterval(checkPauseStatus, 10000) // Check every 10 seconds
+    return () => clearInterval(interval)
+  }, [slug, tenantId])
   
   // Check store status periodically
   useEffect(() => {
@@ -286,6 +360,8 @@ export default function StorefrontPage() {
               welcome_modal_title: mockData[tenantId].welcomeModalTitle,
               welcome_modal_message: mockData[tenantId].welcomeModalMessage,
               welcome_modal_image: mockData[tenantId].welcomeModalImage,
+              welcome_modal_features: mockData[tenantId].welcomeModalFeatures,
+              welcome_modal_features_design: mockData[tenantId].welcomeModalFeaturesDesign,
               opening_hours: mockData[tenantId].openingHours || [],
             })
           } else if (tenant) {
@@ -299,6 +375,14 @@ export default function StorefrontPage() {
     }
     loadTenantFull()
   }, [slug, tenant, tenantId])
+
+  // Update pause status when tenant data is loaded
+  useEffect(() => {
+    if (tenantFullData) {
+      setIsPaused(tenantFullData.is_paused || false)
+      setPauseMessage(tenantFullData.pause_message || '')
+    }
+  }, [tenantFullData])
 
   // Show welcome modal for non-logged users or preview mode
   useEffect(() => {
@@ -334,6 +418,24 @@ export default function StorefrontPage() {
   ]
   const heroTitlePosition = heroTheme?.heroTitlePosition || 'center'
   const heroOverlayOpacity = heroTheme?.heroOverlayOpacity ?? 50
+  // Usar !== false: si el valor es undefined/null, por defecto mostramos el elemento
+  // Si el valor es explícitamente false, lo ocultamos
+  const heroShowTitle = heroTheme?.heroShowTitle !== false
+  const heroShowSubtitle = heroTheme?.heroShowSubtitle !== false
+  const heroShowCta = heroTheme?.heroShowCta !== false
+  const heroCarouselButtonStyle = heroTheme?.heroCarouselButtonStyle || 'arrows_classic'
+
+  // Debug: ver valores del theme
+  console.log('[StorefrontPage] Hero visibility:', {
+    'heroTheme.heroShowTitle': heroTheme?.heroShowTitle,
+    'heroShowTitle (computed)': heroShowTitle,
+    'heroTheme.heroShowSubtitle': heroTheme?.heroShowSubtitle,
+    'heroShowSubtitle (computed)': heroShowSubtitle,
+    'heroTheme.heroShowCta': heroTheme?.heroShowCta,
+    'heroShowCta (computed)': heroShowCta,
+    'localHeroTheme': localHeroTheme,
+    'theme': theme,
+  })
 
   // Get subscription tier from tenant (super_admin bypasses tier restrictions)
   // Check if premium is still active (not expired)
@@ -403,10 +505,15 @@ export default function StorefrontPage() {
 
   // Update local hero theme (for live preview)
   const updateHeroTheme = (patch) => {
-    setLocalHeroTheme(prev => ({
-      ...(prev || theme || {}),
-      ...patch
-    }))
+    console.log('[StorefrontPage] updateHeroTheme llamado con:', patch)
+    setLocalHeroTheme(prev => {
+      const newValue = {
+        ...(prev || theme || {}),
+        ...patch
+      }
+      console.log('[StorefrontPage] Nuevo localHeroTheme:', newValue)
+      return newValue
+    })
   }
 
   // Update a specific slide
@@ -454,9 +561,11 @@ export default function StorefrontPage() {
   // Save hero theme
   const saveHeroTheme = async () => {
     if (!localHeroTheme) return
+    console.log('[StorefrontPage] saveHeroTheme - guardando:', localHeroTheme)
     setSavingTheme(true)
     try {
-      await dispatch(saveTenantTheme({ tenantId, theme: localHeroTheme }))
+      const result = await dispatch(saveTenantTheme({ tenantId, theme: localHeroTheme }))
+      console.log('[StorefrontPage] saveHeroTheme - resultado del dispatch:', result)
       setLocalHeroTheme(null)
       setShowHeroPanel(false) // Cerrar panel al guardar
       setHeroPreviewMode(false)
@@ -719,6 +828,48 @@ export default function StorefrontPage() {
     }
   }
 
+  // Product image handlers
+  const handleProductImageFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = () => {
+      setProductImageToCrop(reader.result)
+      setShowProductImageCropper(true)
+    }
+    reader.readAsDataURL(file)
+    // Reset input
+    if (productImageInputRef.current) {
+      productImageInputRef.current.value = ''
+    }
+  }
+
+  const handleProductImageCropComplete = async (croppedImage) => {
+    setShowProductImageCropper(false)
+    setProductImageToCrop(null)
+    setUploadingProductImage(true)
+
+    try {
+      if (isSupabaseConfigured) {
+        // Convert base64 to File for upload
+        const response = await fetch(croppedImage)
+        const blob = await response.blob()
+        const file = new File([blob], 'product.jpg', { type: 'image/jpeg' })
+        const productId = editingProduct?.id || `temp-${Date.now()}`
+        const imageUrl = await uploadProductImage({ tenantId, productId, file })
+        setProductForm(f => ({ ...f, imageUrl }))
+      } else {
+        // Mock: use base64 directly
+        setProductForm(f => ({ ...f, imageUrl: croppedImage }))
+      }
+    } catch (err) {
+      console.error('Error uploading product image:', err)
+    } finally {
+      setUploadingProductImage(false)
+    }
+  }
+
   const handleDeleteProduct = async (product) => {
     if (deleteConfirm !== product.id) {
       setDeleteConfirm(product.id)
@@ -835,6 +986,15 @@ export default function StorefrontPage() {
       )}
 
       <ThemeApplier tenantId={tenantId} />
+      <MobileStylesProvider 
+        heroTheme={{
+          heroShowTitle,
+          heroShowSubtitle,
+          heroShowCta,
+          heroCarouselButtonStyle,
+        }}
+        tenantId={tenantId}
+      />
       
       {/* Store Header with Carousel */}
       <StoreHeader
@@ -844,12 +1004,16 @@ export default function StorefrontPage() {
         slides={heroSlides}
         titlePosition={heroTitlePosition}
         overlayOpacity={heroOverlayOpacity}
+        showTitle={heroShowTitle}
+        showSubtitle={heroShowSubtitle}
+        showCta={heroShowCta}
+        carouselButtonStyle={heroCarouselButtonStyle}
         cart={cart}
         onOpenCart={() => setShowCart(true)}
         openingHours={tenantFullData?.opening_hours || []}
       />
 
-      <div className="store__layout" id="productos">
+      <div className={`store__layout ${showHeroPanel ? 'store__layout--heroEditing' : ''}`} id="productos">
         <section className="store__products" aria-label="Productos">
           {isAdmin && (
             <div className="store__adminBar">
@@ -1031,24 +1195,28 @@ export default function StorefrontPage() {
             )}
           </div>
 
-          {/* Store Closed Banner */}
+          {/* Store Closed/Paused Banner */}
           {isStoreClosed && (
-            <div className="store__closedBanner">
+            <div className={`store__closedBanner ${isPaused ? 'store__closedBanner--paused' : ''}`}>
               <div className="store__closedBannerContent">
                 <div className="store__closedBannerIcon">
-                  <Clock size={24} />
+                  {isPaused ? <AlertTriangle size={24} /> : <Clock size={24} />}
                 </div>
                 <div className="store__closedBannerText">
-                  <span className="store__closedBannerTitle">Estamos cerrados</span>
-                  {storeStatus.nextOpen && (
+                  <span className="store__closedBannerTitle">
+                    {isPaused ? 'Tienda en pausa' : 'Estamos cerrados'}
+                  </span>
+                  {isPaused && pauseMessage ? (
+                    <span className="store__closedBannerNext">{pauseMessage}</span>
+                  ) : storeStatus.nextOpen && !isPaused ? (
                     <span className="store__closedBannerNext">Abrimos: {storeStatus.nextOpen}</span>
-                  )}
+                  ) : null}
                 </div>
                 <button 
                   className="store__closedBannerBtn"
                   onClick={() => setShowClosedModal(true)}
                 >
-                  Ver horarios
+                  {isPaused ? 'Ver info' : 'Ver horarios'}
                 </button>
               </div>
             </div>
@@ -1140,6 +1308,66 @@ export default function StorefrontPage() {
                     onChange={(e) => updateHeroTheme({ heroOverlayOpacity: Number(e.target.value) })}
                     className="store__heroRangeInput"
                   />
+                </div>
+
+                {/* Visibility Options */}
+                <div className="store__heroSection">
+                  <label className="store__heroSectionTitle">Elementos visibles</label>
+                  <div className="store__heroToggles">
+                    <label className="store__heroToggle">
+                      <input
+                        type="checkbox"
+                        checked={heroShowTitle}
+                        onChange={(e) => updateHeroTheme({ heroShowTitle: e.target.checked })}
+                      />
+                      <span className="store__heroToggleSlider"></span>
+                      <span className="store__heroToggleLabel">Mostrar título</span>
+                    </label>
+                    <label className="store__heroToggle">
+                      <input
+                        type="checkbox"
+                        checked={heroShowSubtitle}
+                        onChange={(e) => updateHeroTheme({ heroShowSubtitle: e.target.checked })}
+                      />
+                      <span className="store__heroToggleSlider"></span>
+                      <span className="store__heroToggleLabel">Mostrar subtítulo</span>
+                    </label>
+                    <label className="store__heroToggle">
+                      <input
+                        type="checkbox"
+                        checked={heroShowCta}
+                        onChange={(e) => updateHeroTheme({ heroShowCta: e.target.checked })}
+                      />
+                      <span className="store__heroToggleSlider"></span>
+                      <span className="store__heroToggleLabel">Mostrar botón de acción</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Carousel Button Styles */}
+                <div className="store__heroSection">
+                  <label className="store__heroSectionTitle">Estilo de botones del carrusel</label>
+                  <div className="store__heroButtonStyleGrid">
+                    {Object.entries(CAROUSEL_BUTTON_STYLES).map(([styleId, styleConfig]) => {
+                      const available = isFeatureAvailable(styleConfig.tier, effectiveTier)
+                      const isPro = styleConfig.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO
+                      return (
+                        <button
+                          key={styleId}
+                          type="button"
+                          className={`store__heroButtonStyleBtn ${heroCarouselButtonStyle === styleId ? 'store__heroButtonStyleBtn--selected' : ''} ${!available ? 'store__heroButtonStyleBtn--locked' : ''}`}
+                          onClick={() => available && updateHeroTheme({ heroCarouselButtonStyle: styleId })}
+                          disabled={!available}
+                          title={styleConfig.description}
+                        >
+                          <span className="store__heroButtonStylePreview">{styleConfig.preview}</span>
+                          <span className="store__heroButtonStyleLabel">{styleConfig.label}</span>
+                          {!available && <Lock size={12} className="store__heroButtonStyleLock" />}
+                          {isPro && available && <Crown size={10} className="store__heroButtonStylePro" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Slides Editor */}
@@ -1484,7 +1712,7 @@ export default function StorefrontPage() {
           </div>
         </section>
 
-        {!isCheckingOut && (
+        {!isCheckingOut && !showHeroPanel && (
           <CartPanel
             items={cartItems}
             total={cartTotal}
@@ -1501,6 +1729,31 @@ export default function StorefrontPage() {
               checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
           />
+        )}
+
+        {/* Carousel Live Preview - Replaces Cart when editing hero */}
+        {!isCheckingOut && showHeroPanel && (
+          <div className="store__carouselPreview">
+            <div className="store__carouselPreviewLabel">Vista previa</div>
+            <div className="store__carouselPreviewContent">
+              <StoreHeader
+                tenant={tenantFullData || tenant}
+                theme={theme}
+                heroStyle={heroStyle}
+                slides={heroSlides}
+                titlePosition={heroTitlePosition}
+                overlayOpacity={heroOverlayOpacity}
+                showTitle={heroShowTitle}
+                showSubtitle={heroShowSubtitle}
+                showCta={heroShowCta}
+                carouselButtonStyle={heroCarouselButtonStyle}
+                cart={{}}
+                onOpenCart={() => {}}
+                openingHours={[]}
+                isPreview={true}
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -1573,8 +1826,8 @@ export default function StorefrontPage() {
 
       {/* Product Modal */}
       {showProductModal && (
-        <div className="store__modalOverlay" onClick={() => setShowProductModal(false)}>
-          <div className="store__modal" onClick={(e) => e.stopPropagation()}>
+        <div className="store__modalOverlay">
+          <div className="store__modal">
             <div className="store__modalHeader">
               <h3>{editingProduct ? 'Editar producto' : 'Nuevo producto'}</h3>
               <button 
@@ -1623,12 +1876,61 @@ export default function StorefrontPage() {
                 </select>
               </div>
               
-              <Input
-                label="URL de imagen (opcional)"
-                value={productForm.imageUrl}
-                onChange={(v) => setProductForm(f => ({ ...f, imageUrl: v }))}
-                placeholder="https://..."
-              />
+              {/* Imagen del producto */}
+              <div className="store__formGroup">
+                <label className="store__formLabel">Imagen del producto</label>
+                <div className="store__imageUploadActions">
+                  <input
+                    type="file"
+                    ref={productImageInputRef}
+                    accept="image/*"
+                    onChange={handleProductImageFileSelect}
+                    style={{ display: 'none' }}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => productImageInputRef.current?.click()}
+                    disabled={uploadingProductImage}
+                  >
+                    {uploadingProductImage ? (
+                      <><Loader2 size={14} className="icon-spin" /> Subiendo...</>
+                    ) : (
+                      <><Upload size={14} /> Subir foto</>
+                    )}
+                  </Button>
+                  {productForm.imageUrl && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setProductImageToCrop(productForm.imageUrl)
+                        setShowProductImageCropper(true)
+                      }}
+                    >
+                      <Focus size={14} /> Ajustar
+                    </Button>
+                  )}
+                </div>
+                <div className="store__urlInputWrapper">
+                  <Link2 size={14} />
+                  <input
+                    type="text"
+                    className="store__urlInput"
+                    value={productForm.imageUrl}
+                    onChange={(e) => setProductForm(f => ({ ...f, imageUrl: e.target.value }))}
+                    placeholder="O pega una URL: https://..."
+                  />
+                  {productForm.imageUrl && (
+                    <button 
+                      className="store__urlClear"
+                      onClick={() => setProductForm(f => ({ ...f, imageUrl: '' }))}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
               
               {productForm.imageUrl && (
                 <div className="store__imagePreview">
@@ -1651,6 +1953,21 @@ export default function StorefrontPage() {
           </div>
         </div>
       )}
+
+      {/* Product Image Cropper Modal */}
+      <ImageCropperModal
+        isOpen={showProductImageCropper}
+        onClose={() => {
+          setShowProductImageCropper(false)
+          setProductImageToCrop(null)
+        }}
+        onCropComplete={handleProductImageCropComplete}
+        initialImage={productImageToCrop}
+        aspectRatio={1}
+        title="Ajustar imagen del producto"
+        allowUrl={true}
+        allowUpload={true}
+      />
 
       {/* Delete confirmation toast */}
       {deleteConfirm && (
@@ -1688,8 +2005,8 @@ export default function StorefrontPage() {
 
       {/* Extras Manager Modal (for admin to manage global extras/toppings) */}
       {showExtrasManagerModal && (
-        <div className="store__modalOverlay" onClick={() => setShowExtrasManagerModal(false)}>
-          <div className="store__extrasManagerModal" onClick={(e) => e.stopPropagation()}>
+        <div className="store__modalOverlay">
+          <div className="store__extrasManagerModal">
             <div className="store__modalHeader">
               <h3><Layers size={18} /> Extras y Toppings</h3>
               <button 
@@ -1723,7 +2040,38 @@ export default function StorefrontPage() {
         nextOpen={storeStatus.nextOpen}
         theme={theme}
         tenantName={tenant?.name}
+        isPaused={isPaused}
+        pauseMessage={pauseMessage}
       />
+
+      {/* Realtime Pause Modal - Shows when store is paused while customer is browsing */}
+      {showPausedRealtimeModal && (
+        <div className="store__pausedRealtimeOverlay">
+          <div className="store__pausedRealtimeModal">
+            <div className="store__pausedRealtimeIcon">
+              <AlertTriangle size={48} />
+            </div>
+            <h2 className="store__pausedRealtimeTitle">Lo sentimos</h2>
+            <p className="store__pausedRealtimeSubtitle">
+              La tienda acaba de pausar temporalmente la toma de pedidos
+            </p>
+            {pauseMessage && (
+              <div className="store__pausedRealtimeMessage">
+                <p>{pauseMessage}</p>
+              </div>
+            )}
+            <p className="store__pausedRealtimeInfo">
+              Tu carrito se mantendrá guardado. Te invitamos a regresar más tarde.
+            </p>
+            <button 
+              className="store__pausedRealtimeBtn"
+              onClick={() => setShowPausedRealtimeModal(false)}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1753,13 +2101,15 @@ function CheckoutPage({
   // Validar que el tipo de entrega seleccionado esté habilitado
   const isDeliveryTypeEnabled = deliveryConfig ? deliveryConfig[checkoutData.deliveryType] !== false : true
   
-  // Si el tipo de entrega actual está deshabilitado, buscar uno habilitado
-  if (!isDeliveryTypeEnabled) {
-    const enabledTypes = ['mostrador', 'domicilio', 'mesa'].filter(type => !deliveryConfig || deliveryConfig[type] !== false)
-    if (enabledTypes.length > 0 && enabledTypes[0] !== checkoutData.deliveryType) {
-      setCheckoutData({ ...checkoutData, deliveryType: enabledTypes[0] })
+  // Si el tipo de entrega actual está deshabilitado, buscar uno habilitado (en useEffect para evitar setState durante render)
+  useEffect(() => {
+    if (!isDeliveryTypeEnabled) {
+      const enabledTypes = ['mostrador', 'domicilio', 'mesa'].filter(type => !deliveryConfig || deliveryConfig[type] !== false)
+      if (enabledTypes.length > 0 && enabledTypes[0] !== checkoutData.deliveryType) {
+        setCheckoutData({ ...checkoutData, deliveryType: enabledTypes[0] })
+      }
     }
-  }
+  }, [isDeliveryTypeEnabled, deliveryConfig, checkoutData, setCheckoutData])
   
   const isAllDataValid = isNameValid && isPhoneValid && isAddressValid && isDeliveryTypeEnabled
   

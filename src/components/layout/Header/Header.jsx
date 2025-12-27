@@ -9,6 +9,9 @@ import { selectUser, signOut } from '../../../features/auth/authSlice'
 import { selectTenants } from '../../../features/tenants/tenantsSlice'
 import { ROLES } from '../../../shared/constants'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/subscriptions'
+import { fetchTenantPauseStatus } from '../../../lib/supabaseApi'
+import { isSupabaseConfigured } from '../../../lib/supabaseClient'
+import { loadJson } from '../../../shared/storage'
 
 export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const user = useAppSelector(selectUser)
@@ -32,6 +35,7 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const menuRef = useRef(null)
 
   const isLanding = location.pathname === '/'
@@ -46,6 +50,43 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Cargar estado de pausa del tenant
+  useEffect(() => {
+    const loadPauseStatus = async () => {
+      if (!user?.tenantId) return
+      
+      try {
+        if (isSupabaseConfigured) {
+          const status = await fetchTenantPauseStatus(user.tenantId)
+          setIsPaused(status.isPaused)
+        } else {
+          // Fallback a localStorage
+          const cached = loadJson(`pauseStatus.${user.tenantId}`, { isPaused: false })
+          setIsPaused(cached.isPaused)
+        }
+      } catch (err) {
+        console.error('Error loading pause status:', err)
+      }
+    }
+    
+    loadPauseStatus()
+    // Recargar cada 30 segundos para mantener sincronizado
+    const interval = setInterval(loadPauseStatus, 30000)
+    
+    // Escuchar evento de cambio de estado de pausa (desde OrdersManager)
+    const handlePauseChange = (e) => {
+      if (e.detail?.tenantId === user?.tenantId) {
+        setIsPaused(e.detail.isPaused)
+      }
+    }
+    window.addEventListener('storePauseChange', handlePauseChange)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('storePauseChange', handlePauseChange)
+    }
+  }, [user?.tenantId])
 
   const tenantSlug = user?.tenantId ? tenants.find((t) => t.id === user.tenantId)?.slug : null
   const storeHref = tenantSlug ? `/store/${tenantSlug}` : '/store/demo-burgers'
@@ -77,8 +118,18 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
       <header className={`header app__header ${sidebarCollapsed ? 'header--sidebarCollapsed' : ''}`}>
         <div className="container header__inner">
           <Link className="header__brand" to="/">
-            Resto Proyect
+FrankFood
           </Link>
+
+          {/* Store Status Indicator - Solo para admins con tenant */}
+          {user && user.tenantId && user.role !== ROLES.SUPER_ADMIN && (
+            <div className={`header__storeStatus ${isPaused ? 'header__storeStatus--paused' : 'header__storeStatus--active'}`}>
+              <span className="header__storeStatusDot"></span>
+              <span className="header__storeStatusText">
+                {isPaused ? 'Tienda pausada' : 'Tienda activa'}
+              </span>
+            </div>
+          )}
 
           <nav className="header__nav">
             <NavLink className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')} to="/">

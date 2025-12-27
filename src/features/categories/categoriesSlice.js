@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createSelector } from 'reselect'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
@@ -191,7 +192,21 @@ const categoriesSlice = createSlice({
 
 export const { addCategory, updateCategory, removeCategory } = categoriesSlice.actions
 
-export const selectCategoriesForTenant = (tenantId) => (state) =>
-  state.categories?.categoriesByTenantId[tenantId] || []
+const EMPTY_ARRAY = []
+const selectCategoriesByTenantId = (state) => state.categories?.categoriesByTenantId
+
+const selectorCache = new Map()
+export const selectCategoriesForTenant = (tenantId) => {
+  if (!selectorCache.has(tenantId)) {
+    selectorCache.set(
+      tenantId,
+      createSelector(
+        [selectCategoriesByTenantId],
+        (categoriesByTenantId) => categoriesByTenantId?.[tenantId] || EMPTY_ARRAY
+      )
+    )
+  }
+  return selectorCache.get(tenantId)
+}
 
 export default categoriesSlice.reducer

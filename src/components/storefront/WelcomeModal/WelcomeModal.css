@@ -4,15 +4,15 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 20px;
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 250ms ease;
 }
 
 .welcomeModal__overlay--visible {
@@ -22,15 +22,17 @@
 .welcomeModal {
   position: relative;
   background: white;
-  border-radius: 20px;
-  max-width: 420px;
+  border-radius: 24px;
+  max-width: 640px;
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
   transform: scale(0.9) translateY(20px);
   opacity: 0;
-  transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .welcomeModal--visible {
@@ -40,137 +42,416 @@
 
 .welcomeModal__previewBadge {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 16px;
+  left: 16px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.75);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 4px;
-  z-index: 10;
+  letter-spacing: 0.08em;
+  border-radius: 6px;
+  z-index: 20;
+  backdrop-filter: blur(4px);
 }
 
 .welcomeModal__close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
-  z-index: 10;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: white;
+  z-index: 20;
+  transition: all 200ms ease;
 }
 
 .welcomeModal__close:hover {
-  background: white;
+  background: rgba(0, 0, 0, 0.6);
   transform: scale(1.1);
 }
 
-.welcomeModal__imageContainer {
-  width: 100%;
-  height: 180px;
+/* Hero Section */
+.welcomeModal__hero {
+  position: relative;
+  height: 200px;
   overflow: hidden;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
-.welcomeModal__image {
+.welcomeModal__heroBg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.welcomeModal__heroImage {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.welcomeModal__iconContainer {
+.welcomeModal__heroGradient {
   width: 100%;
-  height: 140px;
+  height: 100%;
+  background: linear-gradient(135deg, 
+    var(--accent, #f59e0b) 0%, 
+    color-mix(in srgb, var(--accent, #f59e0b) 70%, #000) 100%
+  );
+}
+
+.welcomeModal__heroOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+.welcomeModal__heroContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-}
-
-.welcomeModal__icon {
-  font-size: 4rem;
-  animation: bounce 1s ease infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-.welcomeModal__content {
-  padding: 24px 24px 16px;
+  padding: 20px;
   text-align: center;
+  z-index: 10;
+}
+
+.welcomeModal__logoWrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: white;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  margin-bottom: 12px;
+  animation: logoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.welcomeModal__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.welcomeModal__storeName {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  letter-spacing: -0.02em;
+}
+
+.welcomeModal__slogan {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  font-weight: 500;
+}
+
+/* Body Content */
+.welcomeModal__body {
+  padding: 24px;
+}
+
+.welcomeModal__welcome {
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 .welcomeModal__title {
-  margin: 0 0 12px 0;
-  font-size: 1.5rem;
+  margin: 0 0 8px 0;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text, #111);
   line-height: 1.3;
 }
 
 .welcomeModal__message {
   margin: 0;
   font-size: 0.95rem;
-  color: var(--text-muted);
+  color: var(--text-muted, #666);
   line-height: 1.6;
 }
 
+/* Features */
+.welcomeModal__features {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.welcomeModal__feature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text, #333);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 200ms ease;
+}
+
+.welcomeModal__feature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.welcomeModal__featureIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent, #f59e0b);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ========== Feature Design Variants ========== */
+
+/* Design: Pills (default) */
+.welcomeModal__features--pills .welcomeModal__feature {
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 20px;
+  color: var(--text, #333);
+}
+
+.welcomeModal__features--pills .welcomeModal__featureIcon {
+  width: 32px;
+  height: 32px;
+  background: var(--accent, #f59e0b);
+  color: white;
+  border-radius: 8px;
+}
+
+/* Design: Cards */
+.welcomeModal__features--cards .welcomeModal__feature {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  flex-direction: column;
+  text-align: center;
+  min-width: 90px;
+}
+
+.welcomeModal__features--cards .welcomeModal__featureIcon {
+  width: 36px;
+  height: 36px;
+  background: var(--accent, #f59e0b);
+  color: white;
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+
+/* Design: Minimal */
+.welcomeModal__features--minimal .welcomeModal__feature {
+  flex-direction: column;
+  text-align: center;
+  padding: 8px;
+  color: var(--text-muted, #666);
+  background: transparent;
+  border: none;
+}
+
+.welcomeModal__features--minimal .welcomeModal__featureIcon {
+  background: transparent;
+  color: var(--accent, #f59e0b);
+}
+
+/* Design: Gradient */
+.welcomeModal__features--gradient .welcomeModal__feature {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--accent, #f59e0b) 0%, #d97706 100%);
+  color: white;
+  border-radius: 24px;
+  border: none;
+}
+
+.welcomeModal__features--gradient .welcomeModal__featureIcon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* Design: Glassmorphism */
+.welcomeModal__features--glassmorphism .welcomeModal__feature {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.welcomeModal__features--glassmorphism .welcomeModal__featureIcon {
+  background: var(--accent, #f59e0b);
+  color: white;
+}
+
+/* Design: Neon */
+.welcomeModal__features--neon .welcomeModal__feature {
+  padding: 10px 16px;
+  background: #0f172a;
+  color: var(--accent, #f59e0b);
+  border-radius: 10px;
+  border: 1px solid var(--accent, #f59e0b);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3), inset 0 0 12px rgba(245, 158, 11, 0.1);
+}
+
+.welcomeModal__features--neon .welcomeModal__featureIcon {
+  background: transparent;
+  color: var(--accent, #f59e0b);
+  filter: drop-shadow(0 0 6px var(--accent, #f59e0b));
+}
+
+/* Design: Outlined */
+.welcomeModal__features--outlined .welcomeModal__feature {
+  padding: 10px 16px;
+  background: transparent;
+  border: 2px solid var(--accent, #f59e0b);
+  color: var(--accent, #f59e0b);
+  border-radius: 10px;
+}
+
+.welcomeModal__features--outlined .welcomeModal__featureIcon {
+  background: transparent;
+  color: var(--accent, #f59e0b);
+}
+
+/* Design: Floating */
+.welcomeModal__features--floating .welcomeModal__feature {
+  padding: 12px 18px;
+  background: white;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
+}
+
+.welcomeModal__features--floating .welcomeModal__feature:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+}
+
+.welcomeModal__features--floating .welcomeModal__featureIcon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent, #f59e0b) 0%, #d97706 100%);
+  color: white;
+  border-radius: 10px;
+}
+
+/* CTA Actions */
 .welcomeModal__actions {
-  padding: 16px 24px 24px;
   display: flex;
   justify-content: center;
 }
 
-.welcomeModal__actions .btn {
+.welcomeModal__actions .btn,
+.welcomeModal__cta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
+  gap: 10px;
+  padding: 14px 32px;
   font-size: 1rem;
+  font-weight: 600;
+  border-radius: 14px;
+  width: 100%;
+  justify-content: center;
+  transition: all 200ms ease;
+}
+
+.welcomeModal__actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Responsive */
 @media (max-width: 480px) {
   .welcomeModal {
     max-width: 100%;
+    border-radius: 20px;
+    margin: 10px;
+  }
+
+  .welcomeModal__hero {
+    height: 180px;
+  }
+
+  .welcomeModal__logoWrapper {
+    width: 64px;
+    height: 64px;
     border-radius: 16px;
   }
 
-  .welcomeModal__imageContainer {
-    height: 150px;
+  .welcomeModal__storeName {
+    font-size: 1.5rem;
   }
 
-  .welcomeModal__iconContainer {
-    height: 120px;
+  .welcomeModal__slogan {
+    font-size: 0.85rem;
   }
 
-  .welcomeModal__icon {
-    font-size: 3rem;
-  }
-
-  .welcomeModal__content {
-    padding: 20px 20px 12px;
+  .welcomeModal__body {
+    padding: 20px;
   }
 
   .welcomeModal__title {
     font-size: 1.25rem;
   }
 
-  .welcomeModal__actions {
-    padding: 12px 20px 20px;
+  .welcomeModal__features {
+    gap: 10px;
+  }
+
+  .welcomeModal__feature {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+  }
+
+  .welcomeModal__featureIcon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .welcomeModal__actions .btn {
+    padding: 12px 24px;
   }
 }

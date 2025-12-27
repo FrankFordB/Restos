@@ -24,6 +24,7 @@ import {
 const MENU_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'store-editor', label: 'Editar mi tienda', icon: Store },
+  { id: 'mobile-preview', label: 'Vista Móvil', icon: Eye },
   { id: 'orders', label: 'Pedidos', icon: ClipboardList },
   { id: 'sales', label: 'Ventas', icon: DollarSign },
   { id: 'menu', label: 'Menú', icon: UtensilsCrossed },
@@ -31,8 +32,7 @@ const MENU_ITEMS = [
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'settings', label: 'Configuraciones', icon: Settings },
-  { id: 'reports', label: 'Reportes', icon: BarChart3 },
-  { id: 'preview', label: 'Vista previa', icon: Eye },
+  { id: 'reports', label: 'Reportes', icon: BarChart3 },  
   { id: 'qr', label: 'QR y Enlaces', icon: QrCode },
 ]
 
@@ -67,11 +67,6 @@ export default function Sidebar({
   }, [])
 
   const handleTabClick = (tabId) => {
-    if (tabId === 'preview' && tenantSlug) {
-      // Open store in new tab
-      window.open(`/store/${tenantSlug}`, '_blank')
-      return
-    }
     onTabChange(tabId)
     setIsMobileOpen(false)
   }

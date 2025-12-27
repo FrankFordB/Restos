@@ -514,13 +514,15 @@ export async function updateTenantInfo({ tenantId, name, logo, description, slog
 
 // Update tenant welcome modal settings
 // Note: welcome_modal_* columns may not exist - handle gracefully
-export async function updateTenantWelcomeModal({ tenantId, enabled, title, message, image }) {
+export async function updateTenantWelcomeModal({ tenantId, enabled, title, message, image, features, featuresDesign }) {
   ensureSupabase()
   const patch = {}
   if (enabled !== undefined) patch.welcome_modal_enabled = enabled
   if (title !== undefined) patch.welcome_modal_title = title
   if (message !== undefined) patch.welcome_modal_message = message
   if (image !== undefined) patch.welcome_modal_image = image
+  if (features !== undefined) patch.welcome_modal_features = features
+  if (featuresDesign !== undefined) patch.welcome_modal_features_design = featuresDesign
 
   if (Object.keys(patch).length === 0) {
     // Nothing to update
@@ -583,7 +585,7 @@ export async function fetchTenantFull(tenantId) {
   try {
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, opening_hours, owner_user_id')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, owner_user_id, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option')
       .eq('id', tenantId)
       .single()
     if (error) throw error
@@ -610,7 +612,7 @@ export async function fetchTenantBySlugFull(slug) {
   try {
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, opening_hours')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
       .eq('slug', slug)
       .maybeSingle()
     if (error) throw error
@@ -625,6 +627,146 @@ export async function fetchTenantBySlugFull(slug) {
         .maybeSingle()
       if (err2) throw err2
       return data
+    }
+    throw err
+  }
+}
+
+// Update tenant pause status
+// isPaused: boolean - whether the store is paused
+// pauseMessage: string - message to show when paused
+export async function updateTenantPauseStatus({ tenantId, isPaused, pauseMessage }) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update({ 
+        is_paused: isPaused, 
+        pause_message: pauseMessage || null 
+      })
+      .eq('id', tenantId)
+      .select('id, name, slug, is_paused, pause_message')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      console.warn('updateTenantPauseStatus: is_paused/pause_message columns may not exist yet. Run migration add_store_pause.sql')
+      return null
+    }
+    throw err
+  }
+}
+
+// Fetch tenant pause status only (lightweight query for storefront)
+export async function fetchTenantPauseStatus(tenantId) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, is_paused, pause_message')
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw error
+    return { isPaused: data?.is_paused || false, pauseMessage: data?.pause_message || '' }
+  } catch (err) {
+    // If columns don't exist, return not paused
+    return { isPaused: false, pauseMessage: '' }
+  }
+}
+
+// Fetch tenant pause status by slug (for storefront polling)
+export async function fetchTenantPauseStatusBySlug(slug) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, is_paused, pause_message')
+      .eq('slug', slug)
+      .single()
+
+    if (error) throw error
+    return { isPaused: data?.is_paused || false, pauseMessage: data?.pause_message || '' }
+  } catch (err) {
+    // If columns don't exist, return not paused
+    return { isPaused: false, pauseMessage: '' }
+  }
+}
+
+// Fetch mobile preview settings for a tenant
+export async function fetchMobilePreviewSettings(tenantId) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw error
+    const carouselOptions = data?.mobile_carousel_options || { showTitle: true, showSubtitle: true, showCta: true }
+    return {
+      headerDesign: data?.mobile_header_design || 'centered',
+      cardDesign: data?.mobile_card_design || 'stackedFull',
+      spacingOption: data?.mobile_spacing_option || 'balanced',
+      typographyOption: data?.mobile_typography_option || 'standard',
+      carouselOptions,
+    }
+  } catch (err) {
+    // If columns don't exist, return defaults
+    console.warn('fetchMobilePreviewSettings: columns may not exist yet. Run migration add_mobile_preview_settings.sql')
+    return {
+      headerDesign: 'centered',
+      cardDesign: 'stackedFull',
+      spacingOption: 'balanced',
+      typographyOption: 'standard',
+      carouselOptions: { showTitle: true, showSubtitle: true, showCta: true },
+    }
+  }
+}
+
+// Update mobile preview settings for a tenant
+export async function updateMobilePreviewSettings({ tenantId, headerDesign, cardDesign, spacingOption, typographyOption, carouselOptions }) {
+  ensureSupabase()
+  
+  const patch = {}
+  if (headerDesign !== undefined) patch.mobile_header_design = headerDesign
+  if (cardDesign !== undefined) patch.mobile_card_design = cardDesign
+  if (spacingOption !== undefined) patch.mobile_spacing_option = spacingOption
+  if (typographyOption !== undefined) patch.mobile_typography_option = typographyOption
+  if (carouselOptions !== undefined) patch.mobile_carousel_options = carouselOptions
+
+  if (Object.keys(patch).length === 0) {
+    return fetchMobilePreviewSettings(tenantId)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update(patch)
+      .eq('id', tenantId)
+      .select('id, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
+      .single()
+
+    if (error) throw error
+    const carouselOpts = data?.mobile_carousel_options || { showTitle: true, showSubtitle: true, showCta: true }
+    return {
+      headerDesign: data?.mobile_header_design || 'centered',
+      cardDesign: data?.mobile_card_design || 'stackedFull',
+      spacingOption: data?.mobile_spacing_option || 'balanced',
+      typographyOption: data?.mobile_typography_option || 'standard',
+      carouselOptions: carouselOpts,
+    }
+  } catch (err) {
+    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
+      console.warn('updateMobilePreviewSettings: columns may not exist yet. Run migration add_mobile_preview_settings.sql')
+      return null
     }
     throw err
   }
@@ -697,7 +839,7 @@ export async function fetchThemeByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenant_themes')
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -726,8 +868,12 @@ export async function upsertTheme({ tenantId, theme }) {
       hero_slides: theme.heroSlides,
       hero_title_position: theme.heroTitlePosition,
       hero_overlay_opacity: theme.heroOverlayOpacity,
+      hero_show_title: theme.heroShowTitle,
+      hero_show_subtitle: theme.heroShowSubtitle,
+      hero_show_cta: theme.heroShowCta,
+      hero_carousel_button_style: theme.heroCarouselButtonStyle,
     })
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .single()
 
   if (error) throw error

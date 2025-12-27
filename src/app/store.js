@@ -20,5 +20,8 @@ export const store = configureStore({
     categories: categoriesReducer,
     extras: extrasReducer,
   },
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false }),
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware({ 
+    serializableCheck: false,
+    immutableCheck: { warnAfter: 128 }, // Aumentar threshold para estados grandes
+  }),
 })

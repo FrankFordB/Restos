@@ -219,3 +219,23 @@
 .storeClosedModal__button:active {
   transform: translateY(0);
 }
+
+/* Paused state styles */
+.storeClosedModal--paused {
+  border: 2px solid #f59e0b;
+}
+
+.storeClosedModal__header--paused {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.storeClosedModal__message--paused {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.storeClosedModal__message--paused p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #92400e;
+}

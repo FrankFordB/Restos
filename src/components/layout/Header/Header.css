@@ -33,8 +33,82 @@
 }
 
 .header__brand::before {
-  content: '🍔';
+  content: '';
   font-size: 1.3rem;
+}
+
+/* Store Status Indicator */
+.header__storeStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 200ms var(--ease-out);
+}
+
+.header__storeStatus--active {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.header__storeStatus--paused {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: pulseStatus 2s infinite;
+}
+
+@keyframes pulseStatus {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.header__storeStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.header__storeStatus--active .header__storeStatusDot {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.header__storeStatus--paused .header__storeStatusDot {
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.header__storeStatusText {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .header__storeStatus {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+  
+  .header__storeStatusText {
+    display: none;
+  }
+  
+  .header__storeStatusDot {
+    width: 10px;
+    height: 10px;
+  }
 }
 
 .header__nav {

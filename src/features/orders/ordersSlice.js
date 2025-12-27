@@ -1,10 +1,13 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, createSelector } from '@reduxjs/toolkit'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import { createOrderWithItems, listOrdersByTenantId, updateOrderStatus, deleteOrder as deleteOrderApi } from '../../lib/supabaseOrdersApi'
 
 const PERSIST_KEY = 'state.orders'
+
+// Array vacío constante para evitar crear nuevas referencias en selectores
+const EMPTY_ORDERS = []
 
 const initialState = loadJson(PERSIST_KEY, {
   ordersByTenantId: {},
@@ -128,6 +131,21 @@ const ordersSlice = createSlice({
   },
 })
 
-export const selectOrdersForTenant = (tenantId) => (state) => state.orders.ordersByTenantId[tenantId] || []
+// Selector memoizado para evitar re-renders innecesarios
+const selectOrdersByTenantId = (state) => state.orders.ordersByTenantId
+
+const ordersSelectorCache = new Map()
+export const selectOrdersForTenant = (tenantId) => {
+  if (!ordersSelectorCache.has(tenantId)) {
+    ordersSelectorCache.set(
+      tenantId,
+      createSelector(
+        [selectOrdersByTenantId],
+        (ordersByTenantId) => ordersByTenantId[tenantId] || EMPTY_ORDERS
+      )
+    )
+  }
+  return ordersSelectorCache.get(tenantId)
+}
 
 export default ordersSlice.reducer

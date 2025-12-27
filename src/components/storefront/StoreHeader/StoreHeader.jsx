@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import './StoreHeader.css'
 import { STORE_HERO_STYLES } from '../../../shared/subscriptions'
 import { checkIsStoreOpen } from '../../../shared/openingHours'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function StoreHeader({
   tenant,
@@ -11,10 +12,16 @@ export default function StoreHeader({
   slides = [],
   titlePosition = 'center',
   overlayOpacity = 50,
+  showTitle = true,
+  showSubtitle = true,
+  showCta = true,
+  carouselButtonStyle = 'arrows_classic',
   cart = {},
   onOpenCart,
   openingHours = [],
 }) {
+  // Debug: ver qué valores recibe el componente
+  console.log('[StoreHeader] Props recibidas:', { showTitle, showSubtitle, showCta })
   const [currentSlide, setCurrentSlide] = useState(0)
   const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true })
 
@@ -134,9 +141,9 @@ export default function StoreHeader({
           key={`slide-content-${currentSlide}`}
           className={`storeHeader__heroContent ${alignmentClass}`}
         >
-          <h1 className="storeHeader__heroTitle">{currentSlideData.title}</h1>
-          <p className="storeHeader__heroSubtitle">{currentSlideData.subtitle}</p>
-          {currentSlideData.ctaText && (
+          {showTitle && <h1 className="storeHeader__heroTitle">{currentSlideData.title}</h1>}
+          {showSubtitle && <p className="storeHeader__heroSubtitle">{currentSlideData.subtitle}</p>}
+          {showCta && currentSlideData.ctaText && (
             <a href={currentSlideData.ctaLink || '#productos'} className="storeHeader__heroCta">
               {currentSlideData.ctaText}
             </a>
@@ -146,11 +153,11 @@ export default function StoreHeader({
         {/* Carousel Controls */}
         {hasCarousel && displaySlides.length > 1 && (
           <>
-            <button className="storeHeader__carouselBtn storeHeader__carouselBtn--prev" onClick={prevSlide}>
-              ‹
+            <button className={`storeHeader__carouselBtn storeHeader__carouselBtn--prev storeHeader__carouselBtn--${carouselButtonStyle}`} onClick={prevSlide}>
+              <ChevronLeft size={28} strokeWidth={2.5} />
             </button>
-            <button className="storeHeader__carouselBtn storeHeader__carouselBtn--next" onClick={nextSlide}>
-              ›
+            <button className={`storeHeader__carouselBtn storeHeader__carouselBtn--next storeHeader__carouselBtn--${carouselButtonStyle}`} onClick={nextSlide}>
+              <ChevronRight size={28} strokeWidth={2.5} />
             </button>
             <div className="storeHeader__carouselDots">
               {displaySlides.map((_, index) => (

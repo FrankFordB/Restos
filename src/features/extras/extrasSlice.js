@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createSelector } from 'reselect'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
@@ -442,10 +443,36 @@ export const {
 } = extrasSlice.actions
 
 // Selectors
-export const selectExtrasForTenant = (tenantId) => (state) =>
-  state.extras.extrasByTenantId[tenantId] || []
+const EMPTY_ARRAY = []
+const selectExtrasByTenantId = (state) => state.extras.extrasByTenantId
+const selectGroupsByTenantId = (state) => state.extras.groupsByTenantId
 
-export const selectExtraGroupsForTenant = (tenantId) => (state) =>
-  state.extras.groupsByTenantId[tenantId] || []
+const extrasSelectorCache = new Map()
+export const selectExtrasForTenant = (tenantId) => {
+  if (!extrasSelectorCache.has(tenantId)) {
+    extrasSelectorCache.set(
+      tenantId,
+      createSelector(
+        [selectExtrasByTenantId],
+        (extrasByTenantId) => extrasByTenantId[tenantId] || EMPTY_ARRAY
+      )
+    )
+  }
+  return extrasSelectorCache.get(tenantId)
+}
+
+const groupsSelectorCache = new Map()
+export const selectExtraGroupsForTenant = (tenantId) => {
+  if (!groupsSelectorCache.has(tenantId)) {
+    groupsSelectorCache.set(
+      tenantId,
+      createSelector(
+        [selectGroupsByTenantId],
+        (groupsByTenantId) => groupsByTenantId[tenantId] || EMPTY_ARRAY
+      )
+    )
+  }
+  return groupsSelectorCache.get(tenantId)
+}
 
 export default extrasSlice.reducer

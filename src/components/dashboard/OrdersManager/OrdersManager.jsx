@@ -7,7 +7,7 @@ import Input from '../../ui/Input/Input'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
-import { fetchDeliveryConfig, updateDeliveryConfig } from '../../../lib/supabaseApi'
+import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus } from '../../../lib/supabaseApi'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Search,
   Pause,
+  Play,
   Plus,
   ChevronDown,
   Clock,
@@ -32,6 +33,7 @@ import {
   Filter,
   ArrowLeft,
   ShoppingCart,
+  AlertTriangle,
 } from 'lucide-react'
 
 const DELIVERY_TYPES = {
@@ -107,6 +109,12 @@ export default function OrdersManager({ tenantId }) {
     mesa: true,
   })
   const [loadingConfig, setLoadingConfig] = useState(true)
+  
+  // Estado de pausa de la tienda
+  const [showPauseModal, setShowPauseModal] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [pauseMessage, setPauseMessage] = useState('')
+  const [pauseLoading, setPauseLoading] = useState(false)
 
   // Cargar configuración desde Supabase al montar
   useEffect(() => {
@@ -119,10 +127,19 @@ export default function OrdersManager({ tenantId }) {
           setDeliveryConfig(config)
           // También guardamos en localStorage como cache
           saveJson(deliveryConfigKey, config)
+          
+          // Cargar estado de pausa
+          const pauseStatus = await fetchTenantPauseStatus(tenantId)
+          setIsPaused(pauseStatus.isPaused)
+          setPauseMessage(pauseStatus.pauseMessage || '')
         } else {
           // Fallback a localStorage si no hay Supabase
           const cached = loadJson(deliveryConfigKey, { mostrador: true, domicilio: true, mesa: true })
           setDeliveryConfig(cached)
+          // Cargar pausa desde localStorage
+          const pauseCache = loadJson(`pauseStatus.${tenantId}`, { isPaused: false, pauseMessage: '' })
+          setIsPaused(pauseCache.isPaused)
+          setPauseMessage(pauseCache.pauseMessage)
         }
       } catch (err) {
         console.error('Error loading delivery config:', err)
@@ -384,6 +401,55 @@ export default function OrdersManager({ tenantId }) {
     }
   }
 
+  // Guardar estado de pausa (recibe valores del modal)
+  const handleSavePauseStatus = async (newIsPaused, newPauseMessage) => {
+    setPauseLoading(true)
+    try {
+      if (isSupabaseConfigured) {
+        await updateTenantPauseStatus({ tenantId, isPaused: newIsPaused, pauseMessage: newPauseMessage })
+      }
+      // Guardar en localStorage como cache/fallback
+      saveJson(`pauseStatus.${tenantId}`, { isPaused: newIsPaused, pauseMessage: newPauseMessage })
+      // Actualizar estado del componente padre
+      setIsPaused(newIsPaused)
+      setPauseMessage(newPauseMessage)
+      setShowPauseModal(false)
+      
+      // Emitir evento para que otros componentes (Header) se actualicen
+      window.dispatchEvent(new CustomEvent('storePauseChange', {
+        detail: { tenantId, isPaused: newIsPaused, pauseMessage: newPauseMessage }
+      }))
+    } catch (err) {
+      console.error('Error saving pause status:', err)
+      alert('Error al guardar el estado de pausa. Intenta nuevamente.')
+    } finally {
+      setPauseLoading(false)
+    }
+  }
+
+  // Toggle rápido de pausa (sin abrir modal)
+  const handleQuickTogglePause = async () => {
+    const newPausedState = !isPaused
+    setIsPaused(newPausedState)
+    
+    // Si se está pausando y no hay mensaje, abrir modal
+    if (newPausedState && !pauseMessage) {
+      setShowPauseModal(true)
+      return
+    }
+    
+    // Guardar directamente
+    try {
+      if (isSupabaseConfigured) {
+        await updateTenantPauseStatus({ tenantId, isPaused: newPausedState, pauseMessage })
+      }
+      saveJson(`pauseStatus.${tenantId}`, { isPaused: newPausedState, pauseMessage })
+    } catch (err) {
+      console.error('Error toggling pause:', err)
+      setIsPaused(!newPausedState) // Revertir
+    }
+  }
+
   // =====================
   // FUNCIONES DE SELECCIÓN MÚLTIPLE
   // =====================
@@ -546,12 +612,22 @@ export default function OrdersManager({ tenantId }) {
             />
           </div>
           <Button
+            variant={isPaused ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setShowPauseModal(true)}
+            title={isPaused ? 'Tienda pausada - Click para gestionar' : 'Pausar tienda'}
+            className={isPaused ? 'ordersManager__pauseBtn--active' : ''}
+          >
+            {isPaused ? <Play size={16} /> : <Pause size={16} />}
+            {isPaused ? 'Reanudar' : 'Pausar'}
+          </Button>
+          <Button
             variant="secondary"
             size="sm"
             onClick={() => setShowConfigModal(true)}
             title="Configurar tipos de envío"
           >
-            <Pause size={16} />
+            <Truck size={16} />
             Configurar
           </Button>
           <Button size="sm" onClick={() => setShowCreateStore(true)}>
@@ -560,6 +636,15 @@ export default function OrdersManager({ tenantId }) {
           </Button>
         </div>
       </div>
+
+      {/* Indicador de tienda pausada */}
+      {isPaused && (
+        <div className="ordersManager__pauseBanner">
+          <AlertTriangle size={18} />
+          <span>La tienda está pausada. Los clientes no pueden hacer pedidos.</span>
+          <button onClick={() => setShowPauseModal(true)}>Gestionar</button>
+        </div>
+      )}
 
       {/* TIENDA EMBEBIDA para crear pedido */}
       {showCreateStore && (
@@ -987,6 +1072,17 @@ export default function OrdersManager({ tenantId }) {
         />
       )}
 
+      {/* Modal pausar tienda */}
+      {showPauseModal && (
+        <PauseStoreModal
+          isPaused={isPaused}
+          pauseMessage={pauseMessage}
+          onSave={handleSavePauseStatus}
+          onClose={() => setShowPauseModal(false)}
+          loading={pauseLoading}
+        />
+      )}
+
       {/* Modal pagar */}
       {showPaymentModal && (
         <PaymentModal
@@ -1374,12 +1470,11 @@ function PaymentModal({ order, onClose, onSuccess }) {
   }
 
   return (
-    <div className="modal__overlay" onClick={onClose}>
+    <div className="modal__overlay">
       <Card
         className="modal__card"
         title="Procesar Pago"
         actions={<button className="modal__close" onClick={onClose}>✕</button>}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal__content">
           <div className="modal__section">
@@ -1494,8 +1589,8 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
   const total = Number(order.total) || subtotal - discount
 
   return (
-    <div className="modal__overlay" onClick={onClose}>
-      <div className="orderDetailModal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal__overlay">
+      <div className="orderDetailModal">
         {/* Header */}
         <div className="orderDetailModal__header">
           <div className="orderDetailModal__titleRow">
@@ -1801,12 +1896,11 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
   const enabledCount = Object.values(deliveryConfig).filter(Boolean).length
 
   return (
-    <div className="modal__overlay" onClick={onClose}>
+    <div className="modal__overlay">
       <Card
         className="modal__card"
         title="Configurar Tipos de Envío"
         actions={<button className="modal__close" onClick={onClose}>✕</button>}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal__content">
           <p className="muted" style={{ marginBottom: '20px' }}>
@@ -1862,6 +1956,161 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
           </div>
         </div>
       </Card>
+    </div>
+  )
+}
+
+// Modal para pausar la tienda
+function PauseStoreModal({ isPaused: initialIsPaused, pauseMessage: initialPauseMessage, onSave, onClose, loading }) {
+  // Estados internos del modal (se resetean al cerrar)
+  const [localIsPaused, setLocalIsPaused] = useState(initialIsPaused)
+  const [localPauseMessage, setLocalPauseMessage] = useState(initialPauseMessage)
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
+  
+  // Verificar si hay cambios sin guardar
+  const hasChanges = localIsPaused !== initialIsPaused || localPauseMessage !== initialPauseMessage
+  
+  // Prevenir cierre del modal al hacer clic dentro
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      handleClose()
+    }
+  }
+  
+  // Manejar cierre: si hay cambios, mostrar advertencia
+  const handleClose = () => {
+    if (hasChanges) {
+      setShowUnsavedWarning(true)
+      return
+    }
+    onClose()
+  }
+  
+  // Descartar cambios y cerrar
+  const handleDiscardChanges = () => {
+    setShowUnsavedWarning(false)
+    onClose()
+  }
+  
+  // Guardar cambios
+  const handleSave = () => {
+    onSave(localIsPaused, localPauseMessage)
+  }
+
+  return (
+    <div className="modal__overlay">
+      <div
+        className="pauseModal__card"
+      >
+        <div className="pauseModal__header">
+          <h3>{localIsPaused ? '⏸️ Tienda Pausada' : '▶️ Tienda Activa'}</h3>
+          <button className="modal__close" onClick={handleClose} type="button">✕</button>
+        </div>
+        <div className="pauseModal__body">
+          <p className="muted" style={{ marginBottom: '20px' }}>
+            {localIsPaused 
+              ? 'La tienda está pausada. Los clientes verán el mensaje personalizado y no podrán hacer pedidos.'
+              : 'La tienda está activa. Los clientes pueden hacer pedidos normalmente.'}
+          </p>
+
+          <div className="pauseModal__toggle">
+            <span className="pauseModal__toggleLabel">Estado de la tienda:</span>
+            <label className={`pauseModal__switch ${localIsPaused ? 'pauseModal__switch--paused' : 'pauseModal__switch--active'}`}>
+              <input
+                type="checkbox"
+                checked={!localIsPaused}
+                onChange={() => setLocalIsPaused(!localIsPaused)}
+              />
+              <span className="pauseModal__switchSlider"></span>
+            </label>
+            <span className={`pauseModal__storeStatus ${localIsPaused ? 'pauseModal__storeStatus--paused' : 'pauseModal__storeStatus--active'}`}>
+              {localIsPaused ? 'PAUSADA' : 'ACTIVA'}
+            </span>
+          </div>
+
+          {localIsPaused && (
+            <div className="pauseModal__messageSection">
+              <label className="pauseModal__label">
+                Mensaje para los clientes:
+              </label>
+              <textarea
+                className="pauseModal__textarea"
+                value={localPauseMessage}
+                onChange={(e) => setLocalPauseMessage(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => e.stopPropagation()}
+                placeholder="Ej: Estamos cerrados por vacaciones. Volvemos el 2 de enero. ¡Gracias por tu paciencia!"
+                rows={4}
+              />
+              <p className="pauseModal__hint">
+                Este mensaje se mostrará a los clientes cuando intenten acceder a tu tienda.
+              </p>
+            </div>
+          )}
+
+          <div className="pauseModal__preview">
+            <h4>Vista previa:</h4>
+            <div className={`pauseModal__previewBox ${localIsPaused ? 'pauseModal__previewBox--paused' : ''}`}>
+              {localIsPaused ? (
+                <>
+                  <AlertTriangle size={32} />
+                  <strong>Tienda temporalmente no disponible</strong>
+                  <p>{localPauseMessage || 'La tienda está temporalmente cerrada. Por favor, vuelve más tarde.'}</p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={32} />
+                  <strong>Tienda abierta</strong>
+                  <p>Los clientes pueden hacer pedidos normalmente.</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="pauseModal__actions">
+            <Button variant="secondary" onClick={handleClose} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? 'Guardando...' : '✓ Guardar Cambios'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de advertencia de cambios sin guardar */}
+      {showUnsavedWarning && (
+        <div className="pauseModal__warningOverlay" onClick={(e) => e.stopPropagation()}>
+          <div className="pauseModal__warningCard">
+            <div className="pauseModal__warningIcon">
+              <AlertTriangle size={40} />
+            </div>
+            <h4 className="pauseModal__warningTitle">Cambios sin guardar</h4>
+            <p className="pauseModal__warningText">
+              Has modificado el estado de la tienda pero no has guardado los cambios.
+            </p>
+            <div className="pauseModal__warningActions">
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={handleDiscardChanges}
+              >
+                Descartar cambios
+              </Button>
+              <Button 
+                size="sm"
+                onClick={() => {
+                  setShowUnsavedWarning(false)
+                  handleSave()
+                }}
+                disabled={loading}
+              >
+                {loading ? 'Guardando...' : 'Guardar y salir'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

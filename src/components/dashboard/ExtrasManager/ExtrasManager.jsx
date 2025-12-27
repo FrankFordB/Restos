@@ -437,8 +437,8 @@ export default function ExtrasManager({ tenantId }) {
 
       {/* Group Modal */}
       {showGroupModal && (
-        <div className="extrasManager__modal" onClick={() => setShowGroupModal(false)}>
-          <div className="extrasManager__modalContent" onClick={(e) => e.stopPropagation()}>
+        <div className="extrasManager__modal">
+          <div className="extrasManager__modalContent">
             <div className="extrasManager__modalHeader">
               <h4 className="extrasManager__modalTitle">
                 {editingGroup ? 'Editar Grupo' : 'Nuevo Grupo de Extras'}
@@ -520,8 +520,8 @@ export default function ExtrasManager({ tenantId }) {
 
       {/* Extra Modal with Options Support */}
       {showExtraModal && (
-        <div className="extrasManager__modal" onClick={() => setShowExtraModal(false)}>
-          <div className="extrasManager__modalContent extrasManager__modalContent--large" onClick={(e) => e.stopPropagation()}>
+        <div className="extrasManager__modal">
+          <div className="extrasManager__modalContent extrasManager__modalContent--large">
             <div className="extrasManager__modalHeader">
               <h4 className="extrasManager__modalTitle">
                 {editingExtra ? 'Editar Extra' : 'Nuevo Extra'}

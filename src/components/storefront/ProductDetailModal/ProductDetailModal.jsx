@@ -197,8 +197,8 @@ export default function ProductDetailModal({
   }
 
   return (
-    <div className="productModal__overlay" onClick={onClose}>
-      <div className="productModal" onClick={(e) => e.stopPropagation()}>
+    <div className="productModal__overlay">
+      <div className="productModal">
         {/* Close Button */}
         <button className="productModal__close" onClick={onClose}>
           <X size={24} />

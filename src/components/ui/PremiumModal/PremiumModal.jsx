@@ -74,8 +74,8 @@ export default function PremiumModal({ open, onClose, currentTier = SUBSCRIPTION
   const isPremiumPro = currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO
 
   return (
-    <div className="premiumModal__overlay" onClick={onClose}>
-      <div className="premiumModal" onClick={(e) => e.stopPropagation()}>
+    <div className="premiumModal__overlay">
+      <div className="premiumModal">
         <button className="premiumModal__close" onClick={onClose}>✕</button>
         
         <div className="premiumModal__header">

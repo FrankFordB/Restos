@@ -483,6 +483,78 @@ export const STORE_HERO_STYLES = {
   },
 }
 
+// Estilos de botones del carrusel
+// PREMIUM: 4 estilos
+// PREMIUM_PRO: 4 estilos adicionales
+export const CAROUSEL_BUTTON_STYLES = {
+  // PREMIUM (4 estilos)
+  arrows_classic: {
+    id: 'arrows_classic',
+    label: 'Flechas Clásicas',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Flechas simples y elegantes',
+    icon: '◀ ▶',
+    preview: '‹ ›',
+  },
+  arrows_circle: {
+    id: 'arrows_circle',
+    label: 'Círculos',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Botones circulares con flechas',
+    icon: '⬤',
+    preview: '◀ ▶',
+  },
+  arrows_square: {
+    id: 'arrows_square',
+    label: 'Cuadrados',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Botones cuadrados modernos',
+    icon: '◼',
+    preview: '◂ ▸',
+  },
+  arrows_minimal: {
+    id: 'arrows_minimal',
+    label: 'Minimalista',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Solo flechas sin fondo',
+    icon: '→',
+    preview: '← →',
+  },
+  // PREMIUM PRO (4 estilos adicionales)
+  arrows_pill: {
+    id: 'arrows_pill',
+    label: 'Píldora',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Forma alargada tipo píldora',
+    icon: '💊',
+    preview: '⟨ ⟩',
+  },
+  arrows_floating: {
+    id: 'arrows_floating',
+    label: 'Flotantes',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Botones flotantes con sombra',
+    icon: '🌟',
+    preview: '❮ ❯',
+  },
+  arrows_gradient: {
+    id: 'arrows_gradient',
+    label: 'Gradiente',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Fondo con gradiente de color',
+    icon: '🌈',
+    preview: '◀ ▶',
+  },
+  arrows_neon: {
+    id: 'arrows_neon',
+    label: 'Neón',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Efecto neón brillante',
+    icon: '💡',
+    preview: '〈 〉',
+  },
+}
+
 // Paletas de colores prediseñadas (solo afectan la página, no las cards)
 // Cada paleta tiene: primary, accent, background, text
 export const COLOR_PALETTES = {

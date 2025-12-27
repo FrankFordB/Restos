@@ -1,7 +1,30 @@
 import { useState, useEffect } from 'react'
 import './WelcomeModal.css'
-import { X, ArrowRight } from 'lucide-react'
+import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle } from 'lucide-react'
 import Button from '../../ui/Button/Button'
+
+// Iconos disponibles para features
+const AVAILABLE_ICONS = {
+  clock: Clock,
+  star: Star,
+  mapPin: MapPin,
+  sparkles: Sparkles,
+  zap: Zap,
+  heart: Heart,
+  coffee: Coffee,
+  truck: Truck,
+  shield: Shield,
+  award: Award,
+  gift: Gift,
+  checkCircle: CheckCircle,
+}
+
+// Features por defecto
+const DEFAULT_FEATURES = [
+  { id: '1', icon: 'clock', text: 'Pedidos rápidos' },
+  { id: '2', icon: 'star', text: 'Calidad premium' },
+  { id: '3', icon: 'mapPin', text: 'Delivery disponible' },
+]
 
 export default function WelcomeModal({ 
   isOpen, 
@@ -24,16 +47,43 @@ export default function WelcomeModal({
   if (!isOpen) return null
 
   // Get content - use custom or generate defaults
-  const title = tenant?.welcome_modal_title || tenant?.name || '¡Bienvenido!'
+  const storeName = tenant?.name || 'Nuestra Tienda'
+  const title = tenant?.welcome_modal_title || `¡Bienvenido!`
   const message = tenant?.welcome_modal_message || 
-    tenant?.slogan || 
     tenant?.description || 
-    `¡Bienvenido a ${tenant?.name || 'nuestro restaurante'}! Explora nuestro menú y realiza tu pedido.`
-  const image = tenant?.welcome_modal_image || tenant?.logo || null
+    'Explora nuestro menú y realiza tu pedido de forma rápida y sencilla.'
+  const heroImage = tenant?.welcome_modal_image || tenant?.hero_image || null
+  const logo = tenant?.logo || null
+  const slogan = tenant?.slogan || null
+  
+  // Features dinámicos
+  const features = tenant?.welcome_modal_features || DEFAULT_FEATURES
+  const featuresDesign = tenant?.welcome_modal_features_design || 'pills'
 
   const handleClose = () => {
     setVisible(false)
     setTimeout(onClose, 200)
+  }
+
+  // Renderizar features dinámicamente
+  const renderFeatures = () => {
+    if (!features || features.length === 0) return null
+
+    return (
+      <div className={`welcomeModal__features welcomeModal__features--${featuresDesign}`}>
+        {features.map((feature) => {
+          const IconComponent = AVAILABLE_ICONS[feature.icon] || Star
+          return (
+            <div key={feature.id} className="welcomeModal__feature">
+              <div className="welcomeModal__featureIcon">
+                <IconComponent size={18} />
+              </div>
+              <span>{feature.text}</span>
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -45,32 +95,53 @@ export default function WelcomeModal({
           </div>
         )}
         
-        <button className="welcomeModal__close" onClick={handleClose}>
+        <button className="welcomeModal__close" onClick={handleClose} aria-label="Cerrar">
           <X size={20} />
         </button>
 
-        {image && (
-          <div className="welcomeModal__imageContainer">
-            <img src={image} alt={tenant?.name || 'Welcome'} className="welcomeModal__image" />
+        {/* Hero Section with Image, Logo and Store Name */}
+        <div className="welcomeModal__hero">
+          {/* Background Image */}
+          <div className="welcomeModal__heroBg">
+            {heroImage ? (
+              <img src={heroImage} alt="" className="welcomeModal__heroImage" />
+            ) : (
+              <div className="welcomeModal__heroGradient" />
+            )}
+            <div className="welcomeModal__heroOverlay" />
           </div>
-        )}
 
-        {!image && (
-          <div className="welcomeModal__iconContainer">
-            <span className="welcomeModal__icon">🍔</span>
+          {/* Logo and Store Info - Centered on the image */}
+          <div className="welcomeModal__heroContent">
+            {logo && (
+              <div className="welcomeModal__logoWrapper">
+                <img src={logo} alt={storeName} className="welcomeModal__logo" />
+              </div>
+            )}
+            <h1 className="welcomeModal__storeName">{storeName}</h1>
+            {slogan && (
+              <p className="welcomeModal__slogan">{slogan}</p>
+            )}
           </div>
-        )}
-
-        <div className="welcomeModal__content">
-          <h2 className="welcomeModal__title">{title}</h2>
-          <p className="welcomeModal__message">{message}</p>
         </div>
 
-        <div className="welcomeModal__actions">
-          <Button onClick={handleClose}>
-            Explorar menú
-            <ArrowRight size={18} />
-          </Button>
+        {/* Content Section */}
+        <div className="welcomeModal__body">
+          <div className="welcomeModal__welcome">
+            <h2 className="welcomeModal__title">{title}</h2>
+            <p className="welcomeModal__message">{message}</p>
+          </div>
+
+          {/* Features/Highlights - Dynamic */}
+          {renderFeatures()}
+
+          {/* CTA Button */}
+          <div className="welcomeModal__actions">
+            <Button onClick={handleClose} className="welcomeModal__cta">
+              Ver menú
+              <ArrowRight size={18} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

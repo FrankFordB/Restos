@@ -73,6 +73,8 @@ export async function listOrdersByTenantId(tenantId) {
 export async function createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }) {
   ensureSupabase()
 
+  // Insertar la orden y obtener los datos con .select()
+  // Requiere política SELECT para anon (orders_select_recent_anon)
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({

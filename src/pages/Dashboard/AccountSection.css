@@ -262,8 +262,9 @@
 /* Logo Upload */
 .account__logoUpload {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .account__logoPreview {
@@ -317,6 +318,42 @@
 
 .account__logoPlaceholder span {
   font-size: 0.75rem;
+}
+
+/* Logo Actions */
+.account__logoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account__logoActions button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* URL Input */
+.account__urlInput {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.account__urlInput input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.account__urlInput input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* Welcome Image Upload */

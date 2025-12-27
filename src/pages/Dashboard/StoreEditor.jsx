@@ -3,6 +3,8 @@ import './AccountSection.css' // Reutilizamos los estilos
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
+import WelcomeModalEditor from '../../components/dashboard/WelcomeModalEditor/WelcomeModalEditor'
+import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
 import { useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { selectTenants } from '../../features/tenants/tenantsSlice'
@@ -11,7 +13,8 @@ import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTena
 import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
-import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle } from 'lucide-react'
+import { SUBSCRIPTION_TIERS } from '../../shared/subscriptions'
+import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2 } from 'lucide-react'
 
 const MOCK_TENANT_KEY = 'mock.tenantCustomization'
 
@@ -35,6 +38,8 @@ export default function StoreEditor() {
   const [welcomeModalTitle, setWelcomeModalTitle] = useState('')
   const [welcomeModalMessage, setWelcomeModalMessage] = useState('')
   const [welcomeModalImage, setWelcomeModalImage] = useState('')
+  const [welcomeModalFeatures, setWelcomeModalFeatures] = useState(null) // null = usar default
+  const [welcomeModalFeaturesDesign, setWelcomeModalFeaturesDesign] = useState('pills')
   const [savingRestaurant, setSavingRestaurant] = useState(false)
   const [restaurantSuccess, setRestaurantSuccess] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -47,6 +52,12 @@ export default function StoreEditor() {
   const [newHourOpen, setNewHourOpen] = useState('09:00')
   const [newHourClose, setNewHourClose] = useState('22:00')
   const [savingHours, setSavingHours] = useState(false)
+  
+  // Image Cropper states
+  const [showLogoCropper, setShowLogoCropper] = useState(false)
+  const [logoCropperImage, setLogoCropperImage] = useState(null)
+  const [showLogoUrlInput, setShowLogoUrlInput] = useState(false)
+  const [logoUrlInput, setLogoUrlInput] = useState('')
   
   const logoInputRef = useRef(null)
   const welcomeImageInputRef = useRef(null)
@@ -76,6 +87,8 @@ export default function StoreEditor() {
             setWelcomeModalTitle(tenant.welcome_modal_title || '')
             setWelcomeModalMessage(tenant.welcome_modal_message || '')
             setWelcomeModalImage(tenant.welcome_modal_image || '')
+            setWelcomeModalFeatures(tenant.welcome_modal_features || null)
+            setWelcomeModalFeaturesDesign(tenant.welcome_modal_features_design || 'pills')
             setOpeningHours(tenant.opening_hours || [])
           }
         } else {
@@ -92,6 +105,8 @@ export default function StoreEditor() {
             setWelcomeModalTitle(t.welcomeModalTitle || '')
             setWelcomeModalMessage(t.welcomeModalMessage || '')
             setWelcomeModalImage(t.welcomeModalImage || '')
+            setWelcomeModalFeatures(t.welcomeModalFeatures || null)
+            setWelcomeModalFeaturesDesign(t.welcomeModalFeaturesDesign || 'pills')
             setOpeningHours(t.openingHours || [])
           } else if (currentTenant) {
             setTenantName(currentTenant.name || '')
@@ -109,30 +124,59 @@ export default function StoreEditor() {
     return () => { cancelled = true }
   }, [user?.tenantId, currentTenant])
 
-  const handleLogoUpload = async (e) => {
+  // Abre el cropper con el archivo seleccionado
+  const handleLogoFileSelect = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = () => {
+      setLogoCropperImage(reader.result)
+      setShowLogoCropper(true)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = '' // Permite seleccionar el mismo archivo
+  }
 
+  // Abre el cropper con una URL
+  const handleLogoUrlSubmit = () => {
+    if (logoUrlInput.trim()) {
+      setLogoCropperImage(logoUrlInput.trim())
+      setShowLogoCropper(true)
+      setShowLogoUrlInput(false)
+      setLogoUrlInput('')
+    }
+  }
+
+  // Cuando el usuario termina de recortar el logo
+  const handleLogoCropComplete = async (croppedImage) => {
+    setShowLogoCropper(false)
+    setLogoCropperImage(null)
     setUploadingLogo(true)
     setError(null)
 
     try {
       if (isSupabaseConfigured) {
+        // Convertir base64 a File para subir
+        const response = await fetch(croppedImage)
+        const blob = await response.blob()
+        const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' })
         const logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
         setTenantLogo(logoUrl)
       } else {
-        // Mock: convert to data URL for local storage
-        const reader = new FileReader()
-        reader.onload = () => {
-          setTenantLogo(reader.result)
-        }
-        reader.readAsDataURL(file)
+        // Mock: usar directamente el data URL
+        setTenantLogo(croppedImage)
       }
     } catch (e) {
       setError(e?.message || 'Error al subir el logo')
     } finally {
       setUploadingLogo(false)
     }
+  }
+
+  // Handler legacy para compatibilidad
+  const handleLogoUpload = async (e) => {
+    handleLogoFileSelect(e)
   }
 
   const handleWelcomeImageUpload = async (e) => {
@@ -186,6 +230,8 @@ export default function StoreEditor() {
           title: welcomeModalTitle,
           message: welcomeModalMessage,
           image: welcomeModalImage,
+          features: welcomeModalFeatures,
+          featuresDesign: welcomeModalFeaturesDesign,
         })
 
         // Save opening hours
@@ -205,6 +251,8 @@ export default function StoreEditor() {
           welcomeModalTitle,
           welcomeModalMessage,
           welcomeModalImage,
+          welcomeModalFeatures,
+          welcomeModalFeaturesDesign,
           openingHours,
         }
         saveJson(MOCK_TENANT_KEY, mockTenant)
@@ -385,18 +433,58 @@ export default function StoreEditor() {
                 type="file"
                 ref={logoInputRef}
                 accept="image/*"
-                onChange={handleLogoUpload}
+                onChange={handleLogoFileSelect}
                 style={{ display: 'none' }}
               />
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={() => logoInputRef.current?.click()}
-                disabled={uploadingLogo}
-              >
-                <Upload size={16} />
-                {uploadingLogo ? 'Subiendo...' : 'Subir logo'}
-              </Button>
+              <div className="account__logoActions">
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                >
+                  <Upload size={16} />
+                  {uploadingLogo ? 'Subiendo...' : 'Subir archivo'}
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={() => setShowLogoUrlInput(!showLogoUrlInput)}
+                  disabled={uploadingLogo}
+                >
+                  <Link2 size={16} />
+                  Desde URL
+                </Button>
+                {tenantLogo && (
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => {
+                      setLogoCropperImage(tenantLogo)
+                      setShowLogoCropper(true)
+                    }}
+                    disabled={uploadingLogo}
+                  >
+                    <Crop size={16} />
+                    Recortar
+                  </Button>
+                )}
+              </div>
+              
+              {showLogoUrlInput && (
+                <div className="account__urlInput">
+                  <input
+                    type="url"
+                    value={logoUrlInput}
+                    onChange={(e) => setLogoUrlInput(e.target.value)}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    onKeyDown={(e) => e.key === 'Enter' && handleLogoUrlSubmit()}
+                  />
+                  <Button size="sm" onClick={handleLogoUrlSubmit}>
+                    Cargar
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -419,97 +507,30 @@ export default function StoreEditor() {
 
       {/* Welcome Modal */}
       <Card title="Modal de Bienvenida">
-        <div className="account__section">
-          <div className="account__infoBox">
-            <Eye size={18} />
-            <p>El Saludo de bienvenida se lo muestra a los visitantes que no han iniciado sesión y en el modo de vista previa. Es una excelente forma de dar la bienvenida a tus clientes.</p>
-          </div>
-
-          <div className="account__field">
-            <label className="account__switchLabel">
-              <input
-                type="checkbox"
-                checked={welcomeModalEnabled}
-                onChange={(e) => setWelcomeModalEnabled(e.target.checked)}
-              />
-              <span className="account__switchSlider"></span>
-              <span>Mostrar saludo de bienvenida</span>
-            </label>
-          </div>
-
-          {welcomeModalEnabled && (
-            <>
-              <div className="account__field">
-                <label className="account__label">
-                  Título del modal
-                </label>
-                <Input
-                  value={welcomeModalTitle}
-                  onChange={setWelcomeModalTitle}
-                  placeholder={getDefaultWelcomeTitle()}
-                />
-                <p className="account__hint">Deja vacío para usar "{getDefaultWelcomeTitle()}"</p>
-              </div>
-
-              <div className="account__field">
-                <label className="account__label">
-                  Mensaje de bienvenida
-                </label>
-                <textarea
-                  className="account__textarea"
-                  value={welcomeModalMessage}
-                  onChange={(e) => setWelcomeModalMessage(e.target.value)}
-                  placeholder={getDefaultWelcomeMessage()}
-                  rows={3}
-                />
-                <p className="account__hint">Deja vacío para generar uno automáticamente</p>
-              </div>
-
-              <div className="account__field">
-                <label className="account__label">
-                  <Image size={16} />
-                  Imagen de la pantalla de Saludo a los clientes (opcional)
-                </label>
-                <div className="account__welcomeImageUpload">
-                  {welcomeModalImage ? (
-                    <div className="account__welcomeImagePreview">
-                      <img src={welcomeModalImage} alt="Welcome" />
-                      <button 
-                        className="account__welcomeImageRemove"
-                        onClick={() => setWelcomeModalImage('')}
-                        title="Quitar imagen"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="account__welcomeImagePlaceholder">
-                      <Image size={32} />
-                      <span>Sin imagen</span>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    ref={welcomeImageInputRef}
-                    accept="image/*"
-                    onChange={handleWelcomeImageUpload}
-                    style={{ display: 'none' }}
-                  />
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={() => welcomeImageInputRef.current?.click()}
-                    disabled={uploadingWelcomeImage}
-                  >
-                    <Upload size={16} />
-                    {uploadingWelcomeImage ? 'Subiendo...' : 'Subir imagen'}
-                  </Button>
-                </div>
-                <p className="account__hint">Si no subes imagen, se usará el logo del restaurante</p>
-              </div>
-            </>
-          )}
+        <div className="account__infoBox" style={{ marginBottom: '16px', marginLeft: '16px', marginRight: '16px' }}>
+          <Eye size={18} />
+          <p>El Saludo de bienvenida se lo muestra a los visitantes que no han iniciado sesión y en el modo de vista previa. Es una excelente forma de dar la bienvenida a tus clientes.</p>
         </div>
+        <WelcomeModalEditor
+          welcomeModalEnabled={welcomeModalEnabled}
+          onEnabledChange={setWelcomeModalEnabled}
+          welcomeModalTitle={welcomeModalTitle}
+          onTitleChange={setWelcomeModalTitle}
+          welcomeModalMessage={welcomeModalMessage}
+          onMessageChange={setWelcomeModalMessage}
+          welcomeModalImage={welcomeModalImage}
+          onImageChange={setWelcomeModalImage}
+          welcomeModalFeatures={welcomeModalFeatures}
+          onFeaturesChange={setWelcomeModalFeatures}
+          welcomeModalFeaturesDesign={welcomeModalFeaturesDesign}
+          onFeaturesDesignChange={setWelcomeModalFeaturesDesign}
+          tenantLogo={tenantLogo}
+          tenantName={tenantName}
+          tenantSlogan={tenantSlogan}
+          currentTier={currentTenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE}
+          onImageUpload={handleWelcomeImageUpload}
+          uploadingImage={uploadingWelcomeImage}
+        />
       </Card>
 
       {/* Opening Hours */}
@@ -621,6 +642,21 @@ export default function StoreEditor() {
           <span>Configuración del restaurante guardada correctamente</span>
         </div>
       )}
+
+      {/* Modal de Recorte de Logo */}
+      <ImageCropperModal
+        isOpen={showLogoCropper}
+        onClose={() => {
+          setShowLogoCropper(false)
+          setLogoCropperImage(null)
+        }}
+        onCropComplete={handleLogoCropComplete}
+        initialImage={logoCropperImage}
+        aspectRatio={1}
+        title="Ajustar Logo"
+        allowUrl={false}
+        allowUpload={false}
+      />
     </div>
   )
 }

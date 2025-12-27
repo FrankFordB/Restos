@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import './ProductsManager.css'
 import Card from '../../ui/Card/Card'
@@ -736,8 +736,7 @@ export default function ProductsManager({ tenantId }) {
                   )}
                 </div>
 
-                <label className="products__file">
-                  <span className="products__fileLabel">Cambiar foto</span>
+                <label className="products__photoActions">
                   <input
                     type="file"
                     accept="image/*"
@@ -759,3 +758,4 @@ export default function ProductsManager({ tenantId }) {
     </div>
   )
 }
+

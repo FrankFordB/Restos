@@ -213,7 +213,7 @@
   text-align: left;
   margin-left: 0;
   margin-right: auto;
-  padding-left: 64px;
+  padding-left: 100px;
 }
 
 .storeHeader__heroContent--center {
@@ -226,14 +226,14 @@
   text-align: right;
   margin-left: auto;
   margin-right: 0;
-  padding-right: 64px;
+  padding-right: 100px;
 }
 
 .storeHeader--split .storeHeader__heroContent {
   text-align: left;
   margin-left: 0;
   margin-right: auto;
-  padding-left: 64px;
+  padding-left: 100px;
 }
 
 .storeHeader__heroTitle {
@@ -291,6 +291,12 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+  padding: 0;
+}
+
+.storeHeader__carouselBtn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .storeHeader__carouselBtn:hover {
@@ -329,6 +335,118 @@
 .storeHeader__carouselDot--active {
   background: #fff;
   transform: scale(1.2);
+}
+
+/* ========================================
+   CAROUSEL BUTTON STYLES
+   ======================================== */
+
+/* Arrows Classic - Default */
+.storeHeader__carouselBtn--arrows_classic {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+}
+
+/* Arrows Circle */
+.storeHeader__carouselBtn--arrows_circle {
+  background: rgba(0,0,0,0.5);
+  border: 2px solid rgba(255,255,255,0.8);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+}
+.storeHeader__carouselBtn--arrows_circle:hover {
+  background: rgba(0,0,0,0.7);
+  border-color: #fff;
+}
+
+/* Arrows Square */
+.storeHeader__carouselBtn--arrows_square {
+  background: rgba(0,0,0,0.4);
+  border: none;
+  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+}
+.storeHeader__carouselBtn--arrows_square:hover {
+  background: rgba(0,0,0,0.6);
+  border-radius: 10px;
+}
+
+/* Arrows Minimal */
+.storeHeader__carouselBtn--arrows_minimal {
+  background: transparent;
+  border: none;
+  font-size: 2.5rem;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.storeHeader__carouselBtn--arrows_minimal:hover {
+  transform: translateY(-50%) scale(1.2);
+  background: transparent;
+}
+
+/* Arrows Pill - Premium Pro */
+.storeHeader__carouselBtn--arrows_pill {
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 24px;
+  width: 56px;
+  height: 40px;
+}
+.storeHeader__carouselBtn--arrows_pill:hover {
+  background: rgba(255,255,255,0.4);
+  width: 64px;
+}
+
+/* Arrows Floating - Premium Pro */
+.storeHeader__carouselBtn--arrows_floating {
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  color: #333;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  width: 52px;
+  height: 52px;
+}
+.storeHeader__carouselBtn--arrows_floating:hover {
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Arrows Gradient - Premium Pro */
+.storeHeader__carouselBtn--arrows_gradient {
+  background: linear-gradient(135deg, var(--accent, #f97316) 0%, var(--primary, #1a1a2e) 100%);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.storeHeader__carouselBtn--arrows_gradient:hover {
+  background: linear-gradient(135deg, var(--primary, #1a1a2e) 0%, var(--accent, #f97316) 100%);
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Arrows Neon - Premium Pro */
+.storeHeader__carouselBtn--arrows_neon {
+  background: transparent;
+  border: 2px solid var(--accent, #f97316);
+  border-radius: 50%;
+  color: var(--accent, #f97316);
+  box-shadow: 
+    0 0 10px var(--accent, #f97316),
+    inset 0 0 10px rgba(249, 115, 22, 0.3);
+  text-shadow: 0 0 10px var(--accent, #f97316);
+}
+.storeHeader__carouselBtn--arrows_neon:hover {
+  background: var(--accent, #f97316);
+  color: #fff;
+  box-shadow: 
+    0 0 20px var(--accent, #f97316),
+    0 0 40px var(--accent, #f97316);
+  text-shadow: none;
 }
 
 /* Edit Panel */
@@ -798,26 +916,47 @@
   }
   
   .storeHeader__heroContent {
-    padding: 100px 20px 40px;
+    padding: 60px 16px 30px;
   }
   
+  /* Los estilos de visibilidad del texto se controlan dinámicamente 
+     via MobileStylesProvider basado en heroShowTitle, heroShowSubtitle, heroShowCta */
+  
   .storeHeader__carouselBtn {
-    width: 36px;
-    height: 36px;
-    font-size: 1.5rem;
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+  }
+  
+  .storeHeader__carouselBtn svg {
+    width: 16px;
+    height: 16px;
   }
   
   .storeHeader__carouselBtn--prev {
-    left: 12px;
+    left: 8px;
   }
   
   .storeHeader__carouselBtn--next {
-    right: 12px;
+    right: 8px;
   }
   
   .storeHeader__editPanel {
     width: calc(100% - 32px);
     left: 16px;
     right: 16px;
+  }
+  
+  /* Hero más compacto en móvil */
+  .storeHeader__hero {
+    min-height: 180px;
+  }
+  
+  .storeHeader--fullscreen .storeHeader__hero {
+    min-height: 50vh;
+  }
+  
+  .storeHeader--bar .storeHeader__hero {
+    min-height: 120px;
   }
 }

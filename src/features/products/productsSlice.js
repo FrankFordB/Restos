@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createSelector } from 'reselect'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
@@ -269,7 +270,21 @@ const productsSlice = createSlice({
 
 export const { addProduct, updateProduct, removeProduct } = productsSlice.actions
 
-export const selectProductsForTenant = (tenantId) => (state) =>
-  state.products.productsByTenantId[tenantId] || []
+const EMPTY_ARRAY = []
+const selectProductsByTenantId = (state) => state.products.productsByTenantId
+
+const selectorCache = new Map()
+export const selectProductsForTenant = (tenantId) => {
+  if (!selectorCache.has(tenantId)) {
+    selectorCache.set(
+      tenantId,
+      createSelector(
+        [selectProductsByTenantId],
+        (productsByTenantId) => productsByTenantId[tenantId] || EMPTY_ARRAY
+      )
+    )
+  }
+  return selectorCache.get(tenantId)
+}
 
 export default productsSlice.reducer
