@@ -15,6 +15,7 @@ import UserDashboardPage from './pages/Dashboard/UserDashboardPage'
 import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
 import NotFoundPage from './pages/System/NotFoundPage'
+import PaymentResult from './pages/Payment/PaymentResult'
 
 export default function App() {
   return (
@@ -27,7 +28,16 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/r/:slug" element={<TenantHomePage />} />
           <Route path="/store/:slug" element={<StorefrontPage />} />
+          <Route path="/tienda/:slug" element={<StorefrontPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+          {/* Páginas de resultado de pago de MercadoPago */}
+          <Route path="/payment/success" element={<PaymentResult />} />
+          <Route path="/payment/failure" element={<PaymentResult />} />
+          <Route path="/payment/pending" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/payment/success" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/payment/failure" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/payment/pending" element={<PaymentResult />} />
 
           <Route element={<RequireAuth />}>
             <Route path="/dashboard" element={<UserDashboardPage />} />

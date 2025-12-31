@@ -1373,25 +1373,48 @@
 .pendingModal__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
   padding: 20px;
+  animation: pendingModalFadeIn 0.2s ease-out;
+}
+
+@keyframes pendingModalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .pendingModal {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: var(--card, #ffffff);
+  border-radius: var(--radius, 16px);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.2);
   width: 100%;
   max-width: 500px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: pendingModalSlideIn 0.25s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+
+@keyframes pendingModalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .pendingModal__header {

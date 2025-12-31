@@ -19,6 +19,8 @@ import {
   X,
   BarChart3,
   Layers,
+  CreditCard,
+  Crown,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -33,6 +35,8 @@ const MENU_ITEMS = [
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },  
   { id: 'qr', label: 'QR y Enlaces', icon: QrCode },
+  { id: 'mercadopago', label: 'MercadoPago', icon: CreditCard },
+  { id: 'plans', label: 'Mi Plan', icon: Crown },
 ]
 
 export default function Sidebar({ 

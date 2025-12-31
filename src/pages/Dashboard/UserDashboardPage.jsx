@@ -12,6 +12,8 @@ import ProductsManager from '../../components/dashboard/ProductsManager/Products
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import MobilePreviewEditor from '../../components/dashboard/MobilePreviewEditor/MobilePreviewEditor'
+import MercadoPagoConfig from '../../components/dashboard/MercadoPagoConfig/MercadoPagoConfig'
+import SubscriptionCheckout from '../../components/dashboard/SubscriptionCheckout/SubscriptionCheckout'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
@@ -803,6 +805,37 @@ export default function UserDashboardPage() {
 
         {activeTab === 'reports' && (
           <ReportsSection tenantId={currentTenant?.id} />
+        )}
+
+        {activeTab === 'mercadopago' && currentTenant?.id && (
+          <>
+            <header className="dash__header">
+              <h1>Configuración de MercadoPago</h1>
+              <p className="muted">Configura tus credenciales para recibir pagos de tus clientes</p>
+            </header>
+            <MercadoPagoConfig tenantId={currentTenant.id} />
+          </>
+        )}
+
+        {activeTab === 'plans' && (
+          <>
+            <header className="dash__header">
+              <h1>Mi Plan de Suscripción</h1>
+              <p className="muted">Elige el plan que mejor se adapte a tu negocio</p>
+            </header>
+            <SubscriptionCheckout
+              tenantId={currentTenant?.id}
+              tenantName={currentTenant?.name || 'Mi Tienda'}
+              currentTier={subscriptionTier}
+              userEmail={user?.email}
+              onSubscriptionComplete={(newTier) => {
+                // Recargar datos del tenant
+                if (currentTenant?.id) {
+                  fetchTenantById(currentTenant.id).then(setCurrentTenant)
+                }
+              }}
+            />
+          </>
         )}
 
         {activeTab === 'account' && (

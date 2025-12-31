@@ -1,0 +1,316 @@
+import { useState } from 'react'
+import './SubscriptionCheckout.css'
+import SubscriptionPlans from '../SubscriptionPlans/SubscriptionPlans'
+import PaymentSuccessModal from '../../ui/PaymentSuccessModal/PaymentSuccessModal'
+import {
+  SUBSCRIPTION_TIERS,
+  TIER_LABELS,
+  TIER_PRICES,
+} from '../../../shared/subscriptions'
+import {
+  createSubscriptionPreference,
+  isPlatformMPConfigured,
+  formatAmount,
+} from '../../../lib/mercadopago'
+import {
+  createPlatformSubscription,
+  updateTenantSubscriptionTier,
+} from '../../../lib/supabaseMercadopagoApi'
+
+/**
+ * Componente de checkout de suscripciones con MercadoPago
+ * Integra los planes con el proceso de pago
+ */
+export default function SubscriptionCheckout({
+  tenantId,
+  tenantName,
+  currentTier = SUBSCRIPTION_TIERS.FREE,
+  userEmail,
+  onSubscriptionComplete,
+}) {
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState(null)
+  const [billingPeriod, setBillingPeriod] = useState('monthly')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [paymentData, setPaymentData] = useState(null)
+
+  const mpConfigured = isPlatformMPConfigured()
+
+  const handleUpgrade = (tier, period) => {
+    setSelectedPlan(tier)
+    setBillingPeriod(period)
+    setShowCheckout(true)
+    setError(null)
+    setTermsAccepted(false)
+  }
+
+  const handleCloseCheckout = () => {
+    setShowCheckout(false)
+    setSelectedPlan(null)
+    setError(null)
+  }
+
+  const getPrice = () => {
+    if (!selectedPlan) return 0
+    const prices = TIER_PRICES[selectedPlan]
+    return billingPeriod === 'yearly' ? prices.yearly : prices.monthly
+  }
+
+  const handlePayment = async () => {
+    if (!termsAccepted) {
+      setError('Debes aceptar los términos y condiciones')
+      return
+    }
+
+    if (!mpConfigured) {
+      // Modo demo: simular pago exitoso
+      simulateDemoPayment()
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const amount = getPrice()
+
+      // Crear preferencia de pago en MP
+      const preference = await createSubscriptionPreference({
+        tenantId,
+        tenantName,
+        planTier: selectedPlan,
+        billingPeriod,
+        amount,
+        payerEmail: userEmail,
+      })
+
+      // Guardar suscripción pendiente
+      await createPlatformSubscription({
+        tenantId,
+        preferenceId: preference.preferenceId,
+        planTier: selectedPlan,
+        billingPeriod,
+        amount,
+      })
+
+      // Redirigir a MercadoPago
+      window.location.href = preference.initPoint
+
+    } catch (err) {
+      console.error('Error creando pago:', err)
+      setError(err.message || 'Error al procesar el pago. Intenta nuevamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Modo demo sin MercadoPago configurado
+  const simulateDemoPayment = async () => {
+    setLoading(true)
+    
+    // Simular delay de procesamiento
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Calcular fecha de expiración
+    const expiresAt = new Date()
+    if (billingPeriod === 'yearly') {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+    } else {
+      expiresAt.setMonth(expiresAt.getMonth() + 1)
+    }
+
+    // Actualizar tier del tenant
+    await updateTenantSubscriptionTier(tenantId, selectedPlan, expiresAt)
+
+    setPaymentData({
+      amount: getPrice(),
+      planName: `${TIER_LABELS[selectedPlan]} ${billingPeriod === 'yearly' ? 'Anual' : 'Mensual'}`,
+      paymentId: `DEMO-${Date.now()}`,
+    })
+
+    setLoading(false)
+    setShowCheckout(false)
+    setShowSuccessModal(true)
+
+    if (onSubscriptionComplete) {
+      onSubscriptionComplete(selectedPlan)
+    }
+  }
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false)
+    setPaymentData(null)
+  }
+
+  return (
+    <div className="subscriptionCheckout">
+      {/* Planes de suscripción */}
+      <SubscriptionPlans
+        currentTier={currentTier}
+        onUpgrade={handleUpgrade}
+      />
+
+      {/* Aviso si MP no está configurado */}
+      {!mpConfigured && (
+        <div style={{
+          marginTop: '1rem',
+          padding: '1rem',
+          background: '#fef3c7',
+          borderRadius: '12px',
+          textAlign: 'center',
+          color: '#92400e',
+          fontSize: '0.9rem',
+        }}>
+          🧪 <strong>Modo Demo:</strong> MercadoPago no está configurado. 
+          Los pagos se simularán para pruebas.
+        </div>
+      )}
+
+      {/* Modal de checkout */}
+      {showCheckout && selectedPlan && (
+        <div className="checkoutModal">
+          <div className="checkoutModal__backdrop" onClick={handleCloseCheckout} />
+          
+          <div className="checkoutModal__content">
+            {/* Header */}
+            <div className="checkoutModal__header">
+              <div className="checkoutModal__logo">💳</div>
+              <div className="checkoutModal__headerText">
+                <h3>Confirmar Suscripción</h3>
+                <p>Pago seguro con MercadoPago</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="checkoutModal__loading">
+                <div className="checkoutModal__spinner"></div>
+                <p className="checkoutModal__loadingText">
+                  {mpConfigured 
+                    ? 'Conectando con MercadoPago...'
+                    : 'Procesando suscripción...'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="checkoutModal__body">
+                {/* Resumen */}
+                <div className="checkoutModal__summary">
+                  <div className="checkoutModal__summaryRow">
+                    <span className="checkoutModal__summaryLabel">Plan</span>
+                    <span className="checkoutModal__summaryValue checkoutModal__summaryValue--plan">
+                      <span className={`checkoutModal__planBadge checkoutModal__planBadge--${selectedPlan}`}>
+                        {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                        {TIER_LABELS[selectedPlan]}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="checkoutModal__summaryRow">
+                    <span className="checkoutModal__summaryLabel">Período</span>
+                    <span className="checkoutModal__summaryValue">
+                      {billingPeriod === 'yearly' ? 'Anual' : 'Mensual'}
+                    </span>
+                  </div>
+                  <div className="checkoutModal__summaryRow">
+                    <span className="checkoutModal__summaryLabel">Tienda</span>
+                    <span className="checkoutModal__summaryValue">{tenantName}</span>
+                  </div>
+                  <div className="checkoutModal__summaryRow">
+                    <span className="checkoutModal__summaryLabel">Total</span>
+                    <span className="checkoutModal__summaryValue checkoutModal__total">
+                      {formatAmount(getPrice())}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Método de pago */}
+                <div className="checkoutModal__paymentMethod">
+                  <div className="checkoutModal__mpLogo">MP</div>
+                  <div className="checkoutModal__mpInfo">
+                    <h4>MercadoPago</h4>
+                    <p>Tarjeta, transferencia, efectivo y más</p>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div style={{
+                    padding: '0.75rem 1rem',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    color: '#dc2626',
+                    fontSize: '0.9rem',
+                    marginBottom: '1rem',
+                  }}>
+                    {error}
+                  </div>
+                )}
+
+                {/* Términos */}
+                <label className="checkoutModal__terms">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                  />
+                  <span>
+                    Acepto los{' '}
+                    <a href="/terminos" target="_blank" className="checkoutModal__termsLink">
+                      términos y condiciones
+                    </a>{' '}
+                    y la{' '}
+                    <a href="/privacidad" target="_blank" className="checkoutModal__termsLink">
+                      política de privacidad
+                    </a>
+                  </span>
+                </label>
+
+                {/* Acciones */}
+                <div className="checkoutModal__actions">
+                  <button
+                    className="checkoutModal__payBtn"
+                    onClick={handlePayment}
+                    disabled={!termsAccepted}
+                  >
+                    🔒 Pagar {formatAmount(getPrice())}
+                  </button>
+                  <button
+                    className="checkoutModal__cancelBtn"
+                    onClick={handleCloseCheckout}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+
+                {/* Seguridad */}
+                <div className="checkoutModal__security">
+                  <span>🔐</span>
+                  <span>Pago 100% seguro • Datos encriptados</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de éxito */}
+      <PaymentSuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleSuccessClose}
+        type="subscription"
+        paymentData={paymentData}
+        onPrimaryAction={() => {
+          handleSuccessClose()
+          // Navegar al dashboard o recargar
+          window.location.reload()
+        }}
+        primaryActionLabel="Ir a Mi Dashboard"
+        onSecondaryAction={handleSuccessClose}
+        secondaryActionLabel="Cerrar"
+      />
+    </div>
+  )
+}

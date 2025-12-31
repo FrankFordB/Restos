@@ -1,7 +1,17 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './PremiumModal.css'
 import Button from '../Button/Button'
-import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/subscriptions'
+import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS, TIER_PRICES } from '../../../shared/subscriptions'
+import {
+  createSubscriptionPreference,
+  isPlatformMPConfigured,
+  formatAmount,
+} from '../../../lib/mercadopago'
+import {
+  createPlatformSubscription,
+  updateTenantSubscriptionTier,
+} from '../../../lib/supabaseMercadopagoApi'
 
 const PLAN_FEATURES = {
   [SUBSCRIPTION_TIERS.PREMIUM]: {
@@ -54,20 +64,96 @@ const PLAN_FEATURES = {
   },
 }
 
-export default function PremiumModal({ open, onClose, currentTier = SUBSCRIPTION_TIERS.FREE }) {
+export default function PremiumModal({ 
+  open, 
+  onClose, 
+  currentTier = SUBSCRIPTION_TIERS.FREE,
+  tenantId,
+  tenantName,
+  userEmail,
+}) {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [billingCycle, setBillingCycle] = useState('monthly')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const navigate = useNavigate()
 
   if (!open) return null
 
   const handleSelectPlan = (tier) => {
     setSelectedPlan(tier)
+    setError(null)
   }
 
-  const handleProceedToPayment = () => {
-    // Aquí irá la lógica de pago (Stripe, MercadoPago, etc.)
-    alert(`Redirigiendo al pago de ${TIER_LABELS[selectedPlan]}...`)
-    // TODO: Integrar pasarela de pago
+  const handleProceedToPayment = async () => {
+    if (!selectedPlan || !tenantId) return
+
+    const mpConfigured = isPlatformMPConfigured()
+    const prices = TIER_PRICES[selectedPlan]
+    const amount = billingCycle === 'yearly' ? prices.yearly : prices.monthly
+
+    if (!mpConfigured) {
+      // Modo demo: simular pago y actualizar tier
+      setLoading(true)
+      
+      try {
+        // Simular delay
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // Calcular fecha de expiración
+        const expiresAt = new Date()
+        if (billingCycle === 'yearly') {
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+        } else {
+          expiresAt.setMonth(expiresAt.getMonth() + 1)
+        }
+
+        // Actualizar tier
+        await updateTenantSubscriptionTier(tenantId, selectedPlan, expiresAt)
+
+        // Recargar página para reflejar cambios
+        onClose()
+        window.location.reload()
+      } catch (err) {
+        setError(err.message || 'Error al procesar la suscripción')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Con MercadoPago configurado: crear preferencia y redirigir
+    try {
+      setLoading(true)
+      setError(null)
+
+      const preference = await createSubscriptionPreference({
+        tenantId,
+        tenantName: tenantName || 'Mi Tienda',
+        planTier: selectedPlan,
+        billingPeriod: billingCycle,
+        amount,
+        payerEmail: userEmail,
+      })
+
+      // Guardar suscripción pendiente
+      await createPlatformSubscription({
+        tenantId,
+        preferenceId: preference.preferenceId,
+        planTier: selectedPlan,
+        billingPeriod: billingCycle,
+        amount,
+      })
+
+      // Redirigir a MercadoPago
+      window.location.href = preference.initPoint
+
+    } catch (err) {
+      console.error('Error creando pago:', err)
+      setError(err.message || 'Error al procesar el pago')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isPremium = currentTier === SUBSCRIPTION_TIERS.PREMIUM
@@ -203,17 +289,39 @@ export default function PremiumModal({ open, onClose, currentTier = SUBSCRIPTION
         {/* CTA Button */}
         {selectedPlan && (
           <div className="premiumModal__cta">
+            {error && (
+              <div style={{
+                padding: '0.75rem 1rem',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                color: '#dc2626',
+                fontSize: '0.9rem',
+                marginBottom: '1rem',
+                textAlign: 'center',
+              }}>
+                ⚠️ {error}
+              </div>
+            )}
             <Button 
               size="lg" 
               onClick={handleProceedToPayment}
               className="premiumModal__ctaBtn"
+              disabled={loading}
             >
-              🚀 Continuar con {TIER_LABELS[selectedPlan]} - {billingCycle === 'monthly' 
-                ? PLAN_FEATURES[selectedPlan].price 
-                : PLAN_FEATURES[selectedPlan].yearlyPrice}
+              {loading ? (
+                '⏳ Procesando...'
+              ) : (
+                <>🚀 Continuar con {TIER_LABELS[selectedPlan]} - {billingCycle === 'monthly' 
+                  ? PLAN_FEATURES[selectedPlan].price 
+                  : PLAN_FEATURES[selectedPlan].yearlyPrice}</>
+              )}
             </Button>
             <p className="premiumModal__ctaNote">
-              Cancela cuando quieras · Pago seguro · Garantía 30 días
+              {isPlatformMPConfigured() 
+                ? 'Pago seguro con MercadoPago · Cancela cuando quieras'
+                : '🧪 Modo Demo: Suscripción simulada'
+              }
             </p>
           </div>
         )}
