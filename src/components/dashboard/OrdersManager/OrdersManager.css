@@ -184,6 +184,177 @@
   100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
 }
 
+/* Botón de configuración de sonido */
+.ordersManager__soundBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--primary);
+  cursor: pointer;
+  transition: all 200ms var(--ease-out);
+}
+
+.ordersManager__soundBtn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.ordersManager__soundBtn--muted {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.ordersManager__soundBtn--muted:hover {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* Indicador de estado de sonido (no clickeable) */
+.ordersManager__soundIndicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  transition: all 0.2s ease;
+}
+
+.ordersManager__soundIndicator--ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.ordersManager__soundIndicator--locked {
+  background: rgba(251, 191, 36, 0.15);
+  color: #f59e0b;
+  animation: pulse-sound 2s ease-in-out infinite;
+}
+
+@keyframes pulse-sound {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.ordersManager__soundIndicator--muted {
+  background: rgba(156, 163, 175, 0.1);
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.ordersManager__soundMuted {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #ef4444;
+}
+
+.ordersManager__soundLocked {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 10px;
+}
+
+/* Modal de configuración de sonido */
+.soundConfig__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.soundConfig__item:last-of-type {
+  border-bottom: none;
+}
+
+.soundConfig__info h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.soundConfig__info .muted {
+  font-size: 0.85rem;
+}
+
+.soundConfig__control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.soundConfig__btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.soundConfig__btn:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.soundConfig__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.soundConfig__value {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--primary);
+}
+
+.soundConfig__select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.soundConfig__select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.soundConfig__test {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+  margin-top: 8px;
+}
+
 /* Filter Header con Select */
 .ordersManager__filterHeader {
   display: flex;

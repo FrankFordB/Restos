@@ -1,22 +1,45 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import './AccountSection.css' // Reutilizamos los estilos
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
 import WelcomeModalEditor from '../../components/dashboard/WelcomeModalEditor/WelcomeModalEditor'
 import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
+import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
+import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
+import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
 import { useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { selectTenants } from '../../features/tenants/tenantsSlice'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTenantOpeningHours } from '../../lib/supabaseApi'
+import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTenantOpeningHours, updateTenantSoundConfig } from '../../lib/supabaseApi'
 import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
 import { SUBSCRIPTION_TIERS } from '../../shared/subscriptions'
-import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2 } from 'lucide-react'
+import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX } from 'lucide-react'
 
 const MOCK_TENANT_KEY = 'mock.tenantCustomization'
+
+function getActiveSubscriptionTier(tenant) {
+  if (!tenant) return SUBSCRIPTION_TIERS.FREE
+  
+  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  const premiumUntil = tenant.premium_until
+  
+  if (tier !== SUBSCRIPTION_TIERS.FREE && premiumUntil) {
+    try {
+      const expiryDate = new Date(premiumUntil)
+      const now = new Date()
+      if (!isNaN(expiryDate.getTime()) && expiryDate > now) {
+        return tier
+      }
+    } catch (e) {
+      console.warn('Error calculando premium_until:', e)
+    }
+  }
+  return SUBSCRIPTION_TIERS.FREE
+}
 
 export default function StoreEditor() {
   const user = useAppSelector(selectUser)
@@ -30,6 +53,9 @@ export default function StoreEditor() {
 
   // Restaurant customization fields
   const [tenantData, setTenantData] = useState(null)
+  
+  // Subscription tier activo (considerando fecha de expiración) - debe ir después de tenantData
+  const subscriptionTier = useMemo(() => getActiveSubscriptionTier(tenantData || currentTenant), [tenantData, currentTenant])
   const [tenantName, setTenantName] = useState('')
   const [tenantLogo, setTenantLogo] = useState('')
   const [tenantDescription, setTenantDescription] = useState('')
@@ -60,7 +86,13 @@ export default function StoreEditor() {
   const [logoUrlInput, setLogoUrlInput] = useState('')
   
   const logoInputRef = useRef(null)
-  const welcomeImageInputRef = useRef(null)
+  
+  // Sound notification config
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [soundRepeatCount, setSoundRepeatCount] = useState(3)
+  const [soundDelayMs, setSoundDelayMs] = useState(1500)
+  const [savingSound, setSavingSound] = useState(false)
+  const audioRef = useRef(null)
 
   // Load tenant customization data
   useEffect(() => {
@@ -90,6 +122,10 @@ export default function StoreEditor() {
             setWelcomeModalFeatures(tenant.welcome_modal_features || null)
             setWelcomeModalFeaturesDesign(tenant.welcome_modal_features_design || 'pills')
             setOpeningHours(tenant.opening_hours || [])
+            // Sound config
+            setSoundEnabled(tenant.sound_enabled !== false)
+            setSoundRepeatCount(tenant.sound_repeat_count || 3)
+            setSoundDelayMs(tenant.sound_delay_ms || 1500)
           }
         } else {
           // Load from localStorage in mock mode
@@ -108,6 +144,10 @@ export default function StoreEditor() {
             setWelcomeModalFeatures(t.welcomeModalFeatures || null)
             setWelcomeModalFeaturesDesign(t.welcomeModalFeaturesDesign || 'pills')
             setOpeningHours(t.openingHours || [])
+            // Sound config (mock mode)
+            setSoundEnabled(t.soundEnabled !== false)
+            setSoundRepeatCount(t.soundRepeatCount || 3)
+            setSoundDelayMs(t.soundDelayMs || 1500)
           } else if (currentTenant) {
             setTenantName(currentTenant.name || '')
           }
@@ -172,11 +212,6 @@ export default function StoreEditor() {
     } finally {
       setUploadingLogo(false)
     }
-  }
-
-  // Handler legacy para compatibilidad
-  const handleLogoUpload = async (e) => {
-    handleLogoFileSelect(e)
   }
 
   const handleWelcomeImageUpload = async (e) => {
@@ -266,6 +301,59 @@ export default function StoreEditor() {
     }
   }
 
+  // Handler para guardar configuración de sonido
+  const handleSaveSoundConfig = async () => {
+    if (!user?.tenantId) return
+    
+    setSavingSound(true)
+    setError(null)
+    
+    try {
+      if (isSupabaseConfigured) {
+        await updateTenantSoundConfig({
+          tenantId: user.tenantId,
+          soundEnabled: soundEnabled,
+          soundRepeatCount: soundRepeatCount,
+          soundDelayMs: soundDelayMs,
+        })
+      } else {
+        // Guardar en localStorage en modo mock
+        const mockTenant = loadJson(MOCK_TENANT_KEY, {})
+        mockTenant[user.tenantId] = {
+          ...(mockTenant[user.tenantId] || {}),
+          soundEnabled,
+          soundRepeatCount,
+          soundDelayMs,
+        }
+        saveJson(MOCK_TENANT_KEY, mockTenant)
+      }
+    } catch (e) {
+      setError(e?.message || 'Error al guardar la configuración de sonido')
+    } finally {
+      setSavingSound(false)
+    }
+  }
+  
+  // Función para probar el sonido
+  const playTestSound = () => {
+    if (!soundEnabled || !audioRef.current) return
+    
+    let played = 0
+    const playOnce = () => {
+      if (played >= soundRepeatCount) return
+      
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {})
+      played++
+      
+      if (played < soundRepeatCount) {
+        setTimeout(playOnce, soundDelayMs)
+      }
+    }
+    
+    playOnce()
+  }
+
   // Opening hours handlers - auto-save to database
   const saveOpeningHours = async (hours) => {
     setSavingHours(true)
@@ -336,9 +424,9 @@ export default function StoreEditor() {
     await saveOpeningHours(newHours)
   }
 
-  // Generate default welcome content based on restaurant data
-  const getDefaultWelcomeTitle = () => tenantName || 'Bienvenido'
-  const getDefaultWelcomeMessage = () => {
+  // Generate default welcome content based on restaurant data (available for future use)
+  const _getDefaultWelcomeTitle = () => tenantName || 'Bienvenido'
+  const _getDefaultWelcomeMessage = () => {
     if (tenantSlogan) return tenantSlogan
     if (tenantDescription) return tenantDescription
     return `¡Bienvenido a ${tenantName || 'nuestro restaurante'}! Explora nuestro menú y realiza tu pedido.`
@@ -628,6 +716,115 @@ export default function StoreEditor() {
         </div>
       </Card>
 
+      {/* Configuración de Notificaciones de Sonido */}
+      <Card title="🔔 Notificaciones de Sonido">
+        <div className="account__section">
+          <p className="account__hint" style={{ marginBottom: '20px' }}>
+            Configura cómo suena la notificación cuando llega un nuevo pedido.
+            {savingSound && <span className="account__savingIndicator" style={{ marginLeft: '8px' }}>Guardando...</span>}
+          </p>
+
+          {/* Sonido habilitado */}
+          <div className="account__soundItem">
+            <div className="account__soundInfo">
+              <label className="account__label">
+                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                Sonido habilitado
+              </label>
+              <p className="muted">Activa o desactiva el sonido de notificaciones</p>
+            </div>
+            <button
+              className={`account__toggle ${soundEnabled ? 'account__toggle--on' : ''}`}
+              onClick={() => {
+                setSoundEnabled(!soundEnabled)
+                handleSaveSoundConfig()
+              }}
+            >
+              <span className="account__toggleCircle" />
+            </button>
+          </div>
+
+          {/* Repeticiones */}
+          <div className="account__soundItem">
+            <div className="account__soundInfo">
+              <label className="account__label">
+                <Bell size={16} />
+                Repeticiones
+              </label>
+              <p className="muted">Cuántas veces suena la notificación (1-10)</p>
+            </div>
+            <div className="account__soundControl">
+              <button 
+                className="account__soundBtn"
+                onClick={() => {
+                  const newVal = Math.max(1, soundRepeatCount - 1)
+                  setSoundRepeatCount(newVal)
+                  setTimeout(handleSaveSoundConfig, 100)
+                }}
+                disabled={!soundEnabled || soundRepeatCount <= 1}
+              >
+                −
+              </button>
+              <span className="account__soundValue">{soundRepeatCount}x</span>
+              <button 
+                className="account__soundBtn"
+                onClick={() => {
+                  const newVal = Math.min(10, soundRepeatCount + 1)
+                  setSoundRepeatCount(newVal)
+                  setTimeout(handleSaveSoundConfig, 100)
+                }}
+                disabled={!soundEnabled || soundRepeatCount >= 10}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Delay entre sonidos */}
+          <div className="account__soundItem">
+            <div className="account__soundInfo">
+              <label className="account__label">
+                <Clock size={16} />
+                Delay entre sonidos
+              </label>
+              <p className="muted">Tiempo de espera entre cada repetición</p>
+            </div>
+            <select
+              className="account__select"
+              value={soundDelayMs}
+              onChange={(e) => {
+                setSoundDelayMs(parseInt(e.target.value))
+                setTimeout(handleSaveSoundConfig, 100)
+              }}
+              disabled={!soundEnabled}
+              style={{ minWidth: '140px' }}
+            >
+              <option value={500}>0.5 segundos</option>
+              <option value={1000}>1 segundo</option>
+              <option value={1500}>1.5 segundos</option>
+              <option value={2000}>2 segundos</option>
+              <option value={3000}>3 segundos</option>
+              <option value={5000}>5 segundos</option>
+            </select>
+          </div>
+
+          {/* Botón de prueba */}
+          <div className="account__soundTest">
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={playTestSound}
+              disabled={!soundEnabled}
+            >
+              🔊 Probar Sonido
+            </Button>
+          </div>
+        </div>
+        
+        {/* Audio element para prueba de sonido */}
+        <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
+      </Card>
+
       {/* Save Button */}
       <div className="account__actions" style={{ marginTop: '16px' }}>
         <Button onClick={handleSaveRestaurant} disabled={savingRestaurant}>
@@ -642,6 +839,15 @@ export default function StoreEditor() {
           <span>Configuración del restaurante guardada correctamente</span>
         </div>
       )}
+
+      {/* Diseño y Personalización */}
+      <ThemeManager tenantId={user?.tenantId} subscriptionTier={subscriptionTier} />
+
+      {/* Configuración de Página */}
+      <PageBuilder tenantId={user?.tenantId} subscriptionTier={subscriptionTier} />
+
+      {/* Planes de Suscripción */}
+      <SubscriptionPlans currentTier={subscriptionTier} tenantId={user?.tenantId} />
 
       {/* Modal de Recorte de Logo */}
       <ImageCropperModal

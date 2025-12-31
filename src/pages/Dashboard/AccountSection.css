@@ -650,3 +650,105 @@
   }
 }
 
+/* ========================================
+   Sound Config Styles
+   ======================================== */
+
+.account__soundItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.account__soundItem:last-of-type {
+  border-bottom: none;
+}
+
+.account__soundInfo {
+  flex: 1;
+}
+
+.account__soundInfo .muted {
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.account__soundControl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account__soundBtn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.account__soundBtn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.account__soundBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.account__soundValue {
+  min-width: 44px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.account__soundTest {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 8px;
+}
+
+/* Toggle Switch */
+.account__toggle {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.account__toggle--on {
+  background: var(--accent);
+}
+
+.account__toggleCircle {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: transform 200ms ease;
+}
+
+.account__toggle--on .account__toggleCircle {
+  transform: translateX(24px);
+}

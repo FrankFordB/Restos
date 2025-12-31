@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import './DashboardPages.css'
@@ -9,19 +9,18 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { setTenantId, setUserRole } from '../../features/auth/authSlice'
 import ProductsManager from '../../components/dashboard/ProductsManager/ProductsManager'
-import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
-import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
-import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import MobilePreviewEditor from '../../components/dashboard/MobilePreviewEditor/MobilePreviewEditor'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
 import { createTenant } from '../../features/tenants/tenantsSlice'
-import { selectOrdersForTenant, updateOrder, deleteOrder } from '../../features/orders/ordersSlice'
-import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug } from '../../lib/supabaseApi'
-import { isSupabaseConfigured } from '../../lib/supabaseClient'
+import { selectOrdersForTenant, updateOrder, deleteOrder, fetchOrdersForTenant } from '../../features/orders/ordersSlice'
+import { selectProductsForTenant, fetchProductsForTenant } from '../../features/products/productsSlice'
+import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig } from '../../lib/supabaseApi'
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
+import { loadJson } from '../../shared/storage'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS } from '../../shared/subscriptions'
 import { ROLES } from '../../shared/constants'
 import { useDashboard } from '../../contexts/DashboardContext'
@@ -44,6 +43,8 @@ import {
   Truck,
   UtensilsCrossed,
   Home,
+  Bell,
+  Volume2,
 } from 'lucide-react'
 
 function slugify(value) {
@@ -66,8 +67,8 @@ export default function UserDashboardPage() {
   const [saving, setSaving] = useState(false)
 
   const [currentTenant, setCurrentTenant] = useState(null)
-  const [loadingTenant, setLoadingTenant] = useState(false)
-  const [tenantLoadError, setTenantLoadError] = useState(null)
+  const [_loadingTenant, setLoadingTenant] = useState(false)
+  const [_tenantLoadError, setTenantLoadError] = useState(null)
   const [savingVisibility, setSavingVisibility] = useState(false)
 
   // Tab navigation - use context if available, otherwise local state
@@ -132,7 +133,205 @@ export default function UserDashboardPage() {
 
   // Get premium expiration date
   const premiumUntil = currentTenant?.premium_until
-  const isPremiumActive = premiumUntil && new Date(premiumUntil) > new Date() && subscriptionTier !== 'free'
+  const _isPremiumActive = premiumUntil && new Date(premiumUntil) > new Date() && subscriptionTier !== 'free'
+
+  // Copied state for links - debe estar antes de cualquier return condicional
+  const [copiedLink, setCopiedLink] = useState(null)
+  
+  // Modal de pedidos pendientes
+  const [showPendingModal, setShowPendingModal] = useState(false)
+
+  // Obtener pedidos para contar los pendientes
+  const orders = useAppSelector(selectOrdersForTenant(user?.tenantId))
+  const pendingOrdersCount = useMemo(() => {
+    return orders.filter(o => o.status === 'pending').length
+  }, [orders])
+  const pendingOrders = useMemo(() => {
+    return orders.filter(o => o.status === 'pending')
+  }, [orders])
+
+  // Obtener productos
+  const products = useAppSelector(selectProductsForTenant(user?.tenantId))
+  const productsCount = products?.length || 0
+
+  // ========== NOTIFICACIONES GLOBALES DE NUEVOS PEDIDOS ==========
+  const audioRef = useRef(null)
+  const [globalNewOrdersCount, setGlobalNewOrdersCount] = useState(0)
+  const [soundEnabled, setSoundEnabled] = useState(true) // Toggle local de sonido
+  const [soundConfig, setSoundConfig] = useState({
+    enabled: true,
+    repeatCount: 3,
+    delayMs: 1500,
+  })
+
+  // Cargar configuración de sonido
+  useEffect(() => {
+    async function loadSoundConfig() {
+      if (!user?.tenantId) return
+      
+      if (isSupabaseConfigured) {
+        try {
+          const config = await fetchTenantSoundConfig(user.tenantId)
+          setSoundConfig(config)
+          setSoundEnabled(config.enabled)
+        } catch (err) {
+          console.error('Error loading sound config:', err)
+          const saved = loadJson(`soundConfig.${user.tenantId}`, null)
+          if (saved) {
+            setSoundConfig(saved)
+            setSoundEnabled(saved.enabled !== false)
+          }
+        }
+      } else {
+        const saved = loadJson(`soundConfig.${user.tenantId}`, null)
+        if (saved) {
+          setSoundConfig(saved)
+          setSoundEnabled(saved.enabled !== false)
+        }
+      }
+    }
+    loadSoundConfig()
+  }, [user?.tenantId])
+
+  // Función para reproducir sonido
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled) {
+      console.log('🔇 Sonido deshabilitado por el usuario')
+      return
+    }
+    if (!audioRef.current) {
+      console.log('🔇 No hay elemento de audio')
+      return
+    }
+    
+    console.log('🔔 ¡NUEVO PEDIDO! Reproduciendo sonido...')
+    
+    let played = 0
+    const playOnce = () => {
+      if (played >= soundConfig.repeatCount) return
+      
+      audioRef.current.currentTime = 0
+      audioRef.current.play()
+        .then(() => {
+          console.log(`🔔 Sonido ${played + 1}/${soundConfig.repeatCount}`)
+        })
+        .catch((err) => {
+          console.warn('⚠️ No se pudo reproducir sonido:', err.message)
+        })
+      played++
+      
+      if (played < soundConfig.repeatCount) {
+        setTimeout(playOnce, soundConfig.delayMs)
+      }
+    }
+    
+    playOnce()
+  }, [soundEnabled, soundConfig.repeatCount, soundConfig.delayMs])
+
+  // Suscripción global a tiempo real de pedidos
+  useEffect(() => {
+    if (!user?.tenantId || !isSupabaseConfigured) return
+    
+    console.log('📡 Iniciando suscripción global a pedidos...')
+    
+    const channel = supabase
+      .channel(`global-orders-${user.tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${user.tenantId}`,
+        },
+        (payload) => {
+          console.log('🔔 ¡NUEVO PEDIDO RECIBIDO!', payload.new)
+          dispatch(fetchOrdersForTenant(user.tenantId))
+          setGlobalNewOrdersCount((prev) => prev + 1)
+          playNotificationSound()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${user.tenantId}`,
+        },
+        () => {
+          dispatch(fetchOrdersForTenant(user.tenantId))
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${user.tenantId}`,
+        },
+        () => {
+          dispatch(fetchOrdersForTenant(user.tenantId))
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Estado suscripción global:', status)
+      })
+
+    return () => {
+      console.log('🔌 Desconectando suscripción global')
+      supabase.removeChannel(channel)
+    }
+  }, [user?.tenantId, dispatch, playNotificationSound])
+
+  // Limpiar contador de nuevos pedidos
+  const clearGlobalNotifications = useCallback(() => {
+    setGlobalNewOrdersCount(0)
+  }, [])
+
+  // Cargar datos iniciales y refrescar cada 30 segundos para estadísticas en tiempo real
+  useEffect(() => {
+    if (!user?.tenantId) return
+    
+    // Carga inicial
+    dispatch(fetchOrdersForTenant(user.tenantId))
+    dispatch(fetchProductsForTenant(user.tenantId))
+    
+    // Refresh cada 30 segundos para tiempo real
+    const interval = setInterval(() => {
+      dispatch(fetchOrdersForTenant(user.tenantId))
+    }, 30000)
+    
+    return () => clearInterval(interval)
+  }, [dispatch, user?.tenantId])
+
+  // Calcular estadísticas de hoy
+  const todayStats = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const todayOrders = orders.filter(order => {
+      const orderDate = new Date(order.created_at)
+      orderDate.setHours(0, 0, 0, 0)
+      return orderDate.getTime() === today.getTime()
+    })
+    
+    const ordersToday = todayOrders.length
+    const salesToday = todayOrders
+      .filter(o => o.status !== 'cancelled')
+      .reduce((sum, order) => sum + (order.total || 0), 0)
+    
+    // Clientes únicos de hoy (por teléfono o nombre)
+    const uniqueCustomers = new Set(
+      todayOrders
+        .filter(o => o.customer_phone || o.customer_name)
+        .map(o => o.customer_phone || o.customer_name)
+    )
+    const customersToday = uniqueCustomers.size
+    
+    return { ordersToday, salesToday, customersToday }
+  }, [orders])
 
   useEffect(() => {
     let cancelled = false
@@ -233,9 +432,6 @@ export default function UserDashboardPage() {
     )
   }
 
-  // Copied state for links
-  const [copiedLink, setCopiedLink] = useState(null)
-
   const copyToClipboard = (text, linkId) => {
     navigator.clipboard.writeText(text)
     setCopiedLink(linkId)
@@ -245,20 +441,38 @@ export default function UserDashboardPage() {
   const storeUrl = currentTenant?.slug ? `${window.location.origin}/store/${currentTenant.slug}` : ''
   const menuUrl = currentTenant?.slug ? `${window.location.origin}/r/${currentTenant.slug}` : ''
 
-  // Obtener pedidos para contar los pendientes
-  const orders = useAppSelector(selectOrdersForTenant(user?.tenantId))
-  const pendingOrdersCount = useMemo(() => {
-    return orders.filter(o => o.status === 'pending').length
-  }, [orders])
-  const pendingOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'pending')
-  }, [orders])
-
-  // Modal de pedidos pendientes
-  const [showPendingModal, setShowPendingModal] = useState(false)
-
   return (
     <div className={`dash dash--withSidebar ${sidebarCollapsed ? 'dash--sidebarCollapsed' : ''}`}>
+      {/* Audio global para notificaciones de pedidos */}
+      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
+      
+      {/* Indicador global de notificaciones - fijo en pantalla */}
+      <div 
+        className={`dash__globalNotification ${globalNewOrdersCount > 0 ? 'dash__globalNotification--active' : ''} ${!soundEnabled ? 'dash__globalNotification--muted' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          // Toggle del sonido
+          setSoundEnabled(prev => !prev)
+          // Si hay pedidos nuevos, limpiar el contador
+          if (globalNewOrdersCount > 0) {
+            clearGlobalNotifications()
+          }
+        }}
+        title={
+          globalNewOrdersCount > 0 
+            ? `${globalNewOrdersCount} nuevo(s) pedido(s) - Click para ${soundEnabled ? 'silenciar' : 'activar sonido'}` 
+            : soundEnabled 
+              ? 'Sonido activado - Click para silenciar' 
+              : 'Sonido silenciado - Click para activar'
+        }
+      >
+        {soundEnabled ? <Bell size={20} /> : <Volume2 size={20} />}
+        {globalNewOrdersCount > 0 && (
+          <span className="dash__globalNotificationCount">{globalNewOrdersCount}</span>
+        )}
+        {!soundEnabled && <span className="dash__globalNotificationMuted">✕</span>}
+      </div>
+      
       <Sidebar 
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -292,30 +506,30 @@ export default function UserDashboardPage() {
 
             {/* Stats Cards */}
             <div className="dash__statsRow">
-              <div className="dash__statCard">
+              <div className="dash__statCard" onClick={() => setActiveTab('orders')} style={{ cursor: 'pointer' }}>
                 <div className="dash__statIcon dash__statIcon--orders">
                   <ShoppingBag size={24} />
                 </div>
                 <div className="dash__statContent">
-                  <span className="dash__statValue">0</span>
+                  <span className="dash__statValue">{todayStats.ordersToday}</span>
                   <span className="dash__statLabel">Pedidos hoy</span>
                 </div>
               </div>
-              <div className="dash__statCard">
+              <div className="dash__statCard" onClick={() => setActiveTab('sales')} style={{ cursor: 'pointer' }}>
                 <div className="dash__statIcon dash__statIcon--sales">
                   <DollarSign size={24} />
                 </div>
                 <div className="dash__statContent">
-                  <span className="dash__statValue">$0</span>
+                  <span className="dash__statValue">${todayStats.salesToday.toLocaleString()}</span>
                   <span className="dash__statLabel">Ventas hoy</span>
                 </div>
               </div>
-              <div className="dash__statCard">
+              <div className="dash__statCard" onClick={() => setActiveTab('menu')} style={{ cursor: 'pointer' }}>
                 <div className="dash__statIcon dash__statIcon--products">
                   <Package size={24} />
                 </div>
                 <div className="dash__statContent">
-                  <span className="dash__statValue">0</span>
+                  <span className="dash__statValue">{productsCount}</span>
                   <span className="dash__statLabel">Productos</span>
                 </div>
               </div>
@@ -324,8 +538,8 @@ export default function UserDashboardPage() {
                   <Users size={24} />
                 </div>
                 <div className="dash__statContent">
-                  <span className="dash__statValue">0</span>
-                  <span className="dash__statLabel">Clientes</span>
+                  <span className="dash__statValue">{todayStats.customersToday}</span>
+                  <span className="dash__statLabel">Clientes hoy</span>
                 </div>
               </div>
             </div>
@@ -475,19 +689,6 @@ export default function UserDashboardPage() {
           <StoreEditor />
         )}
 
-        {/* Settings Tab */}
-        {activeTab === 'settings' && (
-          <>
-            <header className="dash__header">
-              <h1>Configuraciones</h1>
-              <p className="muted">Personaliza tu restaurante.</p>
-            </header>
-            <ThemeManager tenantId={user.tenantId} subscriptionTier={subscriptionTier} />
-            <PageBuilder tenantId={user.tenantId} subscriptionTier={subscriptionTier} />
-            <SubscriptionPlans currentTier={subscriptionTier} tenantId={user.tenantId} />
-          </>
-        )}
-
         {/* QR & Links Tab */}
         {activeTab === 'qr' && (
           <>
@@ -614,7 +815,6 @@ export default function UserDashboardPage() {
 
 // Componente de Reportes
 function ReportsSection({ tenantId }) {
-  const dispatch = useAppDispatch()
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const [dateRange, setDateRange] = useState('week') // week, month, all
 

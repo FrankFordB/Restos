@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import './OrdersManager.css'
 import Card from '../../ui/Card/Card'
@@ -8,7 +8,7 @@ import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
 import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus } from '../../../lib/supabaseApi'
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient'
+import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
 import {
@@ -29,7 +29,6 @@ import {
   Truck,
   Home,
   UtensilsCrossed,
-  Bell,
   Filter,
   ArrowLeft,
   ShoppingCart,
@@ -91,11 +90,6 @@ export default function OrdersManager({ tenantId }) {
   })
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState(null)
-  
-  // Notificaciones de nuevos pedidos
-  const [newOrdersCount, setNewOrdersCount] = useState(0)
-  const lastOrderCountRef = useRef(orders.length)
-  const audioRef = useRef(null)
   
   // Selección múltiple de pedidos
   const [selectedOrderIds, setSelectedOrderIds] = useState(new Set())
@@ -160,12 +154,6 @@ export default function OrdersManager({ tenantId }) {
       dispatch(fetchProductsForTenant(tenantId))
     }
   }, [tenantId, dispatch])
-
-  // Limpiar notificaciones al ver pedidos
-  const handleClearNotifications = () => {
-    setNewOrdersCount(0)
-    lastOrderCountRef.current = orders.length
-  }
 
   useEffect(() => {
     handleRefresh()
@@ -278,66 +266,6 @@ export default function OrdersManager({ tenantId }) {
     setIsCheckingOut(false)
     setCheckoutError(null)
   }
-
-  // Suscripción en tiempo real a nuevos pedidos
-  useEffect(() => {
-    if (!isSupabaseConfigured || !tenantId || !supabase) return
-
-    const channel = supabase
-      .channel(`orders-${tenantId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          console.log('Nuevo pedido recibido:', payload)
-          // Refrescar pedidos para obtener el nuevo con sus items
-          handleRefresh()
-          // Incrementar contador de nuevos pedidos
-          setNewOrdersCount((prev) => prev + 1)
-          // Reproducir sonido de notificación
-          if (audioRef.current) {
-            audioRef.current.play().catch(() => {})
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        () => {
-          // Refrescar cuando se actualice un pedido
-          handleRefresh()
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'orders',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          console.log('Pedido eliminado:', payload)
-          // Refrescar cuando se elimine un pedido
-          handleRefresh()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [tenantId, handleRefresh])
 
   // Filtrar pedidos
   const filteredOrders = useMemo(() => {
@@ -572,24 +500,10 @@ export default function OrdersManager({ tenantId }) {
 
   return (
     <div className="ordersManager">
-      {/* Audio para notificaciones */}
-      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
-      
       {/* Header con acciones */}
       <div className="ordersManager__header">
         <div className="ordersManager__titleRow">
           <h3 className="ordersManager__title">Gestión de Pedidos</h3>
-          {/* Badge de notificación */}
-          {newOrdersCount > 0 && (
-            <button 
-              className="ordersManager__notificationBadge"
-              onClick={handleClearNotifications}
-              title="Nuevos pedidos - Click para limpiar"
-            >
-              <Bell size={18} />
-              <span className="ordersManager__notificationCount">{newOrdersCount}</span>
-            </button>
-          )}
         </div>
         <div className="ordersManager__actions">
           <Button

@@ -585,20 +585,31 @@ export async function fetchTenantFull(tenantId) {
   try {
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, owner_user_id, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, owner_user_id, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, sound_enabled, sound_repeat_count, sound_delay_ms')
       .eq('id', tenantId)
       .single()
     if (error) throw error
     return data
   } catch (err) {
-    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
-      // Fall back to basic columns
+    // Fall back to basic columns if there's any column/schema error
+    const errMsg = err.message?.toLowerCase() || ''
+    if (errMsg.includes('column') || errMsg.includes('schema') || errMsg.includes('does not exist') || err.code === '42703') {
+      console.warn('Some columns not found, falling back to basic query:', err.message)
       const { data, error: err2 } = await supabase
         .from('tenants')
-        .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id')
+        .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, owner_user_id, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option')
         .eq('id', tenantId)
         .single()
-      if (err2) throw err2
+      if (err2) {
+        // If still failing, try minimal columns
+        const { data: minData, error: err3 } = await supabase
+          .from('tenants')
+          .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id')
+          .eq('id', tenantId)
+          .single()
+        if (err3) throw err3
+        return minData
+      }
       return data
     }
     throw err
@@ -612,20 +623,31 @@ export async function fetchTenantBySlugFull(slug) {
   try {
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options, sound_enabled, sound_repeat_count, sound_delay_ms')
       .eq('slug', slug)
       .maybeSingle()
     if (error) throw error
     return data
   } catch (err) {
-    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
-      // Fall back to basic columns
+    // Fall back to basic columns if there's any column/schema error
+    const errMsg = err.message?.toLowerCase() || ''
+    if (errMsg.includes('column') || errMsg.includes('schema') || errMsg.includes('does not exist') || err.code === '42703') {
+      console.warn('Some columns not found, falling back to basic query:', err.message)
       const { data, error: err2 } = await supabase
         .from('tenants')
-        .select('id, name, slug, is_public, premium_until, subscription_tier')
+        .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, welcome_modal_enabled, welcome_modal_title, welcome_modal_message, welcome_modal_image, welcome_modal_features, welcome_modal_features_design, opening_hours, is_paused, pause_message, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
         .eq('slug', slug)
         .maybeSingle()
-      if (err2) throw err2
+      if (err2) {
+        // If still failing, try minimal columns
+        const { data: minData, error: err3 } = await supabase
+          .from('tenants')
+          .select('id, name, slug, is_public, premium_until, subscription_tier')
+          .eq('slug', slug)
+          .maybeSingle()
+        if (err3) throw err3
+        return minData
+      }
       return data
     }
     throw err
@@ -695,6 +717,53 @@ export async function fetchTenantPauseStatusBySlug(slug) {
   } catch (err) {
     // If columns don't exist, return not paused
     return { isPaused: false, pauseMessage: '' }
+  }
+}
+
+// Update tenant sound notification configuration
+export async function updateTenantSoundConfig({ tenantId, soundEnabled, soundRepeatCount, soundDelayMs }) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update({ 
+        sound_enabled: soundEnabled,
+        sound_repeat_count: soundRepeatCount,
+        sound_delay_ms: soundDelayMs
+      })
+      .eq('id', tenantId)
+      .select('id, sound_enabled, sound_repeat_count, sound_delay_ms')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('Error updating sound config:', err)
+    throw err
+  }
+}
+
+// Fetch tenant sound configuration
+export async function fetchTenantSoundConfig(tenantId) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('sound_enabled, sound_repeat_count, sound_delay_ms')
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw error
+    return {
+      enabled: data?.sound_enabled ?? true,
+      repeatCount: data?.sound_repeat_count ?? 3,
+      delayMs: data?.sound_delay_ms ?? 1500
+    }
+  } catch (err) {
+    // If columns don't exist, return defaults
+    return { enabled: true, repeatCount: 3, delayMs: 1500 }
   }
 }
 

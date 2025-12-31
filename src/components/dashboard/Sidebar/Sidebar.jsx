@@ -31,7 +31,6 @@ const MENU_ITEMS = [
   { id: 'extras', label: 'Extras / Toppings', icon: Layers },
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
-  { id: 'settings', label: 'Configuraciones', icon: Settings },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },  
   { id: 'qr', label: 'QR y Enlaces', icon: QrCode },
 ]
