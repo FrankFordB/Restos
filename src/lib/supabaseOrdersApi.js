@@ -246,6 +246,8 @@ export async function deleteOrder(orderId) {
 export async function decrementProductStock(items) {
   ensureSupabase()
   
+  console.log('🔄 decrementProductStock - items:', items)
+  
   // Para cada item, decrementar el stock del producto
   const updates = items.map(async (item) => {
     if (!item.productId) return null
@@ -257,15 +259,22 @@ export async function decrementProductStock(items) {
       .eq('id', item.productId)
       .single()
     
+    console.log('📦 Producto encontrado:', product, 'Error:', fetchError)
+    
     if (fetchError || !product) {
       console.warn(`No se encontró producto ${item.productId} para actualizar stock`)
       return null
     }
     
     // Si no tiene stock definido, no hacemos nada
-    if (product.stock === null || product.stock === undefined) return null
+    if (product.stock === null || product.stock === undefined) {
+      console.log(`ℹ️ Producto ${item.productId} no tiene stock definido, saltando...`)
+      return null
+    }
     
     const newStock = Math.max(0, (product.stock || 0) - (item.quantity || 1))
+    
+    console.log('📝 Actualizando stock de', item.productId, 'de', product.stock, 'a', newStock)
     
     const { error: updateError } = await supabase
       .from('products')
@@ -273,10 +282,11 @@ export async function decrementProductStock(items) {
       .eq('id', item.productId)
     
     if (updateError) {
-      console.error(`Error actualizando stock de ${item.productId}:`, updateError)
+      console.error(`❌ Error actualizando stock de ${item.productId}:`, updateError)
       return null
     }
     
+    console.log('✅ Stock de producto actualizado correctamente a', newStock)
     return { productId: item.productId, newStock }
   })
   
@@ -292,12 +302,16 @@ export async function decrementProductStock(items) {
 export async function decrementCategoryStock(categoryId, quantity) {
   ensureSupabase()
   
+  console.log('⬇️ decrementCategoryStock - categoryId:', categoryId, 'quantity:', quantity)
+  
   // Obtener stock actual de la categoría
   const { data: category, error: fetchError } = await supabase
     .from('product_categories')
     .select('id, current_stock, max_stock')
     .eq('id', categoryId)
     .single()
+  
+  console.log('📋 Categoría obtenida:', category, 'Error:', fetchError)
   
   if (fetchError || !category) {
     console.warn(`No se encontró categoría ${categoryId} para actualizar stock`)
@@ -311,16 +325,19 @@ export async function decrementCategoryStock(categoryId, quantity) {
   
   const newStock = Math.max(0, (category.current_stock || 0) - quantity)
   
+  console.log('📝 Actualizando stock de', categoryId, 'de', category.current_stock, 'a', newStock)
+  
   const { error: updateError } = await supabase
     .from('product_categories')
     .update({ current_stock: newStock })
     .eq('id', categoryId)
   
   if (updateError) {
-    console.error(`Error actualizando stock de categoría ${categoryId}:`, updateError)
+    console.error(`❌ Error actualizando stock de categoría ${categoryId}:`, updateError)
     return null
   }
   
+  console.log('✅ Stock actualizado correctamente a', newStock)
   return { categoryId, newStock }
 }
 
@@ -400,14 +417,21 @@ export async function validateCategoryStock(tenantId, items) {
 export async function decrementCategoryStockByProducts(tenantId, items) {
   ensureSupabase()
   
+  console.log('🔄 decrementCategoryStockByProducts - tenantId:', tenantId, 'items:', items)
+  
   // Obtener la info de categoría de cada producto
   const productIds = items.map(it => it.productId).filter(Boolean)
-  if (productIds.length === 0) return []
+  if (productIds.length === 0) {
+    console.log('⚠️ No hay productIds para procesar')
+    return []
+  }
   
   const { data: products, error } = await supabase
     .from('products')
     .select('id, category')
     .in('id', productIds)
+  
+  console.log('📦 Productos encontrados:', products)
   
   if (error || !products) {
     console.warn('Error obteniendo categorías de productos:', error)
@@ -431,12 +455,16 @@ export async function decrementCategoryStockByProducts(tenantId, items) {
     categoryIdByName[cat.name.toLowerCase()] = cat.id
   })
   
+  console.log('🗂️ Mapa categorías:', categoryIdByName)
+  
   // Agrupar cantidades por categoría
   const categoryQuantities = {}
   items.forEach(item => {
     const product = products.find(p => p.id === item.productId)
+    console.log('🔍 Buscando producto:', item.productId, '-> encontrado:', product)
     if (product?.category) {
       const categoryId = categoryIdByName[product.category.toLowerCase()]
+      console.log('📂 Categoría del producto:', product.category, '-> categoryId:', categoryId)
       if (categoryId) {
         if (!categoryQuantities[categoryId]) {
           categoryQuantities[categoryId] = 0
@@ -445,6 +473,8 @@ export async function decrementCategoryStockByProducts(tenantId, items) {
       }
     }
   })
+  
+  console.log('📊 Cantidades por categoría a decrementar:', categoryQuantities)
   
   // Decrementar stock de cada categoría
   const updates = Object.entries(categoryQuantities).map(async ([categoryId, quantity]) => {

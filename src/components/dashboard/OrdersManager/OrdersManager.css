@@ -1553,89 +1553,649 @@
   color: #fff;
 }
 
-/* Stock Live Indicator */
-.ordersManager__stockLive {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
-  border: 1px solid var(--border);
+/* Stock Alert Banner */
+.ordersManager__stockAlert {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
   border-radius: var(--radius);
-  padding: 16px;
+  margin-bottom: 8px;
+  animation: stockAlertIn 0.3s ease-out;
+}
+
+@keyframes stockAlertIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ordersManager__stockAlert--danger {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 2px solid #fca5a5;
+}
+
+.ordersManager__stockAlertIcon {
+  flex-shrink: 0;
+  color: #dc2626;
+  animation: pulse-icon 2s infinite;
+}
+
+@keyframes pulse-icon {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.ordersManager__stockAlertContent {
+  flex: 1;
+}
+
+.ordersManager__stockAlertContent strong {
+  display: block;
+  color: #991b1b;
+  font-size: 0.95rem;
   margin-bottom: 4px;
 }
 
-.ordersManager__stockLiveHeader {
+.ordersManager__stockAlertContent p {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Stock Panel (nuevo formato) */
+.ordersManager__stockPanel {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.ordersManager__stockPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ordersManager__stockPanelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ordersManager__stockPanelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+/* Stock Cards */
+.ordersManager__stockCard {
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  border: 2px solid;
+  transition: all 200ms ease;
+}
+
+.ordersManager__stockCard--ok {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+}
+
+.ordersManager__stockCard--low {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  animation: stockPulse 3s infinite;
+}
+
+.ordersManager__stockCard--out {
+  border-color: #dc2626;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  animation: stockPulse 1.5s infinite;
+}
+
+@keyframes stockPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+}
+
+.ordersManager__stockCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ordersManager__stockCardName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.ordersManager__stockCardBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ordersManager__stockCardBadge--out {
+  background: #dc2626;
+  color: white;
+}
+
+.ordersManager__stockCardBadge--low {
+  background: #f59e0b;
+  color: white;
+}
+
+.ordersManager__stockCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ordersManager__stockCardValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.ordersManager__stockCard--ok .ordersManager__stockCardCurrent {
+  color: #059669;
+}
+
+.ordersManager__stockCard--low .ordersManager__stockCardCurrent {
+  color: #d97706;
+}
+
+.ordersManager__stockCard--out .ordersManager__stockCardCurrent {
+  color: #dc2626;
+}
+
+.ordersManager__stockCardMax {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.ordersManager__stockCardBar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ordersManager__stockCardBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 500ms ease;
+}
+
+.ordersManager__stockCard--ok .ordersManager__stockCardBarFill {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.ordersManager__stockCard--low .ordersManager__stockCardBarFill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.ordersManager__stockCard--out .ordersManager__stockCardBarFill {
+  background: linear-gradient(90deg, #dc2626, #f87171);
+}
+
+/* Legacy: Stock Live Indicator (puede removerse) */
+.ordersManager__stockLive {
+  display: none;
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Responsive Stock Panel */
+@media (max-width: 640px) {
+  .ordersManager__stockPanelGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .ordersManager__stockAlert {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+}
+
+/* ===== NUEVO: Stock Panel Siempre Visible ===== */
+.ordersManager__stockPanel--always {
+  position: relative;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 0;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.ordersManager__stockPanel--expanded {
+  border-color: var(--primary, #6366f1);
+}
+
+/* Header clickeable */
+.ordersManager__stockPanelHeader--clickable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+}
+
+.ordersManager__stockPanelHeader--clickable:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.ordersManager__stockPanelToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ordersManager__stockPanelChevron {
+  color: var(--text-muted);
+  transition: transform 200ms ease;
+}
+
+.ordersManager__stockPanelChevron--up {
+  transform: rotate(180deg);
+}
+
+.ordersManager__stockPanelAlert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 3px 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  animation: pulseAlert 2s infinite;
+}
+
+@keyframes pulseAlert {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Contenido desplegable */
+.ordersManager__stockPanelContent {
+  padding: 0 20px 20px;
+  animation: slideDown 200ms ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ordersManager__stockPanelHint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* Toast de notificación */
+.ordersManager__stockToast {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 10;
+  animation: slideInRight 300ms ease;
+}
+
+.ordersManager__stockToast--success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.ordersManager__stockToast--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Controles de Stock Card */
+.ordersManager__stockCardControls {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ordersManager__stockBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  border: 1px solid;
+}
+
+.ordersManager__stockBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ordersManager__stockBtn--reset {
+  flex: 1;
+  justify-content: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.ordersManager__stockBtn--reset:hover:not(:disabled) {
+  background: #1d4ed8;
+  color: white;
+}
+
+.ordersManager__stockBtn--edit {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.ordersManager__stockBtn--edit:hover:not(:disabled) {
+  background: #374151;
+  color: white;
+}
+
+.ordersManager__stockBtn--remove {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.ordersManager__stockBtn--remove:hover:not(:disabled) {
+  background: #92400e;
+  color: white;
+}
+
+/* Current stock - estilo cuando está agotado */
+.ordersManager__stockCardCurrent--out {
+  animation: pulseRed 1s infinite;
+}
+
+@keyframes pulseRed {
+  0%, 100% { color: #dc2626; }
+  50% { color: #ef4444; }
+}
+
+/* Overlay de edición inline */
+.ordersManager__stockEditOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 5;
+}
+
+.ordersManager__stockEditBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.ordersManager__stockEditBox label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ordersManager__stockEditInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--primary, #6366f1);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+}
+
+.ordersManager__stockEditInput:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ordersManager__stockEditActions {
+  display: flex;
+  gap: 8px;
+}
+
+.ordersManager__stockEditBtn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 150ms ease;
+}
+
+.ordersManager__stockEditBtn--save {
+  background: #10b981;
+  color: white;
+}
+
+.ordersManager__stockEditBtn--save:hover:not(:disabled) {
+  background: #059669;
+}
+
+.ordersManager__stockEditBtn--cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.ordersManager__stockEditBtn--cancel:hover {
+  background: #e5e7eb;
+}
+
+/* Sección para agregar stock a categorías */
+.ordersManager__stockAddSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px dashed rgba(0, 0, 0, 0.1);
+}
+
+.ordersManager__stockAddTitle {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-bottom: 12px;
 }
 
-.ordersManager__stockLiveItems {
-  display: flex;
-  flex-wrap: wrap;
+.ordersManager__stockAddGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 }
 
-.ordersManager__stockLiveItem {
+.ordersManager__stockAddCard {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 200ms var(--ease-out);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  transition: all 150ms ease;
 }
 
-.ordersManager__stockLiveItem:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.ordersManager__stockAddCard:hover {
+  border-color: var(--primary, #6366f1);
+  background: white;
 }
 
-.ordersManager__stockLiveName {
+.ordersManager__stockAddName {
   font-weight: 600;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
-.ordersManager__stockLiveValue {
-  font-weight: 700;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
+.ordersManager__stockAddInputGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ordersManager__stockAddInput {
+  width: 70px;
+  padding: 6px 10px;
+  border: 2px solid var(--primary, #6366f1);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+}
+
+.ordersManager__stockAddBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 150ms ease;
 }
 
-.ordersManager__stockLiveItem--low .ordersManager__stockLiveValue {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
+.ordersManager__stockAddBtn--add {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
 }
 
-.ordersManager__stockLiveItem--out {
-  background: rgba(239, 68, 68, 0.05);
-  border-color: rgba(239, 68, 68, 0.3);
+.ordersManager__stockAddBtn--add:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-.ordersManager__stockLiveItem--out .ordersManager__stockLiveName {
-  color: #dc2626;
+.ordersManager__stockAddBtn--save {
+  background: #10b981;
+  color: white;
+  padding: 6px 8px;
 }
 
-.ordersManager__stockLiveItem--out .ordersManager__stockLiveValue {
-  color: #dc2626;
-  background: rgba(239, 68, 68, 0.15);
-  animation: pulse-danger 2s infinite;
+.ordersManager__stockAddBtn--save:hover {
+  background: #059669;
 }
 
-@keyframes pulse-danger {
+.ordersManager__stockAddBtn--cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 6px 8px;
+}
+
+.ordersManager__stockAddBtn--cancel:hover {
+  background: #e5e7eb;
+}
+
+.ordersManager__stockAddSaving {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6366f1;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
+}
+
+/* Estado vacío */
+.ordersManager__stockEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ordersManager__stockEmpty p {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.ordersManager__stockEmpty span {
+  font-size: 0.85rem;
+}
+
+/* Hacer las cards de stock relativas para el overlay */
+.ordersManager__stockCard {
+  position: relative;
 }
 
 /* Stock Products Modal */

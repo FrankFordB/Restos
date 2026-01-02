@@ -11,13 +11,19 @@ export default function ProductDetailModal({
   onAddToCart,
   initialQuantity = 1,
   currentCartQuantity = 0, // Cantidad actual en el carrito para este producto
+  stockLimit = null, // Límite efectivo de stock (mínimo entre producto y categoría)
+  categoryName = null, // Nombre de la categoría para el mensaje
+  isLimitedByCategory = false, // Si el límite viene del stock global de categoría
 }) {
-  // Detectar si el producto está sin stock
-  const isOutOfStock = product.stock !== null && product.stock !== undefined && product.stock === 0
+  // Usar stockLimit si está disponible, sino usar product.stock
+  const effectiveStock = stockLimit !== null ? stockLimit : (product.stock ?? null)
   
-  // Calcular stock máximo disponible
-  const maxStock = product.stock !== null && product.stock !== undefined 
-    ? Math.max(0, product.stock - currentCartQuantity)
+  // Detectar si el producto está sin stock
+  const isOutOfStock = effectiveStock !== null && effectiveStock === 0
+  
+  // Calcular stock máximo disponible (restando lo que ya hay en carrito)
+  const maxStock = effectiveStock !== null 
+    ? Math.max(0, effectiveStock - currentCartQuantity)
     : Infinity
   
   const [quantity, setQuantity] = useState(Math.min(initialQuantity, maxStock || 1))
@@ -455,11 +461,16 @@ export default function ProductDetailModal({
           
           {/* Stock warning */}
           {maxStock !== Infinity && maxStock <= 5 && maxStock > 0 && (
-            <span className="productModal__stockWarning">
-              ¡Solo quedan {maxStock}!
+            <span className={`productModal__stockWarning ${isLimitedByCategory ? 'productModal__stockWarning--category' : ''}`}>
+              {maxStock === 1 ? '¡ÚLTIMA!' : `¡ÚLTIMAS: ${maxStock}!`}
             </span>
           )}
-          {maxStock === 0 && (
+          {maxStock === 0 && !isOutOfStock && (
+            <span className="productModal__maxReached">
+              Máximo alcanzado
+            </span>
+          )}
+          {isOutOfStock && (
             <span className="productModal__outOfStock">
               Sin stock disponible
             </span>

@@ -3,6 +3,8 @@ import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import { createOrderWithItems, listOrdersByTenantId, updateOrderStatus, deleteOrder as deleteOrderApi } from '../../lib/supabaseOrdersApi'
+import { fetchCategoriesForTenant } from '../categories/categoriesSlice'
+import { fetchProductsForTenant } from '../products/productsSlice'
 
 const PERSIST_KEY = 'state.orders'
 
@@ -85,6 +87,11 @@ export const createPaidOrder = createAsyncThunk(
     }
 
     const created = await createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod })
+    
+    // Recargar categorías y productos para reflejar el nuevo stock
+    dispatch(fetchCategoriesForTenant(tenantId))
+    dispatch(fetchProductsForTenant(tenantId))
+    
     return { tenantId, order: created }
   },
 )

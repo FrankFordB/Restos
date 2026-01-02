@@ -39,6 +39,7 @@ import {
   AlertCircle,
   Infinity,
   Edit2,
+  Settings,
 } from 'lucide-react'
 
 const DELIVERY_TYPES = {
@@ -638,26 +639,7 @@ export default function OrdersManager({ tenantId }) {
             <Truck size={16} />
             Configurar
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowStockGlobalModal(true)}
-            title="Configurar stock global por categoría"
-            className="ordersManager__stockBtn"
-          >
-            <Package size={16} />
-            <span>Stock Global</span>
-            {categoryStockStats.outOfStock > 0 && (
-              <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--danger">
-                {categoryStockStats.outOfStock}
-              </span>
-            )}
-            {categoryStockStats.lowStock > 0 && (
-              <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--warning">
-                {categoryStockStats.lowStock}
-              </span>
-            )}
-          </Button>
+          {/* El botón de Stock Global se eliminó - ahora se muestra inline abajo */}
           {stockStats.totalWithStock > 0 && (
             <Button
               variant="secondary"
@@ -908,30 +890,36 @@ export default function OrdersManager({ tenantId }) {
       {/* Vista normal de pedidos (solo cuando NO estamos en modo tienda) */}
       {!showCreateStore && (
         <>
-          {/* Indicador de Stock Global en Vivo */}
-          {categoryStockStats.total > 0 && (
-            <div className="ordersManager__stockLive">
-              <div className="ordersManager__stockLiveHeader">
-                <Package size={16} />
-                <span>Stock Global en Vivo</span>
+          {/* Alerta de Stock Global Agotado */}
+          {categoryStockStats.outOfStock > 0 && (
+            <div className="ordersManager__stockAlert ordersManager__stockAlert--danger">
+              <div className="ordersManager__stockAlertIcon">
+                <AlertTriangle size={24} />
               </div>
-              <div className="ordersManager__stockLiveItems">
-                {categoryStockStats.categories.map(cat => (
-                  <div 
-                    key={cat.id} 
-                    className={`ordersManager__stockLiveItem ${cat.isOut ? 'ordersManager__stockLiveItem--out' : cat.isLow ? 'ordersManager__stockLiveItem--low' : ''}`}
-                    onClick={() => setShowStockGlobalModal(true)}
-                    title="Click para editar stock"
-                  >
-                    <span className="ordersManager__stockLiveName">{cat.name}</span>
-                    <span className="ordersManager__stockLiveValue">
-                      {cat.current}/{cat.max}
-                    </span>
-                  </div>
-                ))}
+              <div className="ordersManager__stockAlertContent">
+                <strong>⚠️ ¡Atención! {categoryStockStats.outOfStock === 1 ? 'Una categoría sin stock' : `${categoryStockStats.outOfStock} categorías sin stock`}</strong>
+                <p>
+                  {categoryStockStats.categories.filter(c => c.isOut).map(c => c.name).join(', ')} 
+                  {categoryStockStats.outOfStock === 1 ? ' está agotada' : ' están agotadas'}. 
+                  Los clientes no pueden comprar productos de {categoryStockStats.outOfStock === 1 ? 'esta categoría' : 'estas categorías'}.
+                </p>
               </div>
+              <Button 
+                size="sm" 
+                onClick={() => setShowStockGlobalModal(true)}
+              >
+                Gestionar Stock
+              </Button>
             </div>
           )}
+
+          {/* Panel de Stock Global en Vivo - Siempre visible */}
+          <StockGlobalPanel 
+            categories={categories} 
+            categoryStockStats={categoryStockStats}
+            tenantId={tenantId}
+            dispatch={dispatch}
+          />
         
           {/* Selector de tipo de filtro + Filtros */}
           <div className="ordersManager__filterGroup">
@@ -2247,11 +2235,15 @@ function StockGlobalModal({ categories, tenantId, onClose }) {
     setLocalCategories(prev => prev.map(cat => {
       if (cat.id === catId) {
         const newUnlimited = !cat.isUnlimited
+        // Al cambiar a limitado, NO resetear currentStock si ya tiene valor
+        // Solo usar maxStock como default si nunca tuvo stock configurado
+        const defaultMax = cat.maxStock || 100
         return {
           ...cat,
           isUnlimited: newUnlimited,
-          maxStock: newUnlimited ? null : (cat.maxStock || 100),
-          currentStock: newUnlimited ? null : (cat.currentStock ?? cat.maxStock ?? 100)
+          maxStock: newUnlimited ? null : defaultMax,
+          // IMPORTANTE: Preservar currentStock si ya existe, no reiniciar
+          currentStock: newUnlimited ? null : (cat.currentStock !== null && cat.currentStock !== undefined ? cat.currentStock : defaultMax)
         }
       }
       return cat
@@ -2803,4 +2795,339 @@ function getStatusLabel(status) {
     cancelled: 'Cancelado',
   }
   return labels[status] || status
+}
+
+// Panel de Stock Global siempre visible con edición inline
+function StockGlobalPanel({ categories, categoryStockStats, tenantId, dispatch }) {
+  const [editingCatId, setEditingCatId] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [showToast, setShowToast] = useState(null)
+  const [pendingSave, setPendingSave] = useState(null) // Para manejar el save mientras se actualiza
+  const [isExpanded, setIsExpanded] = useState(false) // Estado para el desplegable
+
+  const handleStartEdit = (catId, currentMax) => {
+    setEditingCatId(catId)
+    setEditValue(currentMax?.toString() || '100')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingCatId(null)
+    setEditValue('')
+    setPendingSave(null)
+  }
+
+  const handleSaveStock = async (catId, catName) => {
+    const numValue = parseInt(editValue, 10)
+    if (isNaN(numValue) || numValue < 0) {
+      setShowToast({ type: 'error', message: 'Ingresa un número válido' })
+      setTimeout(() => setShowToast(null), 3000)
+      return
+    }
+
+    setSaving(true)
+    setPendingSave({ catId, catName, value: numValue })
+    
+    try {
+      await dispatch(patchCategory({
+        tenantId,
+        categoryId: catId,
+        patch: {
+          max_stock: numValue,
+          current_stock: numValue // Inicializar con el máximo
+        }
+      })).unwrap()
+      
+      setEditingCatId(null)
+      setEditValue('')
+      setPendingSave(null)
+      setShowToast({ type: 'success', message: `Stock de "${catName}" configurado a ${numValue}` })
+      setTimeout(() => setShowToast(null), 3000)
+    } catch (error) {
+      console.error('Error guardando stock:', error)
+      setPendingSave(null)
+      setShowToast({ type: 'error', message: 'Error al guardar el stock' })
+      setTimeout(() => setShowToast(null), 3000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleResetStock = async (catId, catName, maxValue) => {
+    setSaving(true)
+    try {
+      await dispatch(patchCategory({
+        tenantId,
+        categoryId: catId,
+        patch: {
+          current_stock: maxValue
+        }
+      })).unwrap()
+      
+      setShowToast({ type: 'success', message: `Stock de "${catName}" reiniciado a ${maxValue}` })
+      setTimeout(() => setShowToast(null), 3000)
+    } catch (error) {
+      console.error('Error reiniciando stock:', error)
+      setShowToast({ type: 'error', message: 'Error al reiniciar el stock' })
+      setTimeout(() => setShowToast(null), 3000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemoveStockLimit = async (catId, catName) => {
+    setSaving(true)
+    try {
+      await dispatch(patchCategory({
+        tenantId,
+        categoryId: catId,
+        patch: {
+          max_stock: null,
+          current_stock: null
+        }
+      })).unwrap()
+      
+      setShowToast({ type: 'success', message: `Stock ilimitado para "${catName}"` })
+      setTimeout(() => setShowToast(null), 3000)
+    } catch (error) {
+      console.error('Error removiendo límite:', error)
+      setShowToast({ type: 'error', message: 'Error al quitar el límite' })
+      setTimeout(() => setShowToast(null), 3000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleKeyDown = (e, catId, catName) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveStock(catId, catName)
+    } else if (e.key === 'Escape') {
+      handleCancelEdit()
+    }
+  }
+
+  // Categorías sin stock configurado
+  const categoriesWithoutStock = categories.filter(c => c.maxStock === null || c.maxStock === undefined)
+
+  // Contar categorías con problemas para mostrar alerta en el header
+  const hasStockIssues = categoryStockStats.outOfStock > 0 || categoryStockStats.lowStock > 0
+
+  return (
+    <div className={`ordersManager__stockPanel ordersManager__stockPanel--always ${isExpanded ? 'ordersManager__stockPanel--expanded' : ''}`}>
+      {/* Toast notification */}
+      {showToast && (
+        <div className={`ordersManager__stockToast ordersManager__stockToast--${showToast.type}`}>
+          {showToast.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {showToast.message}
+        </div>
+      )}
+
+      {/* Header clickeable para expandir/colapsar */}
+      <button 
+        className="ordersManager__stockPanelHeader ordersManager__stockPanelHeader--clickable"
+        onClick={() => setIsExpanded(!isExpanded)}
+        type="button"
+      >
+        <div className="ordersManager__stockPanelTitle">
+          <Package size={18} />
+          <span>Stock Global por Categoría</span>
+          {hasStockIssues && !isExpanded && (
+            <span className="ordersManager__stockPanelAlert">
+              <AlertTriangle size={14} />
+              {categoryStockStats.outOfStock > 0 && `${categoryStockStats.outOfStock} agotado${categoryStockStats.outOfStock > 1 ? 's' : ''}`}
+              {categoryStockStats.outOfStock > 0 && categoryStockStats.lowStock > 0 && ' · '}
+              {categoryStockStats.lowStock > 0 && `${categoryStockStats.lowStock} bajo${categoryStockStats.lowStock > 1 ? 's' : ''}`}
+            </span>
+          )}
+        </div>
+        <div className="ordersManager__stockPanelToggle">
+          <span className="ordersManager__stockPanelHint">
+            {categoryStockStats.total > 0 
+              ? `${categoryStockStats.total} categoría${categoryStockStats.total > 1 ? 's' : ''}`
+              : 'Configurar'
+            }
+          </span>
+          <ChevronDown 
+            size={18} 
+            className={`ordersManager__stockPanelChevron ${isExpanded ? 'ordersManager__stockPanelChevron--up' : ''}`}
+          />
+        </div>
+      </button>
+
+      {/* Contenido desplegable */}
+      {isExpanded && (
+        <div className="ordersManager__stockPanelContent">
+          {/* Categorías con stock configurado */}
+          {categoryStockStats.total > 0 && (
+            <div className="ordersManager__stockPanelGrid">
+              {categoryStockStats.categories.map(cat => (
+                <div 
+                  key={cat.id} 
+                  className={`ordersManager__stockCard ${cat.isOut ? 'ordersManager__stockCard--out' : cat.isLow ? 'ordersManager__stockCard--low' : 'ordersManager__stockCard--ok'}`}
+                >
+                  <div className="ordersManager__stockCardHeader">
+                    <span className="ordersManager__stockCardName">{cat.name}</span>
+                    <div className="ordersManager__stockCardActions">
+                      {cat.isOut && (
+                        <span className="ordersManager__stockCardBadge ordersManager__stockCardBadge--out">
+                          <AlertTriangle size={12} /> SIN STOCK
+                        </span>
+                      )}
+                      {cat.isLow && !cat.isOut && (
+                        <span className="ordersManager__stockCardBadge ordersManager__stockCardBadge--low">BAJO</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="ordersManager__stockCardBody">
+                    <div className="ordersManager__stockCardValue">
+                      <span className={`ordersManager__stockCardCurrent ${cat.isOut ? 'ordersManager__stockCardCurrent--out' : ''}`}>
+                        {cat.current}
+                      </span>
+                      <span className="ordersManager__stockCardMax">/{cat.max}</span>
+                    </div>
+                    <div className="ordersManager__stockCardBar">
+                      <div 
+                    className="ordersManager__stockCardBarFill"
+                    style={{ width: `${Math.min(100, (cat.current / cat.max) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="ordersManager__stockCardControls">
+                <button
+                  className="ordersManager__stockBtn ordersManager__stockBtn--reset"
+                  onClick={() => handleResetStock(cat.id, cat.name, cat.max)}
+                  disabled={saving || cat.current === cat.max}
+                  title="Reiniciar al máximo"
+                >
+                  <RefreshCw size={14} />
+                  Reiniciar
+                </button>
+                <button
+                  className="ordersManager__stockBtn ordersManager__stockBtn--edit"
+                  onClick={() => handleStartEdit(cat.id, cat.max)}
+                  disabled={saving}
+                  title="Editar máximo"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  className="ordersManager__stockBtn ordersManager__stockBtn--remove"
+                  onClick={() => handleRemoveStockLimit(cat.id, cat.name)}
+                  disabled={saving}
+                  title="Quitar límite (ilimitado)"
+                >
+                  <Infinity size={14} />
+                </button>
+              </div>
+
+              {/* Modal de edición inline */}
+              {editingCatId === cat.id && (
+                <div className="ordersManager__stockEditOverlay">
+                  <div className="ordersManager__stockEditBox">
+                    <label>Stock máximo para {cat.name}:</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, cat.id, cat.name)}
+                      autoFocus
+                      className="ordersManager__stockEditInput"
+                    />
+                    <div className="ordersManager__stockEditActions">
+                      <button 
+                        className="ordersManager__stockEditBtn ordersManager__stockEditBtn--save"
+                        onClick={() => handleSaveStock(cat.id, cat.name)}
+                        disabled={saving}
+                      >
+                        {saving ? 'Guardando...' : 'Guardar'}
+                      </button>
+                      <button 
+                        className="ordersManager__stockEditBtn ordersManager__stockEditBtn--cancel"
+                        onClick={handleCancelEdit}
+                        disabled={saving}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sección para categorías sin stock */}
+      {categoriesWithoutStock.length > 0 && (
+        <div className="ordersManager__stockAddSection">
+          <div className="ordersManager__stockAddTitle">
+            <Infinity size={16} />
+            <span>Categorías sin límite de stock ({categoriesWithoutStock.length})</span>
+          </div>
+          <div className="ordersManager__stockAddGrid">
+            {categoriesWithoutStock.map(cat => (
+              <div key={cat.id} className="ordersManager__stockAddCard">
+                <span className="ordersManager__stockAddName">{cat.name}</span>
+                {editingCatId === cat.id || (pendingSave && pendingSave.catId === cat.id) ? (
+                  <div className="ordersManager__stockAddInputGroup">
+                    {pendingSave && pendingSave.catId === cat.id ? (
+                      <span className="ordersManager__stockAddSaving">Guardando {pendingSave.value}...</span>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          min="1"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, cat.id, cat.name)}
+                          autoFocus
+                          placeholder="Cantidad"
+                          className="ordersManager__stockAddInput"
+                        />
+                        <button 
+                          className="ordersManager__stockAddBtn ordersManager__stockAddBtn--save"
+                          onClick={() => handleSaveStock(cat.id, cat.name)}
+                          disabled={saving}
+                        >
+                          <CheckCircle size={14} />
+                        </button>
+                        <button 
+                          className="ordersManager__stockAddBtn ordersManager__stockAddBtn--cancel"
+                          onClick={handleCancelEdit}
+                        >
+                          <X size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <button 
+                    className="ordersManager__stockAddBtn ordersManager__stockAddBtn--add"
+                    onClick={() => handleStartEdit(cat.id, 100)}
+                  >
+                    <Plus size={14} />
+                    Agregar stock
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {categories.length === 0 && (
+        <div className="ordersManager__stockEmpty">
+          <Package size={32} />
+          <p>No hay categorías creadas</p>
+          <span>Crea categorías en tu menú para gestionar el stock global</span>
+        </div>
+      )}
+        </div>
+      )}
+    </div>
+  )
 }

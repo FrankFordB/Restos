@@ -96,7 +96,20 @@ export const createCategory = createAsyncThunk(
 export const patchCategory = createAsyncThunk(
   'categories/patchCategory',
   async ({ tenantId, categoryId, patch }) => {
-    if (!isSupabaseConfigured) return { tenantId, categoryId, row: null, patch }
+    if (!isSupabaseConfigured) {
+      // Convertir snake_case a camelCase para modo local
+      const localPatch = {}
+      if ('name' in patch) localPatch.name = patch.name
+      if ('description' in patch) localPatch.description = patch.description
+      if ('sortOrder' in patch) localPatch.sortOrder = patch.sortOrder
+      if ('sort_order' in patch) localPatch.sortOrder = patch.sort_order
+      if ('active' in patch) localPatch.active = patch.active
+      if ('max_stock' in patch) localPatch.maxStock = patch.max_stock
+      if ('maxStock' in patch) localPatch.maxStock = patch.maxStock
+      if ('current_stock' in patch) localPatch.currentStock = patch.current_stock
+      if ('currentStock' in patch) localPatch.currentStock = patch.currentStock
+      return { tenantId, categoryId, row: null, patch: localPatch }
+    }
     const row = await updateCategoryRow({ tenantId, categoryId, patch })
     return { tenantId, categoryId, row }
   },

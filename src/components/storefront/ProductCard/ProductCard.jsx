@@ -21,6 +21,7 @@ export default function ProductCard({
   stockLimit = null, // Límite efectivo de stock (mínimo entre producto y categoría)
   categoryName = null, // Nombre de la categoría para el mensaje
   isPopular = false, // Si es uno de los 3 productos más vendidos
+  isLimitedByCategory = false, // Si el límite viene del stock global de categoría
 }) {
   const layoutClass = `productCard--${layout}`
   
@@ -89,15 +90,15 @@ export default function ProductCard({
       
       {/* Badge de Máximo alcanzado (cuando hay items en carrito pero no puede agregar más) */}
       {wouldExceedStock && !isOutOfStock && (
-        <div className="productCard__maxStockBadge">
-          <span>Máx. {effectiveStock}</span>
+        <div className={`productCard__maxStockBadge ${isLimitedByCategory ? 'productCard__maxStockBadge--category' : ''}`}>
+          <span>{effectiveStock === 1 ? `ÚLTIMA: ${effectiveStock}` : `ÚLTIMAS: ${effectiveStock}`}</span>
         </div>
       )}
       
       {/* Badge de Últimas unidades */}
       {isLowStock && !isOutOfStock && !wouldExceedStock && (
-        <div className="productCard__lowStockBadge">
-          <span>¡Últimas {effectiveStock}!</span>
+        <div className={`productCard__lowStockBadge ${isLimitedByCategory ? 'productCard__lowStockBadge--category' : ''}`}>
+          <span>{effectiveStock === 1 ? `¡ÚLTIMA!` : `¡ÚLTIMAS: ${effectiveStock}!`}</span>
         </div>
       )}
       {/* Editable actions */}

@@ -988,7 +988,7 @@ export async function fetchCategoriesByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('product_categories')
-    .select('id, tenant_id, name, description, sort_order, active')
+    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
     .eq('tenant_id', tenantId)
     .order('sort_order', { ascending: true })
 
@@ -1006,8 +1006,10 @@ export async function insertCategory({ tenantId, category }) {
       description: category.description || null,
       sort_order: category.sortOrder ?? 0,
       active: category.active ?? true,
+      max_stock: category.maxStock ?? null,
+      current_stock: category.maxStock ?? null, // inicializa igual al máximo
     })
-    .select('id, tenant_id, name, description, sort_order, active')
+    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
     .single()
 
   if (error) throw error
