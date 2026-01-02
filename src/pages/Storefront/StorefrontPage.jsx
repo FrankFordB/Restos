@@ -23,6 +23,7 @@ import Input from '../../components/ui/Input/Input'
 import WelcomeModal from '../../components/storefront/WelcomeModal/WelcomeModal'
 import SuccessModal from '../../components/storefront/SuccessModal/SuccessModal'
 import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
+import FloatingCart from '../../components/storefront/FloatingCart/FloatingCart'
 import { loadJson, saveJson } from '../../shared/storage'
 import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
@@ -2426,6 +2427,27 @@ export default function StorefrontPage() {
         pauseMessage={pauseMessage}
       />
 
+      {/* Floating Cart for Mobile */}
+      {!isCheckingOut && !heroPreviewMode && (
+        <FloatingCart
+          items={cartItems}
+          total={cartTotal}
+          onAdd={addOne}
+          onRemove={removeOne}
+          onClear={() => {
+            setPaid(false)
+            setCart({})
+          }}
+          onCheckout={() => {
+            setIsCheckingOut(true)
+            setCheckoutError(null)
+            // Scroll to top on mobile for checkout
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          disabled={isStoreClosed}
+        />
+      )}
+
       {/* Success Modal after purchase */}
       <SuccessModal
         isOpen={showSuccessModal}
@@ -2635,219 +2657,252 @@ function CheckoutPage({
   }
 
   const deliveryTypes = [
-    { key: 'mostrador', label: 'Retira en Mostrador', icon: '🍴' },
-    { key: 'domicilio', label: 'A Domicilio', icon: '🚚' },
-    { key: 'mesa', label: 'Para Comer en Mesa', icon: '🏠' },
+    { key: 'mostrador', label: 'Retiro en Local', icon: '🍴', desc: 'Paso a buscar mi pedido' },
+    { key: 'domicilio', label: 'Delivery', icon: '🚚', desc: 'Enviar a mi dirección' },
+    { key: 'mesa', label: 'Comer Aquí', icon: '🪑', desc: 'Para consumir en el lugar' },
   ]
 
   const paymentMethods = [
     { key: 'efectivo', label: 'Efectivo', icon: '💵' },
     { key: 'tarjeta', label: 'Tarjeta', icon: '💳' },
-    { key: 'qr', label: 'QR (Mercado Pago)', icon: '📱' },
+    { key: 'qr', label: 'Mercado Pago', icon: '📱' },
   ]
+
+  // Format price helper
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price)
+  }
 
   return (
     <section className="checkoutPage" aria-label="Procesar Pedido">
-      {/* Header */}
+      {/* Header compacto */}
       <div className="checkoutPage__header">
         <button 
           className="checkoutPage__backBtn"
           onClick={onBack}
           disabled={checkoutLoading}
-          title="Volver al carrito"
+          aria-label="Volver"
         >
-          ← Volver
+          <span className="checkoutPage__backIcon">←</span>
+          <span className="checkoutPage__backText">Volver</span>
         </button>
-        <h2 className="checkoutPage__title">Procesar Pedido</h2>
-        <div className="checkoutPage__spacer"></div>
+        <h2 className="checkoutPage__title">
+          <span className="checkoutPage__titleIcon">🛒</span>
+          Finalizar Pedido
+        </h2>
       </div>
 
-      {/* Main Content */}
-      <div className="checkoutPage__container">
-        {/* Left: Form */}
-        <div className="checkoutPage__form">
-          {/* Resumen del Carrito */}
-          <div className="checkoutPage__summary">
-            <h3>Resumen del Pedido</h3>
-            <div className="checkoutPage__summaryBox">
-              <div className="checkoutPage__summaryRow">
-                <span>Items:</span>
-                <strong>{cartItems?.length || 0}</strong>
-              </div>
-              <div className="checkoutPage__summaryRow">
-                <span>Total:</span>
-                <strong className="checkoutPage__totalPrice">${cartTotal.toFixed(2)}</strong>
-              </div>
-            </div>
-
-            {/* Detalle de items */}
-            <div className="checkoutPage__items">
-              {cartItems?.map((item, index) => (
-                <div key={`${item.product?.id}-${index}`} className="checkoutPage__item">
-                  <span className="checkoutPage__itemName">{item.product?.name}</span>
-                  <span className="checkoutPage__itemQty">x{item.qty}</span>
-                  <span className="checkoutPage__itemPrice">${item.lineTotal?.toFixed(2)}</span>
+      <div className="checkoutPage__content">
+        {/* Resumen del pedido - Colapsable en móvil */}
+        <details className="checkoutPage__orderSummary" open>
+          <summary className="checkoutPage__orderSummaryHeader">
+            <span className="checkoutPage__orderSummaryTitle">
+              📋 Tu Pedido ({cartItems?.length || 0} items)
+            </span>
+            <span className="checkoutPage__orderSummaryTotal">{formatPrice(cartTotal)}</span>
+          </summary>
+          <div className="checkoutPage__orderItems">
+            {cartItems?.map((item, index) => (
+              <div key={`${item.product?.id}-${index}`} className="checkoutPage__orderItem">
+                <div className="checkoutPage__orderItemMain">
+                  <span className="checkoutPage__orderItemQty">{item.qty}x</span>
+                  <span className="checkoutPage__orderItemName">{item.product?.name}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Datos del Cliente */}
-          <div className="checkoutPage__section">
-            <h4 className="checkoutPage__sectionTitle">Datos del Cliente</h4>
-            
-            <div className="checkoutPage__field">
-              <label className="checkoutPage__label">Nombre *</label>
-              <input
-                type="text"
-                value={checkoutData.customerName}
-                onChange={(e) => setCheckoutData({ ...checkoutData, customerName: e.target.value })}
-                placeholder="Nombre completo"
-                className={`checkoutPage__input ${isNameValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
-                disabled={checkoutLoading}
-              />
-              {isNameValid && <span className="checkoutPage__fieldOk">✓</span>}
-            </div>
-
-            <div className="checkoutPage__field">
-              <label className="checkoutPage__label">Teléfono *</label>
-              <input
-                type="tel"
-                value={checkoutData.customerPhone}
-                onChange={(e) => setCheckoutData({ ...checkoutData, customerPhone: e.target.value })}
-                placeholder="+54 9 11 2000-0000"
-                className={`checkoutPage__input ${isPhoneValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
-                disabled={checkoutLoading}
-              />
-              {isPhoneValid && <span className="checkoutPage__fieldOk">✓</span>}
-            </div>
-          </div>
-
-          {/* Tipo de Entrega */}
-          <div className="checkoutPage__section">
-            <h4 className="checkoutPage__sectionTitle">Tipo de Entrega</h4>
-            <div className="checkoutPage__deliveryTypes">
-              {deliveryTypes.map((type) => {
-                const isEnabled = deliveryConfig ? deliveryConfig[type.key] !== false : true
-                return (
-                  <button
-                    key={type.key}
-                    className={`checkoutPage__deliveryType ${checkoutData.deliveryType === type.key ? 'checkoutPage__deliveryType--active' : ''} ${!isEnabled ? 'checkoutPage__deliveryType--disabled' : ''}`}
-                    onClick={() => setCheckoutData({ ...checkoutData, deliveryType: type.key })}
-                    disabled={checkoutLoading || !isEnabled}
-                    title={!isEnabled ? `${type.label} está deshabilitado en el dashboard` : ''}
-                  >
-                    <span>{type.icon}</span>
-                    <span>{type.label}</span>
-                    {!isEnabled && <span className="checkoutPage__disabledBadge">No disponible</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Dirección si es Domicilio */}
-          {checkoutData.deliveryType === 'domicilio' && (
-            <div className="checkoutPage__section">
-              <div className="checkoutPage__field">
-                <label className="checkoutPage__label">Dirección de Entrega *</label>
-                <input
-                  type="text"
-                  value={checkoutData.deliveryAddress}
-                  onChange={(e) => setCheckoutData({ ...checkoutData, deliveryAddress: e.target.value })}
-                  placeholder="Calle, número, apartamento"
-                  className={`checkoutPage__input ${isAddressValid ? 'checkoutPage__input--valid' : 'checkoutPage__input--invalid'}`}
-                  disabled={checkoutLoading}
-                />
-                {isAddressValid && <span className="checkoutPage__fieldOk">✓</span>}
+                {item.extras && item.extras.length > 0 && (
+                  <div className="checkoutPage__orderItemExtras">
+                    {item.extras.map((extra, i) => (
+                      <span key={i} className="checkoutPage__orderItemExtra">+ {extra.name}</span>
+                    ))}
+                  </div>
+                )}
+                <span className="checkoutPage__orderItemPrice">{formatPrice(item.lineTotal)}</span>
               </div>
+            ))}
+          </div>
+        </details>
 
-              <div className="checkoutPage__field">
-                <label className="checkoutPage__label">Notas (opcional)</label>
-                <textarea
-                  value={checkoutData.deliveryNotes}
-                  onChange={(e) => setCheckoutData({ ...checkoutData, deliveryNotes: e.target.value })}
-                  placeholder="Timbre roto, portón naranja, etc."
-                  className="checkoutPage__textarea"
-                  disabled={checkoutLoading}
-                  rows="3"
-                />
+        {/* Formulario principal */}
+        <div className="checkoutPage__form">
+          {/* Paso 1: Datos personales */}
+          <div className="checkoutPage__step">
+            <div className="checkoutPage__stepHeader">
+              <span className="checkoutPage__stepNumber">1</span>
+              <h3 className="checkoutPage__stepTitle">Tus Datos</h3>
+            </div>
+            <div className="checkoutPage__stepContent">
+              <div className="checkoutPage__fieldGroup">
+                <div className="checkoutPage__field">
+                  <label className="checkoutPage__label">
+                    <span className="checkoutPage__labelIcon">👤</span>
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={checkoutData.customerName}
+                    onChange={(e) => setCheckoutData({ ...checkoutData, customerName: e.target.value })}
+                    placeholder="¿Cómo te llamamos?"
+                    className={`checkoutPage__input ${checkoutData.customerName ? (isNameValid ? 'checkoutPage__input--valid' : '') : ''}`}
+                    disabled={checkoutLoading}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="checkoutPage__field">
+                  <label className="checkoutPage__label">
+                    <span className="checkoutPage__labelIcon">📱</span>
+                    Teléfono / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    value={checkoutData.customerPhone}
+                    onChange={(e) => setCheckoutData({ ...checkoutData, customerPhone: e.target.value })}
+                    placeholder="Para avisarte cuando esté listo"
+                    className={`checkoutPage__input ${checkoutData.customerPhone ? (isPhoneValid ? 'checkoutPage__input--valid' : '') : ''}`}
+                    disabled={checkoutLoading}
+                  />
+                </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Forma de Pago */}
-          <div className="checkoutPage__section">
-            <h4 className="checkoutPage__sectionTitle">Forma de Pago</h4>
-            <div className="checkoutPage__paymentMethods">
-              {paymentMethods.map((method) => (
-                <button
-                  key={method.key}
-                  className={`checkoutPage__paymentMethod ${checkoutData.paymentMethod === method.key ? 'checkoutPage__paymentMethod--active' : ''}`}
-                  onClick={() => setCheckoutData({ ...checkoutData, paymentMethod: method.key })}
-                  disabled={checkoutLoading}
-                >
-                  <span>{method.icon}</span>
-                  <span>{method.label}</span>
-                </button>
-              ))}
+          {/* Paso 2: Tipo de entrega */}
+          <div className="checkoutPage__step">
+            <div className="checkoutPage__stepHeader">
+              <span className="checkoutPage__stepNumber">2</span>
+              <h3 className="checkoutPage__stepTitle">¿Cómo lo querés?</h3>
+            </div>
+            <div className="checkoutPage__stepContent">
+              <div className="checkoutPage__deliveryOptions">
+                {deliveryTypes.map((type) => {
+                  const isEnabled = deliveryConfig ? deliveryConfig[type.key] !== false : true
+                  const isSelected = checkoutData.deliveryType === type.key
+                  return (
+                    <button
+                      key={type.key}
+                      className={`checkoutPage__deliveryOption ${isSelected ? 'checkoutPage__deliveryOption--selected' : ''} ${!isEnabled ? 'checkoutPage__deliveryOption--disabled' : ''}`}
+                      onClick={() => isEnabled && setCheckoutData({ ...checkoutData, deliveryType: type.key })}
+                      disabled={checkoutLoading || !isEnabled}
+                    >
+                      <span className="checkoutPage__deliveryIcon">{type.icon}</span>
+                      <span className="checkoutPage__deliveryLabel">{type.label}</span>
+                      <span className="checkoutPage__deliveryDesc">{type.desc}</span>
+                      {isSelected && <span className="checkoutPage__deliveryCheck">✓</span>}
+                      {!isEnabled && <span className="checkoutPage__deliveryDisabled">No disponible</span>}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Dirección para delivery */}
+              {checkoutData.deliveryType === 'domicilio' && (
+                <div className="checkoutPage__addressSection">
+                  <div className="checkoutPage__field">
+                    <label className="checkoutPage__label">
+                      <span className="checkoutPage__labelIcon">📍</span>
+                      Dirección de entrega
+                    </label>
+                    <input
+                      type="text"
+                      value={checkoutData.deliveryAddress}
+                      onChange={(e) => setCheckoutData({ ...checkoutData, deliveryAddress: e.target.value })}
+                      placeholder="Calle, número, piso/depto"
+                      className={`checkoutPage__input ${checkoutData.deliveryAddress ? (isAddressValid ? 'checkoutPage__input--valid' : '') : ''}`}
+                      disabled={checkoutLoading}
+                    />
+                  </div>
+                  <div className="checkoutPage__field">
+                    <label className="checkoutPage__label">
+                      <span className="checkoutPage__labelIcon">📝</span>
+                      Indicaciones (opcional)
+                    </label>
+                    <textarea
+                      value={checkoutData.deliveryNotes}
+                      onChange={(e) => setCheckoutData({ ...checkoutData, deliveryNotes: e.target.value })}
+                      placeholder="Ej: Timbre no funciona, llamar al llegar"
+                      className="checkoutPage__textarea"
+                      disabled={checkoutLoading}
+                      rows="2"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Error */}
-          {checkoutError && (
-            <div className="checkoutPage__error">
-              ⚠️ {checkoutError}
+          {/* Paso 3: Forma de pago */}
+          <div className="checkoutPage__step">
+            <div className="checkoutPage__stepHeader">
+              <span className="checkoutPage__stepNumber">3</span>
+              <h3 className="checkoutPage__stepTitle">¿Cómo pagás?</h3>
             </div>
-          )}
-          
-          {/* Error de stock global */}
-          {!stockValidation.isValid && (
-            <div className="checkoutPage__stockError">
-              <span className="checkoutPage__stockErrorIcon">📦</span>
-              <div className="checkoutPage__stockErrorContent">
-                <strong>Stock insuficiente</strong>
-                <p>{stockValidation.error}</p>
-                <p className="checkoutPage__stockErrorHint">El carrito se ajustará automáticamente.</p>
+            <div className="checkoutPage__stepContent">
+              <div className="checkoutPage__paymentOptions">
+                {paymentMethods.map((method) => {
+                  const isSelected = checkoutData.paymentMethod === method.key
+                  return (
+                    <button
+                      key={method.key}
+                      className={`checkoutPage__paymentOption ${isSelected ? 'checkoutPage__paymentOption--selected' : ''}`}
+                      onClick={() => setCheckoutData({ ...checkoutData, paymentMethod: method.key })}
+                      disabled={checkoutLoading}
+                    >
+                      <span className="checkoutPage__paymentIcon">{method.icon}</span>
+                      <span className="checkoutPage__paymentLabel">{method.label}</span>
+                      {isSelected && <span className="checkoutPage__paymentCheck">✓</span>}
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          )}
-
-          {/* Validación de campos */}
-          {!isAllDataValid && stockValidation.isValid && (
-            <div className="checkoutPage__validation">
-              <p className="checkoutPage__validationText">
-                Completa todos los campos requeridos (*) para procesar el pago
-              </p>
-              {!isNameValid && <div className="checkoutPage__validationItem">• Nombre del cliente</div>}
-              {!isPhoneValid && <div className="checkoutPage__validationItem">• Teléfono del cliente</div>}
-              {!isAddressValid && <div className="checkoutPage__validationItem">• Dirección de entrega</div>}
-              {!isDeliveryTypeEnabled && <div className="checkoutPage__validationItem">• Tipo de entrega (está deshabilitado en el dashboard)</div>}
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Right: Sticky Action Buttons */}
-        <div className="checkoutPage__actions">
-          <button
-            className="checkoutPage__btnBack"
-            onClick={onBack}
-            disabled={checkoutLoading}
-          >
-            ← Volver al Carrito
-          </button>
+        {/* Errores */}
+        {checkoutError && (
+          <div className="checkoutPage__error">
+            <span className="checkoutPage__errorIcon">⚠️</span>
+            <span>{checkoutError}</span>
+          </div>
+        )}
 
+        {!stockValidation.isValid && (
+          <div className="checkoutPage__stockError">
+            <span className="checkoutPage__stockErrorIcon">📦</span>
+            <div>
+              <strong>Stock insuficiente</strong>
+              <p>{stockValidation.error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Botón de pago fijo en móvil */}
+        <div className="checkoutPage__footer">
+          <div className="checkoutPage__footerTotal">
+            <span>Total a pagar</span>
+            <strong>{formatPrice(cartTotal)}</strong>
+          </div>
           <button
-            className={`checkoutPage__btnProcess ${canProcessPayment ? 'checkoutPage__btnProcess--enabled' : 'checkoutPage__btnProcess--disabled'}`}
+            className={`checkoutPage__submitBtn ${canProcessPayment ? '' : 'checkoutPage__submitBtn--disabled'}`}
             onClick={handleProcessPayment}
             disabled={!canProcessPayment}
           >
             {checkoutLoading ? (
-              <>⏳ Procesando...</>
+              <>
+                <span className="checkoutPage__spinner"></span>
+                Procesando...
+              </>
             ) : canProcessPayment ? (
-              <>✓ Procesar Pago</>
+              <>
+                Confirmar Pedido
+                <span className="checkoutPage__submitIcon">→</span>
+              </>
             ) : (
-              <>Completa los datos (deshabilitado)</>
+              'Completá los datos para continuar'
             )}
           </button>
         </div>
