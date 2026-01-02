@@ -302,6 +302,76 @@
   color: var(--text-muted);
 }
 
+/* Current Plan Summary */
+.premiumModal__currentPlan {
+  background: linear-gradient(135deg, 
+    color-mix(in srgb, var(--plan-color, #10b981) 15%, transparent),
+    color-mix(in srgb, var(--plan-color, #10b981) 5%, transparent)
+  );
+  border: 2px solid var(--plan-color, #10b981);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  margin: 1rem 1.25rem 0;
+}
+
+.premiumModal__currentPlanHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.premiumModal__currentPlanIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.premiumModal__currentPlanInfo {
+  flex: 1;
+}
+
+.premiumModal__currentPlanTitle {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.premiumModal__currentPlanExpiry {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.premiumModal__currentPlanExpiry .expiry-icon {
+  font-size: 0.85rem;
+}
+
+.premiumModal__currentPlanExpiry .expiry-warning {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.premiumModal__currentPlanExpiry .expiry-expired {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.premiumModal__upgradeHint {
+  margin: 0.75rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.premiumModal__upgradeHint strong {
+  color: var(--text);
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .premiumModal {
@@ -310,5 +380,18 @@
 
   .premiumModal__plans {
     grid-template-columns: 1fr;
+  }
+  
+  .premiumModal__currentPlan {
+    margin: 0.75rem;
+    padding: 0.875rem;
+  }
+  
+  .premiumModal__currentPlanIcon {
+    font-size: 1.5rem;
+  }
+  
+  .premiumModal__currentPlanTitle {
+    font-size: 1rem;
   }
 }

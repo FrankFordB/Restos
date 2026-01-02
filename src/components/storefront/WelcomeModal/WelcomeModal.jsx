@@ -30,9 +30,37 @@ export default function WelcomeModal({
   isOpen, 
   onClose, 
   tenant,
-  isPreviewMode = false 
+  isPreviewMode = false,
+  storeStatus = { isOpen: true, noSchedule: true },
+  isPaused = false,
+  pauseMessage = ''
 }) {
   const [visible, setVisible] = useState(false)
+
+  // Calcular el estado de la tienda
+  const getStoreStatusInfo = () => {
+    if (isPaused) {
+      return {
+        status: 'paused',
+        label: 'Pausado',
+        className: 'welcomeModal__statusBadge--paused'
+      }
+    }
+    if (!storeStatus.noSchedule && !storeStatus.isOpen) {
+      return {
+        status: 'closed',
+        label: 'Cerrado',
+        className: 'welcomeModal__statusBadge--closed'
+      }
+    }
+    return {
+      status: 'open',
+      label: 'Abierto',
+      className: 'welcomeModal__statusBadge--open'
+    }
+  }
+
+  const statusInfo = getStoreStatusInfo()
 
   useEffect(() => {
     if (isOpen) {
@@ -122,6 +150,11 @@ export default function WelcomeModal({
             {slogan && (
               <p className="welcomeModal__slogan">{slogan}</p>
             )}
+            {/* Badge de estado de la tienda */}
+            <div className={`welcomeModal__statusBadge ${statusInfo.className}`}>
+              <span className="welcomeModal__statusDot"></span>
+              {statusInfo.label}
+            </div>
           </div>
         </div>
 

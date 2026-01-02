@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import Cropper from 'react-easy-crop'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import './ProductsManager.css'
 import Card from '../../ui/Card/Card'
 import Input from '../../ui/Input/Input'
 import Button from '../../ui/Button/Button'
+import ProductCard from '../../storefront/ProductCard/ProductCard'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { uploadProductImage } from '../../../lib/supabaseStorage'
@@ -14,18 +14,72 @@ import {
   patchProduct,
   selectProductsForTenant,
 } from '../../../features/products/productsSlice'
+import {
+  fetchCategoriesForTenant,
+  selectCategoriesForTenant,
+} from '../../../features/categories/categoriesSlice'
+import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut } from 'lucide-react'
+
+// Constantes de zoom
+const ZOOM_MIN = 0.5
+const ZOOM_MAX = 3
+const ZOOM_STEP = 0.25
+
+// Función para extraer el color dominante de una imagen
+function extractDominantColor(imgSrc) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'Anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      // Usar tamaño pequeño para mejor rendimiento
+      canvas.width = 50
+      canvas.height = 50
+      ctx.drawImage(img, 0, 0, 50, 50)
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, 50, 50).data
+        let r = 0, g = 0, b = 0, count = 0
+        
+        // Muestrear bordes de la imagen (donde se verá el fondo)
+        for (let i = 0; i < imageData.length; i += 4) {
+          r += imageData[i]
+          g += imageData[i + 1]
+          b += imageData[i + 2]
+          count++
+        }
+        
+        r = Math.round(r / count)
+        g = Math.round(g / count)
+        b = Math.round(b / count)
+        
+        resolve(`rgb(${r}, ${g}, ${b})`)
+      } catch {
+        resolve('#f3f4f6') // Color fallback
+      }
+    }
+    img.onerror = () => resolve('#f3f4f6')
+    img.src = imgSrc
+  })
+}
 
 export default function ProductsManager({ tenantId }) {
   const dispatch = useAppDispatch()
   const products = useAppSelector(selectProductsForTenant(tenantId))
+  const categories = useAppSelector(selectCategoriesForTenant(tenantId))
 
   const createFileInputRef = useRef(null)
 
   useEffect(() => {
     dispatch(fetchProductsForTenant(tenantId))
+    dispatch(fetchCategoriesForTenant(tenantId))
   }, [dispatch, tenantId])
 
-  // SelecciÃ³n mÃºltiple de productos
+  // Estado para filtrar por categoría - null = "Todas"
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null)
+
+  // selección mÃºltiple de productos
   const [selectedProductIds, setSelectedProductIds] = useState(new Set())
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false)
 
@@ -34,8 +88,23 @@ export default function ProductsManager({ tenantId }) {
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
   const [stock, setStock] = useState('')
+  const [stockUnlimited, setStockUnlimited] = useState(true)
   const [imageFile, setImageFile] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
+
+  // Estados para modal de edición
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editStock, setEditStock] = useState('')
+  const [editStockUnlimited, setEditStockUnlimited] = useState(true)
+  const [editIsActive, setEditIsActive] = useState(true)
+  const [editImageFile, setEditImageFile] = useState(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const editFileInputRef = useRef(null)
 
   function parsePrice(raw) {
     const s = String(raw ?? '').trim()
@@ -66,66 +135,19 @@ export default function ProductsManager({ tenantId }) {
   const [showUrlInputFor, setShowUrlInputFor] = useState(null)
   const [productUrlInput, setProductUrlInput] = useState('')
 
-  const [cropState, setCropState] = useState({
+  // Estado para el modal de punto focal
+  const [focalState, setFocalState] = useState({
     open: false,
     mode: null, // 'create' | 'edit' | 'url'
     productId: null,
     productName: null,
     file: null,
     src: null,
-    crop: { x: 0, y: 0 },
-    zoom: 1,
-    croppedAreaPixels: null,
+    focalPoint: { x: 50, y: 50, zoom: 1 }, // x, y en porcentaje, zoom factor
   })
-
-  const ZOOM_MIN = 1
-  const ZOOM_MAX = 3
-  const ZOOM_STEP = 0.2
-
-  async function createImage(src) {
-    return await new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('No se pudo cargar la imagen para recortar'))
-      img.src = src
-    })
-  }
-
-  async function getCroppedFile({ src, croppedAreaPixels, originalFile }) {
-    if (!src) throw new Error('Fuente de imagen invÃ¡lida')
-    if (!croppedAreaPixels) throw new Error('No hay Ã¡rea de recorte')
-    if (!originalFile) throw new Error('Archivo original requerido')
-
-    const image = await createImage(src)
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas no disponible')
-
-    const { x, y, width, height } = croppedAreaPixels
-    canvas.width = Math.max(1, Math.round(width))
-    canvas.height = Math.max(1, Math.round(height))
-    ctx.drawImage(
-      image,
-      Math.round(x),
-      Math.round(y),
-      Math.round(width),
-      Math.round(height),
-      0,
-      0,
-      Math.round(width),
-      Math.round(height),
-    )
-
-    const type = originalFile.type || 'image/png'
-    const blob = await new Promise((resolve) => {
-      canvas.toBlob((b) => resolve(b), type, 0.92)
-    })
-    if (!blob) throw new Error('No se pudo generar la imagen recortada')
-
-    const name = String(originalFile.name || 'image')
-    const safeName = name.includes('.') ? name : `${name}.png`
-    return new File([blob], safeName, { type })
-  }
+  
+  const focalAreaRef = useRef(null)
+  const isDraggingRef = useRef(false)
 
   function formatPhotoError(err) {
     const msg = err?.message ? String(err.message) : 'Error subiendo foto'
@@ -181,43 +203,39 @@ export default function ProductsManager({ tenantId }) {
     }
   }, [previewUrl])
 
-  function openCropper({ file, mode, productId = null, productName = null }) {
-    if (!file) return
-    const src = URL.createObjectURL(file)
-    setCropState({
+  function openFocalPointEditor({ file, mode, productId = null, productName = null, existingFocalPoint = null }) {
+    if (!file && mode !== 'url') return
+    const src = file ? URL.createObjectURL(file) : null
+    setFocalState({
       open: true,
       mode,
       productId,
       productName,
       file,
       src,
-      crop: { x: 0, y: 0 },
-      zoom: 1,
-      croppedAreaPixels: null,
+      focalPoint: existingFocalPoint || { x: 50, y: 50, zoom: 1 },
     })
   }
 
-  // Abrir cropper desde URL
-  function openCropperFromUrl({ url, productId, productName }) {
+  // Abrir editor de punto focal desde URL
+  function openFocalPointFromUrl({ url, productId, productName, existingFocalPoint = null }) {
     if (!url) return
-    setCropState({
+    setFocalState({
       open: true,
       mode: 'url',
       productId,
       productName,
-      file: null, // No hay archivo cuando es URL
+      file: null,
       src: url,
-      crop: { x: 0, y: 0 },
-      zoom: 1,
-      croppedAreaPixels: null,
+      focalPoint: existingFocalPoint || { x: 50, y: 50, zoom: 1 },
     })
     setShowUrlInputFor(null)
     setProductUrlInput('')
   }
 
-  function closeCropper() {
-    setCropState((prev) => {
-      if (prev?.src) URL.revokeObjectURL(prev.src)
+  function closeFocalPointEditor() {
+    setFocalState((prev) => {
+      if (prev?.src && prev?.file) URL.revokeObjectURL(prev.src)
       return {
         open: false,
         mode: null,
@@ -225,21 +243,71 @@ export default function ProductsManager({ tenantId }) {
         productName: null,
         file: null,
         src: null,
-        crop: { x: 0, y: 0 },
-        zoom: 1,
-        croppedAreaPixels: null,
+        focalPoint: { x: 50, y: 50, zoom: 1 },
       }
     })
   }
 
+  // Handlers de zoom
+  function handleZoomIn() {
+    setFocalState((s) => ({
+      ...s,
+      focalPoint: { ...s.focalPoint, zoom: Math.min(ZOOM_MAX, (s.focalPoint.zoom || 1) + ZOOM_STEP) },
+    }))
+  }
+
+  function handleZoomOut() {
+    setFocalState((s) => ({
+      ...s,
+      focalPoint: { ...s.focalPoint, zoom: Math.max(ZOOM_MIN, (s.focalPoint.zoom || 1) - ZOOM_STEP) },
+    }))
+  }
+
+  // Handler para arrastrar el punto focal
+  function handleFocalMouseDown(e) {
+    e.preventDefault()
+    isDraggingRef.current = true
+    updateFocalFromMouse(e)
+  }
+
+  function handleFocalMouseMove(e) {
+    if (!isDraggingRef.current) return
+    updateFocalFromMouse(e)
+  }
+
+  function handleFocalMouseUp() {
+    isDraggingRef.current = false
+  }
+
+  function updateFocalFromMouse(e) {
+    const area = focalAreaRef.current
+    if (!area) return
+    const rect = area.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+    setFocalState((s) => ({ ...s, focalPoint: { ...s.focalPoint, x: Math.round(x), y: Math.round(y) } }))
+  }
+
+  // Extraer color dominante cuando se abre el editor
   useEffect(() => {
-    if (!cropState.open) return
+    if (focalState.open && focalState.src && !focalState.focalPoint.bgColor) {
+      extractDominantColor(focalState.src).then((color) => {
+        setFocalState((s) => ({
+          ...s,
+          focalPoint: { ...s.focalPoint, bgColor: color },
+        }))
+      })
+    }
+  }, [focalState.open, focalState.src])
+
+  useEffect(() => {
+    if (!focalState.open) return
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') closeCropper()
+      if (e.key === 'Escape') closeFocalPointEditor()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cropState.open])
+  }, [focalState.open])
 
   // =====================
   // FUNCIONES DE SELECCIÃ“N MÃšLTIPLE
@@ -309,6 +377,136 @@ export default function ProductsManager({ tenantId }) {
 
   const allProductsSelected = products.length > 0 && selectedProductIds.size === products.length
 
+  // =====================
+  // PRODUCTOS AGRUPADOS POR CATEGORÍA (con stock global)
+  // =====================
+  const productsByCategory = useMemo(() => {
+    const grouped = {}
+    for (const product of products) {
+      const cat = product.category?.trim() || 'Sin categoría'
+      if (!grouped[cat]) grouped[cat] = []
+      grouped[cat].push(product)
+    }
+    // Ordenar categorías alfabéticamente, "Sin categoría" al final
+    const sortedKeys = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Sin categoría') return 1
+      if (b === 'Sin categoría') return -1
+      return a.localeCompare(b)
+    })
+    return sortedKeys.map((cat) => {
+      // Buscar info de stock de la categoría
+      const categoryData = categories.find(c => c.name === cat)
+      return { 
+        category: cat, 
+        products: grouped[cat],
+        categoryId: categoryData?.id || null,
+        maxStock: categoryData?.maxStock ?? null,
+        currentStock: categoryData?.currentStock ?? null,
+      }
+    })
+  }, [products, categories])
+
+  // Filtrar categorías según la selección
+  const filteredProductsByCategory = useMemo(() => {
+    if (selectedCategoryFilter === null) {
+      return productsByCategory // Mostrar todas
+    }
+    return productsByCategory.filter(c => c.category === selectedCategoryFilter)
+  }, [productsByCategory, selectedCategoryFilter])
+
+  // Lista de categorías para el sidebar
+  const categoryList = useMemo(() => {
+    return productsByCategory.map(c => ({
+      name: c.category,
+      count: c.products.length,
+      maxStock: c.maxStock,
+      currentStock: c.currentStock,
+    }))
+  }, [productsByCategory])
+
+  // =====================
+  // FUNCIONES MODAL DE EDICIÓN
+  // =====================
+  const openEditModal = (product) => {
+    setEditingProduct(product)
+    setEditName(product.name || '')
+    setEditPrice(product.price?.toString() || '')
+    setEditDescription(product.description || '')
+    setEditCategory(product.category || '')
+    setEditStock(product.stock?.toString() || '')
+    setEditStockUnlimited(product.stock === null || product.stock === undefined)
+    setEditIsActive(product.active !== false)
+    setEditImageFile(null)
+    setEditModalOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setEditModalOpen(false)
+    setEditingProduct(null)
+    setEditName('')
+    setEditPrice('')
+    setEditDescription('')
+    setEditCategory('')
+    setEditStock('')
+    setEditStockUnlimited(true)
+    setEditIsActive(true)
+    setEditImageFile(null)
+  }
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return
+    const parsedEditPrice = parsePrice(editPrice)
+    if (!editName.trim() || parsedEditPrice === null) {
+      alert('Nombre y precio válido son requeridos')
+      return
+    }
+    setEditSaving(true)
+    try {
+      const patch = {
+        name: editName.trim(),
+        price: parsedEditPrice,
+        description: editDescription.trim(),
+        category: editCategory.trim() || null,
+        stock: editStockUnlimited ? null : (editStock.trim() ? parseInt(editStock, 10) : null),
+        active: editIsActive,
+      }
+
+      // Subir imagen si hay nueva
+      if (editImageFile) {
+        if (isSupabaseConfigured) {
+          const url = await uploadProductImage({
+            tenantId,
+            productId: editingProduct.id,
+            file: editImageFile,
+          })
+          patch.imageUrl = url
+        } else {
+          // Modo MOCK: convertir a data URL
+          const dataUrl = await fileToDataUrl(editImageFile)
+          patch.imageUrl = dataUrl
+        }
+      }
+
+      await dispatch(patchProduct({ tenantId, productId: editingProduct.id, patch })).unwrap()
+      closeEditModal()
+    } catch (e) {
+      console.error('Error guardando producto:', e)
+      alert('Error guardando producto: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDeleteProduct = async (product) => {
+    if (!confirm(`¿Eliminar "${product.name}"? Esta acción no se puede deshacer.`)) return
+    try {
+      await dispatch(deleteProduct({ tenantId, productId: product.id })).unwrap()
+    } catch (e) {
+      console.error('Error eliminando producto:', e)
+      alert('Error eliminando producto: ' + (e?.message || 'Error desconocido'))
+    }
+  }
+
   return (
     <div className="products">
       <Card
@@ -319,7 +517,7 @@ export default function ProductsManager({ tenantId }) {
             onClick={async () => {
               setPhotoStatus(null)
               if (!name.trim() || parsedPrice === null) {
-                setPhotoStatus('Precio invÃ¡lido. Usa 9.99 o 9,99.')
+                setPhotoStatus('Precio inválido. Usa 9.99 o 9,99.')
                 return
               }
 
@@ -345,7 +543,7 @@ export default function ProductsManager({ tenantId }) {
                       price: parsedPrice,
                       description: description.trim(),
                       category: category.trim() || null,
-                      stock: stock.trim() ? parseInt(stock, 10) : null,
+                      stock: stockUnlimited ? null : (stock.trim() ? parseInt(stock, 10) : null),
                       ...(mockImageUrl ? { imageUrl: mockImageUrl } : null),
                     },
                   }),
@@ -382,6 +580,7 @@ export default function ProductsManager({ tenantId }) {
               setDescription('')
               setCategory('')
               setStock('')
+              setStockUnlimited(true)
               setImageFile(null)
               if (createFileInputRef.current) createFileInputRef.current.value = ''
             }}
@@ -400,16 +599,33 @@ export default function ProductsManager({ tenantId }) {
             inputMode="decimal"
             autoComplete="off"
           />
-          <Input label="DescripciÃ³n" value={description} onChange={setDescription} placeholder="Ingredientes..." />
-          <Input label="CategorÃ­a" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
-          <Input
-            label="Stock"
-            value={stock}
-            onChange={setStock}
-            placeholder="Cantidad disponible"
-            inputMode="numeric"
-            autoComplete="off"
-          />
+          <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
+          <Input label="Categoría" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
+          
+          <div className="products__stockSection">
+            <label className="products__toggle products__toggle--stock">
+              <input
+                type="checkbox"
+                checked={stockUnlimited}
+                onChange={(e) => {
+                  setStockUnlimited(e.target.checked)
+                  if (e.target.checked) setStock('')
+                }}
+              />
+              <span>Stock ilimitado</span>
+            </label>
+            {!stockUnlimited && (
+              <Input
+                label="Cantidad disponible"
+                value={stock}
+                onChange={setStock}
+                placeholder="Ej: 50"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            )}
+          </div>
+          
           <label className="products__file">
             <span className="products__fileLabel">Foto</span>
             <input
@@ -419,8 +635,8 @@ export default function ProductsManager({ tenantId }) {
               onChange={(e) => {
                 const file = e.target.files?.[0] || null
                 if (!file) return
-                setPhotoStatus('Selecciona el recorte y presiona â€œUsar recorteâ€.')
-                openCropper({ file, mode: 'create' })
+                setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
+                openFocalPointEditor({ file, mode: 'create' })
                 // permite re-seleccionar el mismo archivo luego
                 e.target.value = ''
               }}
@@ -440,129 +656,157 @@ export default function ProductsManager({ tenantId }) {
         </div>
       </Card>
 
-      {cropState.open ? (
+      {focalState.open ? (
         <div
           className="products__modalOverlay"
           role="presentation"
           onMouseDown={(e) => {
-            // click fuera del modal
-            if (e.target === e.currentTarget) closeCropper()
+            if (e.target === e.currentTarget) closeFocalPointEditor()
           }}
+          onMouseUp={handleFocalMouseUp}
+          onMouseLeave={handleFocalMouseUp}
         >
           <div
             className="products__modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Recortar foto"
+            aria-label="Ajustar punto focal"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <Card title={cropState.mode === 'edit' ? `Recortar foto: ${cropState.productName || ''}` : 'Recortar foto'}>
-              <div className="products__cropWrap">
-                <div className="products__cropArea">
-                  <Cropper
-                    image={cropState.src}
-                    crop={cropState.crop}
-                    zoom={cropState.zoom}
-                    aspect={1}
-                    minZoom={ZOOM_MIN}
-                    maxZoom={ZOOM_MAX}
-                    onCropChange={(crop) => setCropState((s) => ({ ...s, crop }))}
-                    onZoomChange={(zoom) =>
-                      setCropState((s) => ({ ...s, zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom)) }))
-                    }
-                    onCropComplete={(_, croppedAreaPixels) =>
-                      setCropState((s) => ({ ...s, croppedAreaPixels }))
-                    }
+            <Card title={focalState.mode === 'edit' ? `Ajustar foco: ${focalState.productName || ''}` : 'Ajustar punto focal'}>
+              <div className="products__focalWrap">
+                <p className="products__focalHint">
+                  <Move size={16} /> Hacé clic o arrastrá para elegir qué parte de la imagen se centra en las cards.
+                </p>
+                
+                <div 
+                  className="products__focalArea"
+                  ref={focalAreaRef}
+                  onMouseDown={handleFocalMouseDown}
+                  onMouseMove={handleFocalMouseMove}
+                  onMouseUp={handleFocalMouseUp}
+                >
+                  <img
+                    src={focalState.src}
+                    alt="Imagen para ajustar foco"
+                    className="products__focalImg"
+                    draggable={false}
+                  />
+                  {/* Punto focal */}
+                  <div 
+                    className="products__focalPoint"
+                    style={{
+                      left: `${focalState.focalPoint.x}%`,
+                      top: `${focalState.focalPoint.y}%`,
+                    }}
                   />
                 </div>
 
-                <div className="products__cropActions">
-                  <div className="products__zoomControls">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        setCropState((s) => ({
-                          ...s,
-                          zoom: Math.max(ZOOM_MIN, Number(s.zoom || 1) - ZOOM_STEP),
-                        }))
-                      }
-                    >
-                      âˆ’
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        setCropState((s) => ({
-                          ...s,
-                          zoom: Math.min(ZOOM_MAX, Number(s.zoom || 1) + ZOOM_STEP),
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
+                {/* Previsualización */}
+                <div className="products__focalPreviewSection">
+                  <span className="products__focalPreviewLabel">Vista previa:</span>
+                  <div className="products__focalPreviewBox">
+                    {/* Liquid Glass effect cuando zoom < 1 */}
+                    {(focalState.focalPoint.zoom || 1) < 1 && (
+                      <div 
+                        className="products__focalPreviewLiquid"
+                        style={{
+                          backgroundImage: `url(${focalState.src})`,
+                        }}
+                      />
+                    )}
+                    <div 
+                      className="products__focalPreviewImg"
+                      style={{
+                        backgroundImage: `url(${focalState.src})`,
+                        backgroundPosition: `${focalState.focalPoint.x}% ${focalState.focalPoint.y}%`,
+                        backgroundSize: `${(focalState.focalPoint.zoom || 1) * 100}%`,
+                      }}
+                    />
                   </div>
-                  <Button variant="ghost" onClick={closeCropper}>
+                </div>
+
+                {/* Controles de zoom */}
+                <div className="products__focalZoomControls">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleZoomOut}
+                    disabled={(focalState.focalPoint.zoom || 1) <= ZOOM_MIN}
+                    title="Alejar"
+                  >
+                    <ZoomOut size={18} />
+                  </Button>
+                  <span className="products__focalZoomLabel">
+                    Zoom: {((focalState.focalPoint.zoom || 1) * 100).toFixed(0)}%
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleZoomIn}
+                    disabled={(focalState.focalPoint.zoom || 1) >= ZOOM_MAX}
+                    title="Acercar"
+                  >
+                    <ZoomIn size={18} />
+                  </Button>
+                </div>
+
+                <div className="products__focalActions">
+                  <Button variant="ghost" onClick={closeFocalPointEditor}>
                     Cancelar
                   </Button>
                   <Button
                     onClick={async () => {
                       setPhotoStatus(null)
                       try {
-                        // Para modo URL, creamos un archivo temporal desde la imagen
-                        let fileForCrop = cropState.file
-                        if (cropState.mode === 'url' && !fileForCrop) {
-                          // Fetch la imagen y convertirla a File
-                          const response = await fetch(cropState.src)
-                          const blob = await response.blob()
-                          fileForCrop = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' })
-                        }
-                        
-                        const cropped = await getCroppedFile({
-                          src: cropState.src,
-                          croppedAreaPixels: cropState.croppedAreaPixels,
-                          originalFile: fileForCrop,
-                        })
+                        const focalPoint = focalState.focalPoint
+                        let fileToUpload = focalState.file
 
-                        if (cropState.mode === 'create') {
-                          setImageFile(cropped)
-                          setPhotoStatus('Recorte aplicado âœ…')
-                          closeCropper()
+                        // Si es URL, descargar la imagen
+                        if (focalState.mode === 'url' && !fileToUpload) {
+                          const response = await fetch(focalState.src)
+                          const blob = await response.blob()
+                          fileToUpload = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' })
+                        }
+
+                        if (focalState.mode === 'create') {
+                          // Para creación, guardar el archivo y el punto focal
+                          setImageFile(fileToUpload)
+                          // Guardar focalPoint temporalmente (se usará al crear el producto)
+                          setPhotoStatus('Imagen lista ✅')
+                          closeFocalPointEditor()
                           return
                         }
 
-                        if ((cropState.mode === 'edit' || cropState.mode === 'url') && cropState.productId) {
-                          const productId = cropState.productId
+                        if ((focalState.mode === 'edit' || focalState.mode === 'url') && focalState.productId) {
+                          const productId = focalState.productId
                           const tenantIdForUpload = tenantId
 
                           if (!isSupabaseConfigured) {
-                            setPhotoStatus('Guardando foto localmente (modo MOCK)...')
-                            const dataUrl = await fileToDataUrl(cropped)
+                            setPhotoStatus('Guardando imagen localmente (modo MOCK)...')
+                            const dataUrl = await fileToDataUrl(fileToUpload)
                             await dispatch(
-                              patchProduct({ tenantId, productId, patch: { imageUrl: dataUrl } }),
+                              patchProduct({ tenantId, productId, patch: { imageUrl: dataUrl, focalPoint } }),
                             ).unwrap()
-                            setPhotoStatus('Foto actualizada (local) âœ…')
-                            closeCropper()
+                            setPhotoStatus('Imagen actualizada (local) ✅')
+                            closeFocalPointEditor()
                             return
                           }
 
-                          setPhotoStatus('Subiendo foto...')
-                          const url = await uploadProductImage({ tenantId: tenantIdForUpload, productId, file: cropped })
-                          await dispatch(patchProduct({ tenantId, productId, patch: { imageUrl: url } })).unwrap()
-                          setPhotoStatus('Foto actualizada âœ…')
-                          closeCropper()
+                          setPhotoStatus('Subiendo imagen...')
+                          const url = await uploadProductImage({ tenantId: tenantIdForUpload, productId, file: fileToUpload })
+                          await dispatch(patchProduct({ tenantId, productId, patch: { imageUrl: url, focalPoint } })).unwrap()
+                          setPhotoStatus('Imagen actualizada ✅')
+                          closeFocalPointEditor()
                         }
                       } catch (err) {
                         setPhotoStatus(formatPhotoError(err))
                       }
                     }}
                   >
-                    Usar recorte
+                    Guardar
                   </Button>
                 </div>
-
-                <p className="products__hint">Tip: recorte cuadrado (1:1) para que la miniatura se vea bien.</p>
               </div>
             </Card>
           </div>
@@ -614,7 +858,7 @@ export default function ProductsManager({ tenantId }) {
           </div>
         )}
 
-        {/* Header de selecciÃ³n */}
+        {/* Header de selección */}
         {products.length > 0 && selectedProductIds.size === 0 && (
           <div className="products__listHeader">
             <label className="products__selectAllLabel">
@@ -630,132 +874,222 @@ export default function ProductsManager({ tenantId }) {
         )}
 
         {products.length === 0 ? (
-          <p className="muted">AÃºn no tienes productos.</p>
+          <p className="muted">Aún no tienes productos.</p>
         ) : (
-          <div className="products__list">
-            {products.map((p) => (
-              <div key={p.id} className={`products__row ${selectedProductIds.has(p.id) ? 'products__row--selected' : ''}`}>
-                {/* Checkbox de selecciÃ³n */}
-                <div className="products__selectBox">
-                  <input
-                    type="checkbox"
-                    checked={selectedProductIds.has(p.id)}
-                    onChange={() => toggleProductSelection(p.id)}
-                    className="products__checkbox"
-                  />
-                </div>
-                
-                <div className="products__rowMain">
-                  <input
-                    className="products__inline"
-                    value={p.name}
-                    onChange={(e) =>
-                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { name: e.target.value } }))
-                    }
-                  />
-                  <input
-                    className="products__inline products__price"
-                    key={`price-${p.id}-${p.price}`}
-                    defaultValue={String(p.price)}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    onBlur={(e) => {
-                      const next = parsePrice(e.target.value)
-                      if (next === null) {
-                        setPhotoStatus('Precio invÃ¡lido. Usa 9.99 o 9,99.')
-                        e.target.value = String(p.price)
-                        return
-                      }
-                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { price: next } }))
-                    }}
-                  />
-                </div>
-
-                <div className="products__rowActions">
-                  <label className="products__toggle">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(p.active)}
-                      onChange={(e) =>
-                        dispatch(patchProduct({ tenantId, productId: p.id, patch: { active: e.target.checked } }))
-                      }
-                    />
-                    <span>Activo</span>
-                  </label>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => dispatch(deleteProduct({ tenantId, productId: p.id }))}
+          <div className="products__layout">
+            {/* Sidebar de categorías */}
+            <div className="products__sidebar">
+              <div className="products__sidebarHeader">
+                <List size={16} />
+                <span>Categorías</span>
+              </div>
+              <ul className="products__sidebarMenu">
+                <li>
+                  <button
+                    className={`products__sidebarItem ${selectedCategoryFilter === null ? 'products__sidebarItem--active' : ''}`}
+                    onClick={() => setSelectedCategoryFilter(null)}
                   >
-                    Eliminar
-                  </Button>
-                </div>
+                    <Grid3X3 size={14} />
+                    <span>Todas</span>
+                    <span className="products__sidebarCount">{products.length}</span>
+                  </button>
+                </li>
+                {categoryList.map((cat) => (
+                  <li key={cat.name}>
+                    <button
+                      className={`products__sidebarItem ${selectedCategoryFilter === cat.name ? 'products__sidebarItem--active' : ''}`}
+                      onClick={() => setSelectedCategoryFilter(cat.name)}
+                    >
+                      <span className="products__sidebarItemName">{cat.name}</span>
+                      <span className="products__sidebarCount">{cat.count}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-                <textarea
-                  className="products__desc"
-                  value={p.description || ''}
-                  onChange={(e) =>
-                    dispatch(patchProduct({ tenantId, productId: p.id, patch: { description: e.target.value } }))
-                  }
-                  placeholder="DescripciÃ³n"
-                />
-
-                <div className="products__rowMeta">
-                  <input
-                    className="products__inline products__category"
-                    value={p.category || ''}
-                    onChange={(e) =>
-                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { category: e.target.value } }))
-                    }
-                    placeholder="CategorÃ­a"
-                  />
-                  <input
-                    className="products__inline products__stock"
-                    type="number"
-                    min="0"
-                    value={p.stock ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      const stockVal = val === '' ? null : parseInt(val, 10)
-                      dispatch(patchProduct({ tenantId, productId: p.id, patch: { stock: stockVal } }))
-                    }}
-                    placeholder="Stock"
-                  />
-                </div>
-
-                <div className="products__imageRow">
-                  {p.imageUrl ? (
-                    <>
-                      <img className="products__thumb" src={p.imageUrl} alt="" loading="lazy" />
-                      <a className="products__imageLink" href={p.imageUrl} target="_blank" rel="noreferrer">
-                        Ver imagen
-                      </a>
-                    </>
-                  ) : (
-                    <span className="products__noImage">Sin foto</span>
+            {/* Grid de productos */}
+            <div className="products__content">
+              <div className="products__categories">
+                {filteredProductsByCategory.map(({ category: cat, products: catProducts, categoryId, maxStock, currentStock }) => (
+              <div key={cat} className="products__categorySection">
+                <div className="products__categoryHeader">
+                  <h3 className="products__categoryTitle">{cat}</h3>
+                  {maxStock !== null && (
+                    <div className={`products__categoryStock ${currentStock === 0 ? 'products__categoryStock--out' : currentStock <= 5 ? 'products__categoryStock--low' : ''}`}>
+                      <Package size={14} />
+                      <span className="products__categoryStockLabel">Stock:</span>
+                      <span className="products__categoryStockValue">
+                        {currentStock} / {maxStock}
+                      </span>
+                      {currentStock === 0 && (
+                        <span className="products__categoryStockAlert">
+                          <AlertTriangle size={12} /> Sin stock
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-
-                <label className="products__file">
-                  <span className="products__fileLabel">Cambiar foto</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-                      setPhotoStatus('Selecciona el recorte y presiona â€œUsar recorteâ€.')
-                      openCropper({ file, mode: 'edit', productId: p.id, productName: p.name })
-                      // permite re-subir el mismo archivo
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
+                <div className="products__grid">
+                  {catProducts.map((p) => (
+                    <div key={p.id} className="products__cardWrapper">
+                      <div className="products__cardSelectBox">
+                        <input
+                          type="checkbox"
+                          checked={selectedProductIds.has(p.id)}
+                          onChange={() => toggleProductSelection(p.id)}
+                          className="products__checkbox"
+                        />
+                      </div>
+                      {!p.active && <span className="products__inactiveLabel">Inactivo</span>}
+                      <ProductCard
+                        product={p}
+                        isEditable={true}
+                        onEdit={() => openEditModal(p)}
+                        onDelete={() => handleDeleteProduct(p)}
+                        layout="grid"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </Card>
+
+      {/* Modal de edición */}
+      {editModalOpen && editingProduct && (
+        <div className="products__modalOverlay" onClick={closeEditModal}>
+          <div className="products__modal products__modal--edit" onClick={(e) => e.stopPropagation()}>
+            <Card
+              title={`Editar: ${editingProduct.name}`}
+              actions={
+                <div className="products__editActions">
+                  <Button size="sm" variant="secondary" onClick={closeEditModal} disabled={editSaving}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={handleSaveProduct} disabled={editSaving}>
+                    {editSaving ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                </div>
+              }
+            >
+              <div className="products__editForm">
+                <Input label="Nombre" value={editName} onChange={setEditName} placeholder="Nombre del producto" />
+                <Input
+                  label="Precio"
+                  value={editPrice}
+                  onChange={setEditPrice}
+                  placeholder="9,99"
+                  inputMode="decimal"
+                  autoComplete="off"
+                />
+                <Input
+                  label="Descripción"
+                  value={editDescription}
+                  onChange={setEditDescription}
+                  placeholder="Descripción del producto..."
+                />
+                <Input
+                  label="Categoría"
+                  value={editCategory}
+                  onChange={setEditCategory}
+                  placeholder="Ej: Hamburguesas, Bebidas..."
+                />
+                
+                <div className="products__stockSection">
+                  <label className="products__toggle products__toggle--stock">
+                    <input
+                      type="checkbox"
+                      checked={editStockUnlimited}
+                      onChange={(e) => {
+                        setEditStockUnlimited(e.target.checked)
+                        if (e.target.checked) setEditStock('')
+                      }}
+                    />
+                    <span>Stock ilimitado</span>
+                  </label>
+                  {!editStockUnlimited && (
+                    <Input
+                      label="Cantidad disponible"
+                      value={editStock}
+                      onChange={setEditStock}
+                      placeholder="Ej: 50"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  )}
+                </div>
+
+                <label className="products__toggle">
+                  <input
+                    type="checkbox"
+                    checked={editIsActive}
+                    onChange={(e) => setEditIsActive(e.target.checked)}
+                  />
+                  <span>Producto activo</span>
+                </label>
+
+                <div className="products__editImageSection">
+                  <span className="products__fileLabel">Imagen actual:</span>
+                  {editingProduct.imageUrl ? (
+                    <div className="products__editImagePreview">
+                      <img 
+                        className="products__editThumb" 
+                        src={editingProduct.imageUrl} 
+                        alt=""
+                        style={editingProduct.focalPoint ? {
+                          objectPosition: `${editingProduct.focalPoint.x}% ${editingProduct.focalPoint.y}%`
+                        } : undefined}
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openFocalPointFromUrl({
+                          url: editingProduct.imageUrl,
+                          productId: editingProduct.id,
+                          productName: editingProduct.name,
+                          existingFocalPoint: editingProduct.focalPoint,
+                        })}
+                      >
+                        <Move size={14} /> Ajustar foco
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="products__noImage">Sin foto</span>
+                  )}
+                  <label className="products__file">
+                    <span className="products__fileLabel">Cambiar foto</span>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          openFocalPointEditor({
+                            file,
+                            mode: 'edit',
+                            productId: editingProduct.id,
+                            productName: editingProduct.name,
+                          })
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  {editImageFile && (
+                    <span className="products__hint">Nueva imagen seleccionada: {editImageFile.name}</span>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

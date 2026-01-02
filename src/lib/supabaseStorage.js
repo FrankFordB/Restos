@@ -17,6 +17,45 @@ function safeExtFromFile(file) {
   return name.slice(idx).toLowerCase()
 }
 
+/**
+ * Borra todos los archivos existentes en una carpeta del bucket.
+ * Útil para limpiar imágenes viejas antes de subir una nueva.
+ * @param {string} folderPath - Ruta de la carpeta
+ * @param {string} [prefix] - Prefijo opcional para filtrar archivos (ej: 'logo_', 'welcome_')
+ */
+async function deleteExistingFiles(folderPath, prefix = null) {
+  try {
+    const { data: files, error: listError } = await supabase.storage
+      .from(BUCKET)
+      .list(folderPath)
+
+    if (listError) {
+      console.warn('Error listando archivos para borrar:', listError.message)
+      return
+    }
+
+    if (!files || files.length === 0) return
+
+    // Filtrar por prefijo si se especifica
+    const filesToDelete = prefix
+      ? files.filter((f) => f.name.startsWith(prefix))
+      : files
+
+    if (filesToDelete.length === 0) return
+
+    const filePaths = filesToDelete.map((f) => `${folderPath}/${f.name}`)
+    const { error: deleteError } = await supabase.storage
+      .from(BUCKET)
+      .remove(filePaths)
+
+    if (deleteError) {
+      console.warn('Error borrando archivos anteriores:', deleteError.message)
+    }
+  } catch (err) {
+    console.warn('Error en deleteExistingFiles:', err.message)
+  }
+}
+
 export async function uploadProductImage({ tenantId, productId, file }) {
   ensureSupabase()
   if (!productId) throw new Error('productId requerido para subir imagen')
@@ -49,6 +88,10 @@ export async function uploadProductImage({ tenantId, productId, file }) {
       `tenantId no coincide con tu perfil. UI tenantId=${tenantId} vs profiles.tenant_id=${profileTenantId}. Re-inicia sesión o reasigna tu tenant.`
     )
   }
+
+  // Borrar imágenes anteriores de este producto para no ocupar espacio
+  const productFolder = `${profileTenantId}/${productId}`
+  await deleteExistingFiles(productFolder)
 
   const ext = safeExtFromFile(file)
   const filename = `${Date.now()}${ext || ''}`
@@ -103,6 +146,10 @@ export async function uploadHeroImage({ tenantId, file }) {
     throw new Error('Tu usuario no tiene tenant asignado.')
   }
 
+  // Borrar imágenes hero anteriores para no ocupar espacio
+  const heroFolder = `${profileTenantId}/hero`
+  await deleteExistingFiles(heroFolder)
+
   const ext = safeExtFromFile(file)
   const filename = `hero_${Date.now()}${ext || ''}`
   const path = `${profileTenantId}/hero/${filename}`
@@ -145,6 +192,10 @@ export async function uploadTenantLogo({ tenantId, file }) {
     throw new Error('Tu usuario no tiene tenant asignado.')
   }
 
+  // Borrar logos anteriores (solo archivos que empiecen con 'logo_')
+  const brandingFolder = `${profileTenantId}/branding`
+  await deleteExistingFiles(brandingFolder, 'logo_')
+
   const ext = safeExtFromFile(file)
   const filename = `logo_${Date.now()}${ext || ''}`
   const path = `${profileTenantId}/branding/${filename}`
@@ -186,6 +237,10 @@ export async function uploadWelcomeImage({ tenantId, file }) {
   if (!profileTenantId) {
     throw new Error('Tu usuario no tiene tenant asignado.')
   }
+
+  // Borrar imágenes de bienvenida anteriores (solo archivos que empiecen con 'welcome_')
+  const brandingFolder = `${profileTenantId}/branding`
+  await deleteExistingFiles(brandingFolder, 'welcome_')
 
   const ext = safeExtFromFile(file)
   const filename = `welcome_${Date.now()}${ext || ''}`

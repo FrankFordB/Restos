@@ -2,10 +2,12 @@ import { useState } from 'react'
 import './SubscriptionCheckout.css'
 import SubscriptionPlans from '../SubscriptionPlans/SubscriptionPlans'
 import PaymentSuccessModal from '../../ui/PaymentSuccessModal/PaymentSuccessModal'
+import DowngradeWarningModal from '../../ui/DowngradeWarningModal/DowngradeWarningModal'
 import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
   TIER_PRICES,
+  SUBSCRIPTION_DURATION_DAYS,
 } from '../../../shared/subscriptions'
 import {
   createSubscriptionPreference,
@@ -15,6 +17,7 @@ import {
 import {
   createPlatformSubscription,
   updateTenantSubscriptionTier,
+  performTenantDowngrade,
 } from '../../../lib/supabaseMercadopagoApi'
 
 /**
@@ -37,14 +40,60 @@ export default function SubscriptionCheckout({
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [paymentData, setPaymentData] = useState(null)
 
+  // Downgrade state
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false)
+  const [downgradeTier, setDowngradeTier] = useState(null)
+  const [downgradeLoading, setDowngradeLoading] = useState(false)
+
   const mpConfigured = isPlatformMPConfigured()
+  
+  // Debug: mostrar estado de MP
+  console.log('🔶 SubscriptionCheckout - mpConfigured:', mpConfigured)
 
   const handleUpgrade = (tier, period) => {
+    console.log('🔵 handleUpgrade llamado:', { tier, period })
     setSelectedPlan(tier)
     setBillingPeriod(period)
     setShowCheckout(true)
     setError(null)
     setTermsAccepted(false)
+    console.log('🔵 showCheckout seteado a TRUE')
+  }
+
+  const handleDowngradeRequest = (tier) => {
+    setDowngradeTier(tier)
+    setShowDowngradeModal(true)
+  }
+
+  const handleDowngradeCancel = () => {
+    setShowDowngradeModal(false)
+    setDowngradeTier(null)
+  }
+
+  const handleDowngradeConfirm = async () => {
+    if (!downgradeTier) return
+    
+    setDowngradeLoading(true)
+    try {
+      // Perform the downgrade (resets configurations)
+      await performTenantDowngrade(tenantId, downgradeTier)
+      
+      setShowDowngradeModal(false)
+      setDowngradeTier(null)
+      
+      // Notify parent and reload to reflect changes
+      if (onSubscriptionComplete) {
+        onSubscriptionComplete(downgradeTier)
+      }
+      
+      // Reload page to reset all state
+      window.location.reload()
+    } catch (err) {
+      console.error('Error performing downgrade:', err)
+      alert('Error al cambiar el plan. Por favor intenta nuevamente.')
+    } finally {
+      setDowngradeLoading(false)
+    }
   }
 
   const handleCloseCheckout = () => {
@@ -60,22 +109,30 @@ export default function SubscriptionCheckout({
   }
 
   const handlePayment = async () => {
+    console.log('🟢 handlePayment INICIADO - Verificando términos...')
+    
     if (!termsAccepted) {
       setError('Debes aceptar los términos y condiciones')
       return
     }
 
+    console.log('🟢 Términos aceptados. mpConfigured =', mpConfigured)
+
     if (!mpConfigured) {
       // Modo demo: simular pago exitoso
+      console.log('🟡 MP NO configurado, ejecutando simulateDemoPayment()')
       simulateDemoPayment()
       return
     }
+
+    console.log('🟢 MP Configurado, intentando crear preferencia...')
 
     try {
       setLoading(true)
       setError(null)
 
       const amount = getPrice()
+      console.log('🟢 Amount:', amount, 'Plan:', selectedPlan, 'Period:', billingPeriod)
 
       // Crear preferencia de pago en MP
       const preference = await createSubscriptionPreference({
@@ -87,6 +144,8 @@ export default function SubscriptionCheckout({
         payerEmail: userEmail,
       })
 
+      console.log('🟢 Preferencia creada:', preference)
+
       // Guardar suscripción pendiente
       await createPlatformSubscription({
         tenantId,
@@ -96,6 +155,7 @@ export default function SubscriptionCheckout({
         amount,
       })
 
+      console.log('🟢 Redirigiendo a MercadoPago:', preference.initPoint)
       // Redirigir a MercadoPago
       window.location.href = preference.initPoint
 
@@ -107,23 +167,26 @@ export default function SubscriptionCheckout({
     }
   }
 
-  // Modo demo sin MercadoPago configurado
+  // Modo demo sin MercadoPago - para desarrollo local
   const simulateDemoPayment = async () => {
+    console.log('🔵 DEMO PAGO - INICIO')
+    
     setLoading(true)
     
     // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
-    // Calcular fecha de expiración
+    // Calcular fecha de expiración (30 días para mensual, 365 para anual)
     const expiresAt = new Date()
     if (billingPeriod === 'yearly') {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+      expiresAt.setDate(expiresAt.getDate() + 365)
     } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1)
+      expiresAt.setDate(expiresAt.getDate() + 30) // 30 días exactos
     }
 
     // Actualizar tier del tenant
     await updateTenantSubscriptionTier(tenantId, selectedPlan, expiresAt)
+    console.log('🔵 DEMO PAGO - Tier actualizado:', selectedPlan, 'hasta:', expiresAt)
 
     setPaymentData({
       amount: getPrice(),
@@ -151,6 +214,17 @@ export default function SubscriptionCheckout({
       <SubscriptionPlans
         currentTier={currentTier}
         onUpgrade={handleUpgrade}
+        onDowngrade={handleDowngradeRequest}
+      />
+
+      {/* Modal de advertencia de downgrade */}
+      <DowngradeWarningModal
+        open={showDowngradeModal}
+        currentTier={currentTier}
+        targetTier={downgradeTier}
+        onConfirm={handleDowngradeConfirm}
+        onCancel={handleDowngradeCancel}
+        loading={downgradeLoading}
       />
 
       {/* Aviso si MP no está configurado */}
@@ -277,6 +351,28 @@ export default function SubscriptionCheckout({
                   >
                     🔒 Pagar {formatAmount(getPrice())}
                   </button>
+                  
+                  {/* Botón de demo para desarrollo local */}
+                  {window.location.hostname === 'localhost' && (
+                    <button
+                      className="checkoutModal__demoBtn"
+                      onClick={simulateDemoPayment}
+                      disabled={!termsAccepted}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: '600',
+                        cursor: termsAccepted ? 'pointer' : 'not-allowed',
+                        opacity: termsAccepted ? 1 : 0.5,
+                      }}
+                    >
+                      🧪 Demo (sin MP)
+                    </button>
+                  )}
+                  
                   <button
                     className="checkoutModal__cancelBtn"
                     onClick={handleCloseCheckout}

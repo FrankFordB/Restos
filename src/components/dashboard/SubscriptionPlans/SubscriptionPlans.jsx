@@ -5,9 +5,15 @@ import {
   TIER_LABELS,
   TIER_FEATURES,
   TIER_PRICES,
+  TIER_ORDER,
+  isDowngrade,
 } from '../../../shared/subscriptions'
 
-export default function SubscriptionPlans({ currentTier = SUBSCRIPTION_TIERS.FREE, onUpgrade }) {
+export default function SubscriptionPlans({ 
+  currentTier = SUBSCRIPTION_TIERS.FREE, 
+  onUpgrade,
+  onDowngrade,
+}) {
   const [billing, setBilling] = useState('monthly') // 'monthly' | 'yearly'
 
   const plans = [
@@ -53,6 +59,25 @@ export default function SubscriptionPlans({ currentTier = SUBSCRIPTION_TIERS.FRE
     }
   }
 
+  const handleDowngrade = (tier) => {
+    if (onDowngrade) {
+      onDowngrade(tier)
+    }
+  }
+
+  // Determinar qué acción mostrar para cada plan
+  const getActionForPlan = (planTier) => {
+    if (currentTier === planTier) {
+      return { type: 'current' }
+    }
+    
+    if (isDowngrade(currentTier, planTier)) {
+      return { type: 'downgrade' }
+    }
+    
+    return { type: 'upgrade' }
+  }
+
   return (
     <div className="subscriptionPlans">
       <div className="subscriptionPlans__header">
@@ -79,7 +104,7 @@ export default function SubscriptionPlans({ currentTier = SUBSCRIPTION_TIERS.FRE
 
       <div className="subscriptionPlans__grid">
         {plans.map((plan) => {
-          const isCurrent = currentTier === plan.tier
+          const action = getActionForPlan(plan.tier)
           const price = getPrice(plan.tier)
           const savings = getSavings(plan.tier)
           const features = TIER_FEATURES[plan.tier]
@@ -118,13 +143,16 @@ export default function SubscriptionPlans({ currentTier = SUBSCRIPTION_TIERS.FRE
               </div>
 
               <div className="planCard__footer">
-                {isCurrent ? (
+                {action.type === 'current' ? (
                   <div className="planCard__current">
                     ✓ Tu plan actual
                   </div>
-                ) : plan.tier === SUBSCRIPTION_TIERS.FREE ? (
-                  <button className="planCard__cta planCard__cta--secondary" disabled>
-                    Plan gratuito
+                ) : action.type === 'downgrade' ? (
+                  <button
+                    className="planCard__cta planCard__cta--downgrade"
+                    onClick={() => handleDowngrade(plan.tier)}
+                  >
+                    ⚠️ Cambiar a {plan.name}
                   </button>
                 ) : (
                   <button

@@ -18,12 +18,67 @@
   border-radius: 16px;
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+/* Modal sin stock */
+.productModal--outOfStock {
+  border: 2px solid #9ca3af;
+}
+
+.productModal--outOfStock .productModal__header {
+  opacity: 0.7;
+}
+
+/* Banner de sin stock */
+.productModal__outOfStockBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Imagen con overlay de agotado */
+.productModal__image--outOfStock {
+  position: relative;
+}
+
+.productModal__image--outOfStock img {
+  filter: grayscale(60%);
+  opacity: 0.7;
+}
+
+.productModal__imageOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(75, 85, 99, 0.85);
+  color: white;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 8px;
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Quantity disabled */
+.productModal__quantity--disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .productModal__close {
@@ -50,16 +105,48 @@
 
 /* Image */
 .productModal__image {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
   background: #f3f4f6;
 }
 
+/* Liquid Glass Background Effect */
+.productModal__liquidBg {
+  position: absolute;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  background-size: cover;
+  background-position: center;
+  filter: blur(30px) saturate(1.5);
+  transform: scale(1.2);
+  z-index: 0;
+}
+
+.productModal__liquidOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+}
+
 .productModal__image img {
+  position: relative;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  z-index: 2;
+}
+
+.productModal__imgBg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  z-index: 2;
 }
 
 /* Header */
@@ -357,10 +444,13 @@
 .productModal__footer {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-top: 1px solid var(--border-color, #e5e7eb);
   background: var(--bg-muted, #f9fafb);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 /* Quantity */
@@ -372,6 +462,7 @@
   border: 1px solid var(--border-color, #d1d5db);
   border-radius: 8px;
   padding: 0.25rem;
+  flex-shrink: 0;
 }
 
 .productModal__qtyBtn {
@@ -408,6 +499,7 @@
 /* Add Button */
 .productModal__addBtn {
   flex: 1;
+  min-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -421,6 +513,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .productModal__addBtn:hover:not(:disabled) {
@@ -429,8 +522,14 @@
 }
 
 .productModal__addBtn--disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
+  background: #9ca3af !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.productModal__addBtn--disabled:hover {
+  background: #9ca3af !important;
+  transform: none !important;
 }
 
 .productModal__addPrice {
@@ -571,9 +670,10 @@
   }
 
   .productModal__footer {
-    padding: 0.75rem 1rem;
+    padding: 1rem;
     flex-direction: column;
     gap: 0.75rem;
+    align-items: stretch;
   }
 
   .productModal__quantity {
@@ -583,5 +683,45 @@
 
   .productModal__addBtn {
     width: 100%;
+    min-width: unset;
+    padding: 0.9rem 1rem;
+    font-size: 0.95rem;
   }
+  
+  .productModal__stockWarning,
+  .productModal__outOfStock {
+    text-align: center;
+    width: 100%;
+  }
+  
+  .productModal__outOfStockBanner {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .productModal__imageOverlay {
+    font-size: 1.2rem;
+    padding: 10px 24px;
+  }
+}
+
+/* Stock warnings */
+.productModal__stockWarning {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.productModal__outOfStock {
+  font-size: 0.8rem;
+  color: #ef4444;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  white-space: nowrap;
 }

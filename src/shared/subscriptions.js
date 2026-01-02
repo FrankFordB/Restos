@@ -658,3 +658,249 @@ export const COLOR_PALETTES = {
     colors: { primary: '#10b981', accent: '#34d399', background: '#0d1b2a', text: '#f0fdf4' },
   },
 }
+
+// =========================================
+// DOWNGRADE / RESET A FREE
+// =========================================
+
+// Orden de tiers para comparaciones
+export const TIER_ORDER = [
+  SUBSCRIPTION_TIERS.FREE,
+  SUBSCRIPTION_TIERS.PREMIUM,
+  SUBSCRIPTION_TIERS.PREMIUM_PRO,
+]
+
+// Helper: Verificar si es un downgrade
+export function isDowngrade(currentTier, targetTier) {
+  const currentIndex = TIER_ORDER.indexOf(currentTier)
+  const targetIndex = TIER_ORDER.indexOf(targetTier)
+  return targetIndex < currentIndex
+}
+
+// Helper: Obtener tier activo considerando fecha de expiración
+export function getActiveSubscriptionTier(tenant) {
+  if (!tenant) return SUBSCRIPTION_TIERS.FREE
+  
+  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  const premiumUntil = tenant.premium_until
+  
+  // Si no hay fecha de expiración, usar el tier tal cual
+  if (!premiumUntil) return tier
+  
+  // Si la fecha expiró, es FREE
+  const now = new Date()
+  const expiry = new Date(premiumUntil)
+  if (expiry < now) return SUBSCRIPTION_TIERS.FREE
+  
+  return tier
+}
+
+// Helper: Obtener features que se perderán al hacer downgrade
+export function getDowngradeLostFeatures(currentTier, targetTier) {
+  const lostFeatures = []
+  
+  // Features que se pierden según el downgrade
+  if (currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO) {
+    if (targetTier === SUBSCRIPTION_TIERS.FREE || targetTier === SUBSCRIPTION_TIERS.PREMIUM) {
+      lostFeatures.push('Widgets premium (Testimonios, Video, Newsletter, FAQ, etc.)')
+      lostFeatures.push('Layouts de cards premium (Magazine, Minimal, Polaroid, Banner)')
+      lostFeatures.push('Estilos de hero premium (Parallax 3D, Cubo 3D, Revelar)')
+      lostFeatures.push('Fuentes premium (Raleway, Oswald)')
+      lostFeatures.push('Paletas de colores exclusivas')
+      lostFeatures.push('Dominio personalizado')
+      lostFeatures.push('Analytics avanzado')
+      lostFeatures.push('Soporte prioritario')
+      lostFeatures.push('Productos ilimitados')
+    }
+    if (targetTier === SUBSCRIPTION_TIERS.FREE) {
+      lostFeatures.push('Carrusel de productos')
+      lostFeatures.push('Galería de imágenes')
+      lostFeatures.push('Más estilos de cards (Horizontal, Overlay, Compacto)')
+      lostFeatures.push('Fuentes adicionales (Poppins, Montserrat, etc.)')
+      lostFeatures.push('Todas las paletas de colores')
+      lostFeatures.push('Sin marca de agua')
+    }
+  } else if (currentTier === SUBSCRIPTION_TIERS.PREMIUM && targetTier === SUBSCRIPTION_TIERS.FREE) {
+    lostFeatures.push('Carrusel de productos')
+    lostFeatures.push('Galería de imágenes')
+    lostFeatures.push('Estilos de cards premium (Horizontal, Overlay, Compacto)')
+    lostFeatures.push('Fuentes premium (Poppins, Montserrat, Lora)')
+    lostFeatures.push('Paletas de colores prediseñadas')
+    lostFeatures.push('Banner promocional')
+    lostFeatures.push('Mapa de ubicación')
+    lostFeatures.push('Sin marca de agua')
+    lostFeatures.push('Límite reducido a 15 productos')
+  }
+  
+  return lostFeatures
+}
+
+// Configuraciones default para FREE (theme)
+export const FREE_DEFAULT_THEME = {
+  primary: '#111827',
+  accent: '#f59e0b',
+  background: '#ffffff',
+  text: '#111827',
+  radius: '12px',
+  fontFamily: 'Inter',
+  cardStyle: 'glass',
+  buttonStyle: 'rounded',
+  layoutStyle: 'modern',
+  productCardLayout: 'classic',
+  heroStyle: 'simple',
+  heroSlides: [],
+  heroTitlePosition: 'center',
+  heroOverlayOpacity: 0.3,
+  heroShowTitle: true,
+  heroShowSubtitle: true,
+  heroShowCta: true,
+  heroCarouselButtonStyle: null,
+}
+
+// Configuraciones default para FREE (mobile preview)
+export const FREE_DEFAULT_MOBILE_SETTINGS = {
+  headerDesign: 'centered',
+  cardDesign: 'stackedFull',
+  spacingOption: 'balanced',
+  typographyOption: 'standard',
+  carouselOptions: {
+    showTitle: true,
+    showSubtitle: true,
+    showCta: true,
+  },
+}
+
+// Configuraciones default para FREE (tenant customization)
+export const FREE_DEFAULT_TENANT_SETTINGS = {
+  welcome_modal_features_design: 'simple',
+  mobile_header_design: 'centered',
+  mobile_card_design: 'stackedFull',
+  mobile_spacing_option: 'balanced',
+  mobile_typography_option: 'standard',
+}
+
+// =========================================
+// SUBSCRIPTION EXPIRATION / RENEWAL
+// =========================================
+
+// Duración de suscripción en días
+export const SUBSCRIPTION_DURATION_DAYS = 30
+
+// Días antes de expiración para mostrar advertencia
+export const RENEWAL_WARNING_DAYS = 1
+
+/**
+ * Calcula los días restantes de suscripción
+ * @param {Date|string} premiumUntil - Fecha de expiración
+ * @returns {number} Días restantes (puede ser negativo si expiró)
+ */
+export function getSubscriptionDaysRemaining(premiumUntil) {
+  if (!premiumUntil) return -1
+  
+  const now = new Date()
+  const expiry = new Date(premiumUntil)
+  
+  if (isNaN(expiry.getTime())) return -1
+  
+  const diffMs = expiry - now
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  
+  return diffDays
+}
+
+/**
+ * Verifica si la suscripción está por expirar (dentro del período de advertencia)
+ * @param {Object} tenant - Objeto tenant con premium_until
+ * @returns {boolean}
+ */
+export function isSubscriptionExpiringSoon(tenant) {
+  if (!tenant) return false
+  
+  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  if (tier === SUBSCRIPTION_TIERS.FREE) return false
+  
+  const daysRemaining = getSubscriptionDaysRemaining(tenant.premium_until)
+  
+  // Mostrar advertencia si quedan RENEWAL_WARNING_DAYS días o menos (incluyendo 0)
+  return daysRemaining >= 0 && daysRemaining <= RENEWAL_WARNING_DAYS
+}
+
+/**
+ * Verifica si la suscripción ha expirado
+ * @param {Object} tenant - Objeto tenant con premium_until
+ * @returns {boolean}
+ */
+export function hasSubscriptionExpired(tenant) {
+  if (!tenant) return true
+  
+  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  if (tier === SUBSCRIPTION_TIERS.FREE) return false // FREE no expira
+  
+  const daysRemaining = getSubscriptionDaysRemaining(tenant.premium_until)
+  
+  return daysRemaining < 0
+}
+
+/**
+ * Calcula la nueva fecha de expiración al renovar
+ * Si la suscripción aún no expiró, extiende desde la fecha actual de expiración
+ * Si ya expiró, empieza desde hoy
+ * @param {Date|string} currentExpiry - Fecha de expiración actual
+ * @param {string} billingPeriod - 'monthly' o 'yearly'
+ * @returns {Date}
+ */
+export function calculateRenewalExpiry(currentExpiry, billingPeriod = 'monthly') {
+  const now = new Date()
+  const expiry = currentExpiry ? new Date(currentExpiry) : now
+  
+  // Si la expiración es en el futuro, extender desde ahí
+  // Si ya pasó, empezar desde hoy
+  const baseDate = expiry > now ? expiry : now
+  
+  const newExpiry = new Date(baseDate)
+  
+  if (billingPeriod === 'yearly') {
+    newExpiry.setFullYear(newExpiry.getFullYear() + 1)
+  } else {
+    newExpiry.setDate(newExpiry.getDate() + SUBSCRIPTION_DURATION_DAYS)
+  }
+  
+  return newExpiry
+}
+
+/**
+ * Información completa del estado de suscripción
+ * @param {Object} tenant 
+ * @returns {Object}
+ */
+export function getSubscriptionStatus(tenant) {
+  if (!tenant) {
+    return {
+      tier: SUBSCRIPTION_TIERS.FREE,
+      isActive: false,
+      isPremium: false,
+      daysRemaining: -1,
+      isExpiringSoon: false,
+      hasExpired: false,
+      expiresAt: null,
+    }
+  }
+  
+  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
+  const isPremium = tier !== SUBSCRIPTION_TIERS.FREE
+  const daysRemaining = getSubscriptionDaysRemaining(tenant.premium_until)
+  const hasExpired = isPremium && daysRemaining < 0
+  const isExpiringSoon = isSubscriptionExpiringSoon(tenant)
+  const isActive = isPremium && !hasExpired
+  
+  return {
+    tier,
+    isActive,
+    isPremium,
+    daysRemaining,
+    isExpiringSoon,
+    hasExpired,
+    expiresAt: tenant.premium_until,
+  }
+}
+

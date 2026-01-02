@@ -29,14 +29,15 @@ const MENU_ITEMS = [
   { id: 'mobile-preview', label: 'Vista Móvil', icon: Eye },
   { id: 'orders', label: 'Pedidos', icon: ClipboardList },
   { id: 'sales', label: 'Ventas', icon: DollarSign },
-  { id: 'menu', label: 'Menú', icon: UtensilsCrossed },
+  { id: 'menu', label: 'Productos', icon: UtensilsCrossed },
   { id: 'extras', label: 'Extras / Toppings', icon: Layers },
+  { id: 'mercadopago', label: 'MercadoPago', icon: CreditCard },
+  { id: 'plans', label: 'Mi Plan', icon: Crown },
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },  
   { id: 'qr', label: 'QR y Enlaces', icon: QrCode },
-  { id: 'mercadopago', label: 'MercadoPago', icon: CreditCard },
-  { id: 'plans', label: 'Mi Plan', icon: Crown },
+  
 ]
 
 export default function Sidebar({ 

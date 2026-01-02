@@ -17,14 +17,14 @@ import ProductExtrasConfigModal from '../../components/storefront/ProductExtrasC
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import CartPanel from '../../components/storefront/CartPanel/CartPanel'
 import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
-import { createPaidOrder } from '../../features/orders/ordersSlice'
+import { createPaidOrder, fetchOrdersForTenant, selectOrdersForTenant } from '../../features/orders/ordersSlice'
 import Button from '../../components/ui/Button/Button'
 import Input from '../../components/ui/Input/Input'
 import WelcomeModal from '../../components/storefront/WelcomeModal/WelcomeModal'
 import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
 import { loadJson, saveJson } from '../../shared/storage'
 import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug } from '../../lib/supabaseApi'
-import { isSupabaseConfigured } from '../../lib/supabaseClient'
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { checkIsStoreOpen } from '../../shared/openingHours'
 import {
   SUBSCRIPTION_TIERS,
@@ -101,7 +101,33 @@ export default function StorefrontPage() {
   const categories = useAppSelector(selectCategoriesForTenant(tenantId || 'tenant_demo'))
   const extras = useAppSelector(selectExtrasForTenant(tenantId || 'tenant_demo'))
   const extraGroups = useAppSelector(selectExtraGroupsForTenant(tenantId || 'tenant_demo'))
+  const orders = useAppSelector(selectOrdersForTenant(tenantId || 'tenant_demo'))
   const visible = useMemo(() => products.filter((p) => p.active), [products])
+
+  // Calcular los 3 productos más vendidos basado en pedidos completados
+  const top3ProductIds = useMemo(() => {
+    const salesByProduct = {}
+    
+    orders
+      .filter(o => o.status === 'completed')
+      .forEach(order => {
+        const items = order.items || order.order_items || []
+        items.forEach(item => {
+          const productId = item.productId || item.product_id
+          if (productId) {
+            salesByProduct[productId] = (salesByProduct[productId] || 0) + (item.quantity || item.qty || 1)
+          }
+        })
+      })
+    
+    // Ordenar por cantidad vendida y tomar los 3 primeros
+    const sortedProducts = Object.entries(salesByProduct)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([id]) => id)
+    
+    return new Set(sortedProducts)
+  }, [orders])
 
   // Category navigation state
   const [selectedCategory, setSelectedCategory] = useState(null) // null = first category or "Sin asignar"
@@ -130,6 +156,121 @@ export default function StorefrontPage() {
   const sortedCategories = useMemo(() => {
     return categories.filter(c => c.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
   }, [categories])
+
+  // Helper: Calcular cuántas unidades de una categoría hay en el carrito
+  const getCategoryCartQuantity = (categoryName) => {
+    return Object.values(cart).reduce((sum, item) => {
+      if (typeof item === 'object' && item.product?.category === categoryName) {
+        return sum + (item.quantity || 0)
+      }
+      return sum
+    }, 0)
+  }
+
+  // Helper: Obtener info del stock global de una categoría
+  const getCategoryStockInfo = (categoryName) => {
+    const category = sortedCategories.find(c => c.name === categoryName)
+    if (!category || category.maxStock === null || category.maxStock === undefined) {
+      return null // No tiene stock global
+    }
+    const inCart = getCategoryCartQuantity(categoryName)
+    const availableStock = Math.max(0, (category.currentStock || 0) - inCart)
+    return {
+      maxStock: category.maxStock,
+      currentStock: category.currentStock || 0,
+      inCart,
+      availableStock,
+      isEmpty: availableStock === 0,
+    }
+  }
+
+  // Verificar si el stock global de alguna categoría llegó a 0
+  // Si TODAS las categorías con stock global están en 0, la tienda se cierra
+  const globalStockStatus = useMemo(() => {
+    const categoriesWithGlobalStock = sortedCategories.filter(c => c.maxStock !== null && c.maxStock !== undefined)
+    
+    if (categoriesWithGlobalStock.length === 0) {
+      return { hasGlobalStock: false, allEmpty: false, emptyCategories: [], stockByCategory: {} }
+    }
+    
+    const emptyCategories = categoriesWithGlobalStock.filter(c => c.currentStock === 0)
+    const allEmpty = emptyCategories.length === categoriesWithGlobalStock.length
+    
+    // Crear mapa de stock por categoría
+    const stockByCategory = {}
+    categoriesWithGlobalStock.forEach(c => {
+      stockByCategory[c.name] = {
+        maxStock: c.maxStock,
+        currentStock: c.currentStock || 0,
+      }
+    })
+    
+    return { 
+      hasGlobalStock: true, 
+      allEmpty,
+      emptyCategories: emptyCategories.map(c => c.name),
+      totalWithStock: categoriesWithGlobalStock.length,
+      totalEmpty: emptyCategories.length,
+      stockByCategory,
+    }
+  }, [sortedCategories])
+
+  // Efecto: Ajustar automáticamente las cantidades del carrito cuando el stock global cambia
+  useEffect(() => {
+    if (!globalStockStatus.hasGlobalStock) return
+    if (Object.keys(cart).length === 0) return
+    
+    let needsUpdate = false
+    const adjustedCart = { ...cart }
+    
+    // Agrupar items del carrito por categoría
+    const cartByCategory = {}
+    Object.entries(cart).forEach(([cartItemId, item]) => {
+      if (typeof item !== 'object' || !item.product?.category) return
+      const catName = item.product.category
+      if (!cartByCategory[catName]) cartByCategory[catName] = []
+      cartByCategory[catName].push({ cartItemId, item })
+    })
+    
+    // Para cada categoría con stock global, verificar si excede el stock disponible
+    Object.entries(cartByCategory).forEach(([categoryName, items]) => {
+      const stockInfo = globalStockStatus.stockByCategory[categoryName]
+      if (!stockInfo) return // Esta categoría no tiene stock global
+      
+      const currentStock = stockInfo.currentStock
+      const totalInCart = items.reduce((sum, { item }) => sum + (item.quantity || 0), 0)
+      
+      if (totalInCart > currentStock) {
+        // Hay más en el carrito que el stock disponible, necesitamos reducir
+        let remaining = currentStock
+        
+        items.forEach(({ cartItemId, item }) => {
+          if (remaining <= 0) {
+            // Eliminar este item completamente
+            delete adjustedCart[cartItemId]
+            needsUpdate = true
+          } else if (item.quantity > remaining) {
+            // Reducir la cantidad
+            adjustedCart[cartItemId] = {
+              ...item,
+              quantity: remaining,
+              totalPrice: item.unitPrice * remaining,
+            }
+            remaining = 0
+            needsUpdate = true
+          } else {
+            // Este item cabe, restar del restante
+            remaining -= item.quantity
+          }
+        })
+      }
+    })
+    
+    if (needsUpdate) {
+      console.log('🔄 Ajustando carrito por cambio de stock global')
+      setCart(adjustedCart)
+    }
+  }, [globalStockStatus.stockByCategory, globalStockStatus.hasGlobalStock])
 
   // Default selected category to first one if null
   const effectiveSelectedCategory = useMemo(() => {
@@ -231,8 +372,18 @@ export default function StorefrontPage() {
   const [showPausedRealtimeModal, setShowPausedRealtimeModal] = useState(false)
   const wasPausedRef = useRef(false) // Track previous pause state
   
-  // Calculate if store is closed for blocking cart (including paused state)
-  const isStoreClosed = (!storeStatus.isOpen && !storeStatus.noSchedule) || isPaused
+  // Out of stock modal state
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false)
+  
+  // Calculate if store is closed for blocking cart (including paused state and out of stock)
+  const isStoreClosed = (!storeStatus.isOpen && !storeStatus.noSchedule) || isPaused || globalStockStatus.allEmpty
+  
+  // Show out of stock modal when all categories run out
+  useEffect(() => {
+    if (globalStockStatus.allEmpty && !showOutOfStockModal) {
+      setShowOutOfStockModal(true)
+    }
+  }, [globalStockStatus.allEmpty])
   
   // Poll pause status every 10 seconds (lightweight check for realtime pause detection)
   useEffect(() => {
@@ -673,6 +824,36 @@ export default function StorefrontPage() {
       return
     }
     
+    // Verificar stock disponible del producto
+    const currentInCart = Object.values(cart).reduce((sum, item) => {
+      if (typeof item === 'object' && item.productId === product.id) {
+        return sum + item.quantity
+      }
+      return sum
+    }, 0)
+    
+    // Si el producto tiene stock definido, verificar límite
+    if (product.stock !== null && product.stock !== undefined) {
+      if (currentInCart + quantity > product.stock) {
+        const available = product.stock - currentInCart
+        alert(`Stock insuficiente. Solo puedes agregar ${available > 0 ? available : 0} más.`)
+        return
+      }
+    }
+    
+    // Verificar stock global de la categoría
+    const categoryStockInfo = getCategoryStockInfo(product.category)
+    if (categoryStockInfo) {
+      if (quantity > categoryStockInfo.availableStock) {
+        if (categoryStockInfo.availableStock === 0) {
+          alert(`Stock insuficiente de ${product.category}: quedan 0, se pidieron ${quantity}`)
+        } else {
+          alert(`Stock insuficiente de ${product.category}: quedan ${categoryStockInfo.availableStock}, se pidieron ${quantity}`)
+        }
+        return
+      }
+    }
+    
     const cartItemId = `${product.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     setCart((c) => ({
       ...c,
@@ -701,6 +882,31 @@ export default function StorefrontPage() {
     const product = visible.find((p) => p.id === productId)
     if (!product) return
     
+    // Verificar stock disponible del producto
+    const currentInCart = Object.values(cart).reduce((sum, item) => {
+      if (typeof item === 'object' && item.productId === productId) {
+        return sum + item.quantity
+      }
+      return sum
+    }, 0)
+    
+    // Si el producto tiene stock definido, verificar límite
+    if (product.stock !== null && product.stock !== undefined) {
+      if (currentInCart >= product.stock) {
+        alert(`Stock máximo alcanzado (${product.stock} disponibles)`)
+        return
+      }
+    }
+    
+    // Verificar stock global de la categoría
+    const categoryStockInfo = getCategoryStockInfo(product.category)
+    if (categoryStockInfo) {
+      if (categoryStockInfo.availableStock === 0) {
+        alert(`Stock insuficiente de ${product.category}: quedan 0, se pidió 1`)
+        return
+      }
+    }
+    
     // If there are extras configured, open the modal instead
     if (extraGroups.length > 0) {
       openProductDetail(product)
@@ -712,13 +918,23 @@ export default function StorefrontPage() {
     setCart((c) => {
       const existing = c[cartItemId]
       if (existing && typeof existing === 'object') {
+        // Verificar stock de producto antes de incrementar
+        const newQty = existing.quantity + 1
+        if (product.stock !== null && product.stock !== undefined && newQty > product.stock) {
+          return c // No agregar más
+        }
+        // Verificar stock global de categoría antes de incrementar
+        const catInfo = getCategoryStockInfo(product.category)
+        if (catInfo && catInfo.availableStock < 1) {
+          return c // No hay más stock de categoría
+        }
         // Update quantity of existing item
         return {
           ...c,
           [cartItemId]: {
             ...existing,
-            quantity: existing.quantity + 1,
-            totalPrice: existing.unitPrice * (existing.quantity + 1),
+            quantity: newQty,
+            totalPrice: existing.unitPrice * newQty,
           },
         }
       }
@@ -917,7 +1133,37 @@ export default function StorefrontPage() {
     dispatch(fetchTenantTheme(tenantId))
     dispatch(fetchExtraGroupsForTenant(tenantId))
     dispatch(fetchExtrasForTenant(tenantId))
+    dispatch(fetchOrdersForTenant(tenantId)) // Para calcular productos populares
   }, [dispatch, tenantId])
+
+  // Suscripción realtime para stock de categorías (permite ver actualizaciones en tiempo real)
+  useEffect(() => {
+    if (!tenantId || !isSupabaseConfigured) return
+    
+    const channel = supabase
+      .channel(`categories-stock-${tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'product_categories',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        (payload) => {
+          console.log('📦 Stock de categoría actualizado:', payload.new)
+          // Refrescar categorías para obtener el nuevo stock
+          dispatch(fetchCategoriesForTenant(tenantId))
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Suscripción categorías:', status)
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [tenantId, dispatch])
 
   // Add/remove body class for preview mode (to hide global header)
   useEffect(() => {
@@ -1101,27 +1347,46 @@ export default function StorefrontPage() {
                   </div>
                 ) : (
                   <div className="store__categoryTabGroup">
-                    <button
-                      type="button"
-                      className={`store__categoryTab ${effectiveSelectedCategory === cat.name ? 'store__categoryTab--active' : ''}`}
-                      onClick={() => setSelectedCategory(cat.name)}
-                    >
-                      {cat.name}
-                      <span className="store__categoryCount">{categoryCounts[cat.name] || 0}</span>
-                    </button>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="store__categoryEditBtn"
-                        onClick={() => {
-                          setEditingCategoryId(cat.id)
-                          setEditingCategoryName(cat.name)
-                        }}
-                        title="Editar categoría"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                    )}
+                    {(() => {
+                      const stockInfo = getCategoryStockInfo(cat.name)
+                      const hasGlobalStock = stockInfo !== null
+                      const isOutOfStock = hasGlobalStock && stockInfo.availableStock === 0
+                      const isLowStock = hasGlobalStock && stockInfo.availableStock > 0 && stockInfo.availableStock <= 3
+                      
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            className={`store__categoryTab ${effectiveSelectedCategory === cat.name ? 'store__categoryTab--active' : ''} ${isOutOfStock ? 'store__categoryTab--outOfStock' : ''} ${isLowStock ? 'store__categoryTab--lowStock' : ''}`}
+                            onClick={() => setSelectedCategory(cat.name)}
+                            disabled={isOutOfStock}
+                          >
+                            <span className="store__categoryName">{cat.name}</span>
+                            {hasGlobalStock && (
+                              <span className={`store__categoryStock ${isOutOfStock ? 'store__categoryStock--empty' : ''} ${isLowStock ? 'store__categoryStock--low' : ''}`}>
+                                {isOutOfStock ? '¡Agotado!' : `${stockInfo.availableStock} disp.`}
+                              </span>
+                            )}
+                            {!hasGlobalStock && (
+                              <span className="store__categoryCount">{categoryCounts[cat.name] || 0}</span>
+                            )}
+                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              className="store__categoryEditBtn"
+                              onClick={() => {
+                                setEditingCategoryId(cat.id)
+                                setEditingCategoryName(cat.name)
+                              }}
+                              title="Editar categoría"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
@@ -1662,11 +1927,29 @@ export default function StorefrontPage() {
                 return sum
               }, 0)
               
+              // Calcular el stock efectivo (mínimo entre stock producto y stock categoría)
+              const productStock = p.stock !== null && p.stock !== undefined ? p.stock : null
+              const categoryStockInfo = getCategoryStockInfo(p.category)
+              const categoryStock = categoryStockInfo ? categoryStockInfo.currentStock : null
+              
+              // El límite es el mínimo de los dos (si ambos existen), o el que exista
+              let effectiveStockLimit = null
+              if (productStock !== null && categoryStock !== null) {
+                effectiveStockLimit = Math.min(productStock, categoryStock)
+              } else if (productStock !== null) {
+                effectiveStockLimit = productStock
+              } else if (categoryStock !== null) {
+                effectiveStockLimit = categoryStock
+              }
+              
               return (
                 <ProductCard
                   key={p.id}
                   product={p}
                   quantity={productQty}
+                  stockLimit={effectiveStockLimit}
+                  categoryName={p.category}
+                  isPopular={top3ProductIds.has(p.id)}
                   onAdd={() => addOne(p.id)}
                   onRemove={() => {
                     // Find the first cart item for this product and remove from it
@@ -1771,6 +2054,8 @@ export default function StorefrontPage() {
           checkoutLoading={checkoutLoading}
           checkoutError={checkoutError}
           deliveryConfig={deliveryConfig}
+          globalStockStatus={globalStockStatus}
+          getCategoryStockInfo={getCategoryStockInfo}
           onBack={() => {
             setIsCheckingOut(false)
             setCheckoutError(null)
@@ -1987,6 +2272,12 @@ export default function StorefrontPage() {
             setSelectedProductForDetail(null)
           }}
           onAddToCart={addItemToCart}
+          currentCartQuantity={Object.values(cart).reduce((sum, item) => {
+            if (typeof item === 'object' && item.productId === selectedProductForDetail.id) {
+              return sum + item.quantity
+            }
+            return sum
+          }, 0)}
         />
       )}
 
@@ -2030,6 +2321,9 @@ export default function StorefrontPage() {
         onClose={() => setShowWelcomeModal(false)}
         tenant={tenantFullData}
         isPreviewMode={heroPreviewMode}
+        storeStatus={storeStatus}
+        isPaused={isPaused}
+        pauseMessage={pauseMessage}
       />
 
       {/* Store Closed Modal with schedule */}
@@ -2072,6 +2366,30 @@ export default function StorefrontPage() {
           </div>
         </div>
       )}
+
+      {/* Out of Stock Modal - Shows when all categories with global stock are empty */}
+      {showOutOfStockModal && globalStockStatus.allEmpty && (
+        <div className="store__pausedRealtimeOverlay store__outOfStockOverlay">
+          <div className="store__pausedRealtimeModal store__outOfStockModal">
+            <div className="store__pausedRealtimeIcon store__outOfStockIcon">
+              <Package size={48} />
+            </div>
+            <h2 className="store__pausedRealtimeTitle">¡Agotado!</h2>
+            <p className="store__pausedRealtimeSubtitle">
+              Lo sentimos, hemos vendido todo nuestro stock disponible por hoy
+            </p>
+            <p className="store__pausedRealtimeInfo">
+              Te invitamos a regresar más tarde cuando reabastecemos.
+            </p>
+            <button 
+              className="store__pausedRealtimeBtn"
+              onClick={() => setShowOutOfStockModal(false)}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2087,6 +2405,8 @@ function CheckoutPage({
   checkoutLoading,
   checkoutError,
   deliveryConfig,
+  globalStockStatus,
+  getCategoryStockInfo,
   onBack,
   onSuccess,
   dispatch,
@@ -2101,6 +2421,43 @@ function CheckoutPage({
   // Validar que el tipo de entrega seleccionado esté habilitado
   const isDeliveryTypeEnabled = deliveryConfig ? deliveryConfig[checkoutData.deliveryType] !== false : true
   
+  // Validar stock global - verificar si hay suficiente stock para todas las categorías
+  const stockValidation = useMemo(() => {
+    if (!globalStockStatus?.hasGlobalStock) {
+      return { isValid: true, error: null }
+    }
+    
+    // Agrupar items por categoría
+    const cartByCategory = {}
+    cartItems.forEach(item => {
+      const catName = item.product?.category
+      if (!catName) return
+      if (!cartByCategory[catName]) cartByCategory[catName] = 0
+      cartByCategory[catName] += item.quantity || 0
+    })
+    
+    // Verificar stock de cada categoría
+    for (const [categoryName, quantity] of Object.entries(cartByCategory)) {
+      const stockInfo = globalStockStatus.stockByCategory[categoryName]
+      if (!stockInfo) continue
+      
+      if (stockInfo.currentStock < quantity) {
+        if (stockInfo.currentStock === 0) {
+          return { 
+            isValid: false, 
+            error: `¡Sin stock! No hay ${categoryName} disponibles.` 
+          }
+        }
+        return { 
+          isValid: false, 
+          error: `Stock insuficiente. Solo hay ${stockInfo.currentStock} ${categoryName} disponibles.` 
+        }
+      }
+    }
+    
+    return { isValid: true, error: null }
+  }, [globalStockStatus, cartItems])
+  
   // Si el tipo de entrega actual está deshabilitado, buscar uno habilitado (en useEffect para evitar setState durante render)
   useEffect(() => {
     if (!isDeliveryTypeEnabled) {
@@ -2111,7 +2468,7 @@ function CheckoutPage({
     }
   }, [isDeliveryTypeEnabled, deliveryConfig, checkoutData, setCheckoutData])
   
-  const isAllDataValid = isNameValid && isPhoneValid && isAddressValid && isDeliveryTypeEnabled
+  const isAllDataValid = isNameValid && isPhoneValid && isAddressValid && isDeliveryTypeEnabled && stockValidation.isValid
   
   // Boton procesar pago habilitado solo si todos los datos están válidos
   const canProcessPayment = isAllDataValid && !checkoutLoading
@@ -2122,6 +2479,12 @@ function CheckoutPage({
     // Verificar una vez más que el tipo de entrega esté habilitado
     if (!isDeliveryTypeEnabled) {
       setCheckoutError('El tipo de entrega seleccionado no está disponible. Por favor selecciona otro.')
+      return
+    }
+    
+    // Verificar stock global una vez más antes de procesar
+    if (!stockValidation.isValid) {
+      setCheckoutError(stockValidation.error || 'Stock insuficiente. Por favor ajusta tu carrito.')
       return
     }
 
@@ -2319,9 +2682,21 @@ function CheckoutPage({
               ⚠️ {checkoutError}
             </div>
           )}
+          
+          {/* Error de stock global */}
+          {!stockValidation.isValid && (
+            <div className="checkoutPage__stockError">
+              <span className="checkoutPage__stockErrorIcon">📦</span>
+              <div className="checkoutPage__stockErrorContent">
+                <strong>Stock insuficiente</strong>
+                <p>{stockValidation.error}</p>
+                <p className="checkoutPage__stockErrorHint">El carrito se ajustará automáticamente.</p>
+              </div>
+            </div>
+          )}
 
           {/* Validación de campos */}
-          {!isAllDataValid && (
+          {!isAllDataValid && stockValidation.isValid && (
             <div className="checkoutPage__validation">
               <p className="checkoutPage__validationText">
                 Completa todos los campos requeridos (*) para procesar el pago

@@ -11,9 +11,11 @@ import { setTenantId, setUserRole } from '../../features/auth/authSlice'
 import ProductsManager from '../../components/dashboard/ProductsManager/ProductsManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
+import SalesStats from '../../components/dashboard/SalesStats/SalesStats'
 import MobilePreviewEditor from '../../components/dashboard/MobilePreviewEditor/MobilePreviewEditor'
 import MercadoPagoConfig from '../../components/dashboard/MercadoPagoConfig/MercadoPagoConfig'
 import SubscriptionCheckout from '../../components/dashboard/SubscriptionCheckout/SubscriptionCheckout'
+import SubscriptionStatus from '../../components/dashboard/SubscriptionStatus/SubscriptionStatus'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
@@ -23,7 +25,7 @@ import { selectProductsForTenant, fetchProductsForTenant } from '../../features/
 import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { loadJson } from '../../shared/storage'
-import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS } from '../../shared/subscriptions'
+import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS, getSubscriptionStatus } from '../../shared/subscriptions'
 import { ROLES } from '../../shared/constants'
 import { useDashboard } from '../../contexts/DashboardContext'
 import { 
@@ -605,10 +607,6 @@ export default function UserDashboardPage() {
         {/* Orders Tab */}
         {activeTab === 'orders' && (
           <>
-            <header className="dash__header">
-              <h1>Pedidos</h1>
-              <p className="muted">Gestiona los pedidos de tu restaurante.</p>
-            </header>
             <OrdersManager tenantId={user.tenantId} />
           </>
         )}
@@ -620,13 +618,7 @@ export default function UserDashboardPage() {
               <h1>Ventas</h1>
               <p className="muted">Analiza el rendimiento de tu negocio.</p>
             </header>
-            <Card title="Resumen de ventas">
-              <div className="dash__emptyState">
-                <TrendingUp size={48} />
-                <h3>Próximamente</h3>
-                <p className="muted">Estadísticas y reportes de ventas estarán disponibles pronto.</p>
-              </div>
-            </Card>
+            <SalesStats tenantId={user.tenantId} />
           </>
         )}
 
@@ -823,6 +815,17 @@ export default function UserDashboardPage() {
               <h1>Mi Plan de Suscripción</h1>
               <p className="muted">Elige el plan que mejor se adapte a tu negocio</p>
             </header>
+            
+            {/* Estado actual de la suscripción (solo si es premium) */}
+            <SubscriptionStatus
+              tenant={currentTenant}
+              onRenewalComplete={(newTier) => {
+                if (currentTenant?.id) {
+                  fetchTenantById(currentTenant.id).then(setCurrentTenant)
+                }
+              }}
+            />
+            
             <SubscriptionCheckout
               tenantId={currentTenant?.id}
               tenantName={currentTenant?.name || 'Mi Tienda'}

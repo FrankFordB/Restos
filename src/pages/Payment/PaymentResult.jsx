@@ -5,6 +5,7 @@ import { formatAmount, translatePaymentStatus, getPaymentStatusIcon } from '../.
 import {
   updatePlatformSubscription,
   updateTenantSubscriptionTier,
+  getPendingSubscriptionByPreference,
 } from '../../lib/supabaseMercadopagoApi'
 
 /**
@@ -82,9 +83,26 @@ export default function PaymentResult() {
 
   const handleSubscriptionSuccess = async (refData, paymentId, preferenceId) => {
     try {
+      let subscriptionData = refData
+
+      // Si no tenemos los datos del tenant en external_reference, buscar la suscripción pendiente
+      if ((!subscriptionData.tenantId || !subscriptionData.planTier) && preferenceId) {
+        console.log('🔍 Buscando suscripción pendiente por preferenceId:', preferenceId)
+        const pendingSubscription = await getPendingSubscriptionByPreference(preferenceId)
+        if (pendingSubscription) {
+          console.log('✅ Suscripción pendiente encontrada:', pendingSubscription)
+          subscriptionData = {
+            tenantId: pendingSubscription.tenant_id,
+            planTier: pendingSubscription.plan_tier,
+            billingPeriod: pendingSubscription.billing_period,
+            amount: pendingSubscription.amount,
+          }
+        }
+      }
+
       // Calcular fecha de expiración
       const expiresAt = new Date()
-      if (refData.billingPeriod === 'yearly') {
+      if (subscriptionData.billingPeriod === 'yearly') {
         expiresAt.setFullYear(expiresAt.getFullYear() + 1)
       } else {
         expiresAt.setMonth(expiresAt.getMonth() + 1)
@@ -101,8 +119,12 @@ export default function PaymentResult() {
       }
 
       // Actualizar tier del tenant
-      if (refData.tenantId && refData.planTier) {
-        await updateTenantSubscriptionTier(refData.tenantId, refData.planTier, expiresAt)
+      if (subscriptionData.tenantId && subscriptionData.planTier) {
+        console.log('🚀 Actualizando tier del tenant:', subscriptionData.tenantId, '→', subscriptionData.planTier)
+        await updateTenantSubscriptionTier(subscriptionData.tenantId, subscriptionData.planTier, expiresAt)
+        console.log('✅ Tier actualizado correctamente')
+      } else {
+        console.warn('⚠️ No se pudo actualizar tier: faltan tenantId o planTier', subscriptionData)
       }
 
     } catch (error) {

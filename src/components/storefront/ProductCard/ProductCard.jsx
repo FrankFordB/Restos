@@ -18,8 +18,23 @@ export default function ProductCard({
   hasProductExtras = false,
   isPremium = false,
   disabled = false, // For when store is closed
+  stockLimit = null, // Límite efectivo de stock (mínimo entre producto y categoría)
+  categoryName = null, // Nombre de la categoría para el mensaje
+  isPopular = false, // Si es uno de los 3 productos más vendidos
 }) {
   const layoutClass = `productCard--${layout}`
+  
+  // Detectar si el producto está sin stock (considerando límite efectivo)
+  const effectiveStock = stockLimit !== null ? stockLimit : (product.stock ?? null)
+  const isOutOfStock = effectiveStock !== null && effectiveStock === 0
+  const isLowStock = effectiveStock !== null && effectiveStock > 0 && effectiveStock <= 5
+  
+  // Verificar si al agregar uno más se excedería el stock
+  const wouldExceedStock = effectiveStock !== null && quantity >= effectiveStock
+  const canAddMore = !wouldExceedStock && !isOutOfStock
+  
+  const isDisabled = disabled || isOutOfStock
+  const isAddDisabled = disabled || !canAddMore
   
   // Custom colors as CSS variables
   const cardStyle = {
@@ -54,10 +69,37 @@ export default function ProductCard({
 
   return (
     <article 
-      className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''} ${(onClick && !isEditable) || isEditable ? 'productCard--clickable' : ''} ${disabled ? 'productCard--disabled' : ''}`} 
+      className={`productCard ${layoutClass} ${isBanner ? 'productCard--fullWidth' : ''} ${(onClick && !isEditable) || isEditable ? 'productCard--clickable' : ''} ${isDisabled ? 'productCard--disabled' : ''} ${isOutOfStock ? 'productCard--outOfStock' : ''} ${isLowStock ? 'productCard--lowStock' : ''} ${wouldExceedStock && !isOutOfStock ? 'productCard--maxReached' : ''}`} 
       style={cardStyle}
       onClick={handleCardClick}
     >
+      {/* Badge Popular - solo para los 3 más vendidos */}
+      {isPopular && !isOutOfStock && !wouldExceedStock && !isLowStock && (
+        <div className="productCard__popularBadge">
+          <span>🔥 Popular</span>
+        </div>
+      )}
+      
+      {/* Badge de Sin Stock */}
+      {isOutOfStock && (
+        <div className="productCard__outOfStockBadge">
+          <span>AGOTADO</span>
+        </div>
+      )}
+      
+      {/* Badge de Máximo alcanzado (cuando hay items en carrito pero no puede agregar más) */}
+      {wouldExceedStock && !isOutOfStock && (
+        <div className="productCard__maxStockBadge">
+          <span>Máx. {effectiveStock}</span>
+        </div>
+      )}
+      
+      {/* Badge de Últimas unidades */}
+      {isLowStock && !isOutOfStock && !wouldExceedStock && (
+        <div className="productCard__lowStockBadge">
+          <span>¡Últimas {effectiveStock}!</span>
+        </div>
+      )}
       {/* Editable actions */}
       {isEditable && (
         <div className="productCard__editActions">
@@ -105,17 +147,49 @@ export default function ProductCard({
         </div>
       )}
 
-      <div className={`productCard__media ${isOverlay ? 'productCard__media--overlay' : ''}`} aria-hidden="true">
-        {!isPolaroid && !isMinimal && (
-          <div className="productCard__badge">Popular</div>
+      <div 
+        className={`productCard__media ${isOverlay ? 'productCard__media--overlay' : ''}`} 
+        aria-hidden="true"
+      >
+        {/* Liquid Glass background effect cuando hay zoom < 1 */}
+        {product.imageUrl && product.focalPoint?.zoom && product.focalPoint.zoom < 1 && (
+          <>
+            <div 
+              className="productCard__liquidBg"
+              style={{
+                backgroundImage: `url(${product.imageUrl})`,
+              }}
+            />
+            <div 
+              className="productCard__liquidOverlay"
+              style={{
+                backgroundColor: product.focalPoint.bgColor || 'rgba(0,0,0,0.1)',
+              }}
+            />
+          </>
         )}
+        
         {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt=""
-            className="productCard__img"
-            loading="lazy"
-          />
+          product.focalPoint?.zoom && product.focalPoint.zoom !== 1 ? (
+            <div
+              className="productCard__img productCard__img--bg"
+              style={{
+                backgroundImage: `url(${product.imageUrl})`,
+                backgroundPosition: `${product.focalPoint.x}% ${product.focalPoint.y}%`,
+                backgroundSize: `${product.focalPoint.zoom * 100}%`,
+              }}
+            />
+          ) : (
+            <img
+              src={product.imageUrl}
+              alt=""
+              className="productCard__img"
+              loading="lazy"
+              style={product.focalPoint ? {
+                objectPosition: `${product.focalPoint.x}% ${product.focalPoint.y}%`
+              } : undefined}
+            />
+          )
         ) : (
           <div className="productCard__glyph">{(product.name || 'P')[0]?.toUpperCase()}</div>
         )}
@@ -126,18 +200,27 @@ export default function ProductCard({
             <h3 className="productCard__title">{product.name}</h3>
             <div className="productCard__price">${Number(product.price).toFixed(2)}</div>
             <div className="productCard__overlayActions">
-              {quantity > 0 && !disabled ? (
+              {isOutOfStock ? (
+                <span className="productCard__overlayOutOfStock">Sin stock</span>
+              ) : quantity > 0 && !isDisabled ? (
                 <div className="stepper stepper--overlay" role="group" aria-label="Cantidad">
                   <button className="stepper__btn" type="button" onClick={onRemove} aria-label="Quitar uno">−</button>
                   <span className="stepper__value">{quantity}</span>
-                  <button className="stepper__btn" type="button" onClick={onAdd} aria-label="Agregar uno">+</button>
+                  <button 
+                    className={`stepper__btn ${!canAddMore ? 'stepper__btn--disabled' : ''}`} 
+                    type="button" 
+                    onClick={canAddMore ? onAdd : undefined} 
+                    disabled={!canAddMore}
+                    aria-label="Agregar uno"
+                    title={!canAddMore ? `Stock insuficiente: quedan ${effectiveStock}` : 'Agregar uno'}
+                  >+</button>
                 </div>
               ) : (
                 <button 
-                  className={`productCard__overlayBtn ${disabled ? 'productCard__overlayBtn--disabled' : ''}`} 
+                  className={`productCard__overlayBtn ${isAddDisabled ? 'productCard__overlayBtn--disabled' : ''}`} 
                   type="button" 
-                  onClick={onAdd}
-                  disabled={disabled}
+                  onClick={!isAddDisabled ? onAdd : undefined}
+                  disabled={isAddDisabled}
                 >
                   {disabled ? '🔒' : '+'}
                 </button>
@@ -160,19 +243,35 @@ export default function ProductCard({
           )}
 
           <div className={`productCard__actions ${isMinimal ? 'productCard__actions--hover' : ''}`}>
-            {quantity > 0 && !disabled ? (
+            {isOutOfStock ? (
+              <span className="productCard__outOfStockText">Sin stock disponible</span>
+            ) : quantity > 0 && !isDisabled ? (
               <div className="stepper" role="group" aria-label="Cantidad">
                 <button className="stepper__btn" type="button" onClick={onRemove} aria-label="Quitar uno">−</button>
                 <span className="stepper__value">{quantity}</span>
-                <button className="stepper__btn" type="button" onClick={onAdd} aria-label="Agregar uno">+</button>
+                <button 
+                  className={`stepper__btn ${!canAddMore ? 'stepper__btn--disabled' : ''}`} 
+                  type="button" 
+                  onClick={canAddMore ? onAdd : undefined} 
+                  disabled={!canAddMore}
+                  aria-label="Agregar uno"
+                  title={!canAddMore ? `Stock insuficiente: quedan ${effectiveStock}` : 'Agregar uno'}
+                >+</button>
               </div>
             ) : (
-              <Button size="sm" onClick={onAdd} disabled={disabled}>
+              <Button size="sm" onClick={!isAddDisabled ? onAdd : undefined} disabled={isAddDisabled}>
                 {disabled ? '🔒 Cerrado' : isPolaroid ? '+' : 'Agregar'}
               </Button>
             )}
 
-            {!isMinimal && !isPolaroid && !isHorizontal && (
+            {/* Mensaje de stock máximo alcanzado */}
+            {wouldExceedStock && !isOutOfStock && quantity > 0 && (
+              <span className="productCard__stockLimitText">
+                Stock insuficiente: quedan {effectiveStock}
+              </span>
+            )}
+
+            {!isMinimal && !isPolaroid && !isHorizontal && !wouldExceedStock && (
               <span className="productCard__meta">Entrega 20–35 min</span>
             )}
           </div>

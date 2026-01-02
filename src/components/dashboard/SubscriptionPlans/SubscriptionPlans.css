@@ -222,6 +222,18 @@
   transform: none !important;
 }
 
+.planCard__cta--downgrade {
+  background: transparent;
+  border: 1px solid #f59e0b;
+  color: #b45309;
+}
+
+.planCard__cta--downgrade:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #d97706;
+  color: #92400e;
+}
+
 .planCard__current {
   text-align: center;
   font-size: 0.85rem;

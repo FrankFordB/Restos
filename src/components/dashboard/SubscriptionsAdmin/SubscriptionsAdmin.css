@@ -1,0 +1,277 @@
+.subscriptionsAdmin {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.subscriptionsAdmin__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.subscriptionsAdmin__header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.subscriptionsAdmin__refreshBtn {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.subscriptionsAdmin__refreshBtn:hover {
+  background: #e5e7eb;
+}
+
+/* Loading & Error */
+.subscriptionsAdmin__loading,
+.subscriptionsAdmin__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+
+.subscriptionsAdmin__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Summary Cards */
+.subscriptionsAdmin__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.subscriptionsAdmin__card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.subscriptionsAdmin__cardIcon {
+  font-size: 1.5rem;
+}
+
+.subscriptionsAdmin__cardContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.subscriptionsAdmin__cardValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.subscriptionsAdmin__cardLabel {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.subscriptionsAdmin__card--premium {
+  border-left: 4px solid #f59e0b;
+}
+
+.subscriptionsAdmin__card--pro {
+  border-left: 4px solid #8b5cf6;
+}
+
+.subscriptionsAdmin__card--warning {
+  border-left: 4px solid #f97316;
+}
+
+.subscriptionsAdmin__card--danger {
+  border-left: 4px solid #ef4444;
+}
+
+/* Filters */
+.subscriptionsAdmin__filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.subscriptionsAdmin__filterBtn {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.subscriptionsAdmin__filterBtn:hover {
+  background: #f3f4f6;
+}
+
+.subscriptionsAdmin__filterBtn.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+/* Table */
+.subscriptionsAdmin__table {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.subscriptionsAdmin__tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.subscriptionsAdmin__tableRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: center;
+}
+
+.subscriptionsAdmin__tableRow:last-child {
+  border-bottom: none;
+}
+
+.subscriptionsAdmin__tableRow:hover {
+  background: #fafafa;
+}
+
+.subscriptionsAdmin__tenantInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.subscriptionsAdmin__tenantName {
+  font-weight: 600;
+  color: #111827;
+}
+
+.subscriptionsAdmin__tenantSlug {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.subscriptionsAdmin__tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.subscriptionsAdmin__tier--premium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.subscriptionsAdmin__tier--premium_pro {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+/* Days remaining */
+.subscriptionsAdmin__days {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.subscriptionsAdmin__days--ok {
+  color: #059669;
+}
+
+.subscriptionsAdmin__days--warning {
+  color: #f97316;
+}
+
+.subscriptionsAdmin__days--critical {
+  color: #dc2626;
+}
+
+.subscriptionsAdmin__days--expired {
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.subscriptionsAdmin__date {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.subscriptionsAdmin__autoRenew--on {
+  color: #059669;
+  font-size: 0.875rem;
+}
+
+.subscriptionsAdmin__autoRenew--off {
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.subscriptionsAdmin__empty {
+  padding: 3rem;
+  text-align: center;
+  color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .subscriptionsAdmin__tableHeader {
+    display: none;
+  }
+
+  .subscriptionsAdmin__tableRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .subscriptionsAdmin__tenantInfo {
+    grid-column: 1 / -1;
+  }
+}

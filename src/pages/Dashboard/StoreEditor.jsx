@@ -16,30 +16,10 @@ import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTena
 import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
-import { SUBSCRIPTION_TIERS } from '../../shared/subscriptions'
+import { SUBSCRIPTION_TIERS, getActiveSubscriptionTier } from '../../shared/subscriptions'
 import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX } from 'lucide-react'
 
 const MOCK_TENANT_KEY = 'mock.tenantCustomization'
-
-function getActiveSubscriptionTier(tenant) {
-  if (!tenant) return SUBSCRIPTION_TIERS.FREE
-  
-  const tier = tenant.subscription_tier || SUBSCRIPTION_TIERS.FREE
-  const premiumUntil = tenant.premium_until
-  
-  if (tier !== SUBSCRIPTION_TIERS.FREE && premiumUntil) {
-    try {
-      const expiryDate = new Date(premiumUntil)
-      const now = new Date()
-      if (!isNaN(expiryDate.getTime()) && expiryDate > now) {
-        return tier
-      }
-    } catch (e) {
-      console.warn('Error calculando premium_until:', e)
-    }
-  }
-  return SUBSCRIPTION_TIERS.FREE
-}
 
 export default function StoreEditor() {
   const user = useAppSelector(selectUser)
@@ -188,8 +168,8 @@ export default function StoreEditor() {
     }
   }
 
-  // Cuando el usuario termina de recortar el logo
-  const handleLogoCropComplete = async (croppedImage) => {
+  // Cuando el usuario termina de ajustar el logo
+  const handleLogoCropComplete = async (imageSrc, focalPoint) => {
     setShowLogoCropper(false)
     setLogoCropperImage(null)
     setUploadingLogo(true)
@@ -198,14 +178,15 @@ export default function StoreEditor() {
     try {
       if (isSupabaseConfigured) {
         // Convertir base64 a File para subir
-        const response = await fetch(croppedImage)
+        const response = await fetch(imageSrc)
         const blob = await response.blob()
         const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' })
         const logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
         setTenantLogo(logoUrl)
+        // TODO: Guardar focalPoint para el logo si es necesario
       } else {
         // Mock: usar directamente el data URL
-        setTenantLogo(croppedImage)
+        setTenantLogo(imageSrc)
       }
     } catch (e) {
       setError(e?.message || 'Error al subir el logo')
@@ -554,7 +535,7 @@ export default function StoreEditor() {
                     disabled={uploadingLogo}
                   >
                     <Crop size={16} />
-                    Recortar
+                    Ajustar
                   </Button>
                 )}
               </div>

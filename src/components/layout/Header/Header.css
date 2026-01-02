@@ -443,6 +443,39 @@
   background: rgba(220, 38, 38, 0.08);
 }
 
+/* Plan menu item */
+.header__userMenuItem--plan {
+  display: flex;
+  align-items: center;
+}
+
+.header__userMenuItemContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.header__userMenuItemPlanBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+}
+
+.header__userMenuItemPlanBadge.free {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.header__userMenuItemPlanBadge.premium {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+}
+
 /* Responsive - En mobile no desplazar header */
 @media (max-width: 1024px) {
   .app--withSidebar .app__header {

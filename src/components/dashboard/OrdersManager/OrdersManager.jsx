@@ -7,8 +7,9 @@ import Input from '../../ui/Input/Input'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
+import { fetchCategoriesForTenant, selectCategoriesForTenant, patchCategory } from '../../../features/categories/categoriesSlice'
 import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus } from '../../../lib/supabaseApi'
-import { isSupabaseConfigured } from '../../../lib/supabaseClient'
+import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
 import {
@@ -18,6 +19,7 @@ import {
   Play,
   Plus,
   ChevronDown,
+  ChevronUp,
   Clock,
   CheckCircle,
   X,
@@ -33,6 +35,10 @@ import {
   ArrowLeft,
   ShoppingCart,
   AlertTriangle,
+  Package,
+  AlertCircle,
+  Infinity,
+  Edit2,
 } from 'lucide-react'
 
 const DELIVERY_TYPES = {
@@ -66,6 +72,7 @@ export default function OrdersManager({ tenantId }) {
   const dispatch = useAppDispatch()
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const products = useAppSelector(selectProductsForTenant(tenantId))
+  const categories = useAppSelector(selectCategoriesForTenant(tenantId))
   const visibleProducts = useMemo(() => products.filter((p) => p.active), [products])
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -73,6 +80,7 @@ export default function OrdersManager({ tenantId }) {
   const [filterStatus, setFilterStatus] = useState('all') // all, pending, in_progress, completed
   const [filterDelivery, setFilterDelivery] = useState('all') // all, mostrador, domicilio, mesa
   const [showConfigModal, setShowConfigModal] = useState(false)
+  const [showStockGlobalModal, setShowStockGlobalModal] = useState(false) // Modal de stock global
   const [showPaymentModal, setShowPaymentModal] = useState(null) // order ID
   const [selectedOrder, setSelectedOrder] = useState(null) // order object for detail modal
   
@@ -109,6 +117,9 @@ export default function OrdersManager({ tenantId }) {
   const [isPaused, setIsPaused] = useState(false)
   const [pauseMessage, setPauseMessage] = useState('')
   const [pauseLoading, setPauseLoading] = useState(false)
+  
+  // Estado del modal de stock de productos
+  const [showStockProductsModal, setShowStockProductsModal] = useState(false)
 
   // Cargar configuración desde Supabase al montar
   useEffect(() => {
@@ -152,12 +163,39 @@ export default function OrdersManager({ tenantId }) {
     if (tenantId) {
       dispatch(fetchOrdersForTenant(tenantId))
       dispatch(fetchProductsForTenant(tenantId))
+      dispatch(fetchCategoriesForTenant(tenantId))
     }
   }, [tenantId, dispatch])
 
   useEffect(() => {
     handleRefresh()
   }, [tenantId, handleRefresh])
+
+  // Suscripción realtime para stock de categorías
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !tenantId) return
+
+    const channel = supabase
+      .channel(`admin-categories-${tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'product_categories',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          // Recargar categorías cuando cambie el stock
+          dispatch(fetchCategoriesForTenant(tenantId))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [tenantId, dispatch])
 
   // Funciones del carrito para tienda embebida
   const addToCart = useCallback((productId) => {
@@ -303,6 +341,78 @@ export default function OrdersManager({ tenantId }) {
     }),
     [orders],
   )
+
+  // Calcular estadísticas de stock y ventas por producto
+  const stockStats = useMemo(() => {
+    // Obtener productos con stock limitado
+    const productsWithStock = products.filter(p => p.stock !== null && p.stock !== undefined)
+    
+    // Calcular cantidades vendidas por producto desde pedidos completados/en curso
+    const soldQuantities = {}
+    orders
+      .filter(o => o.status === 'completed' || o.status === 'in_progress')
+      .forEach(order => {
+        const items = order.items || order.order_items || []
+        items.forEach(item => {
+          const productId = item.product_id
+          if (!soldQuantities[productId]) {
+            soldQuantities[productId] = 0
+          }
+          soldQuantities[productId] += item.quantity || 1
+        })
+      })
+    
+    // Generar estadísticas por producto
+    const stats = productsWithStock.map(product => ({
+      id: product.id,
+      name: product.name,
+      currentStock: product.stock,
+      sold: soldQuantities[product.id] || 0,
+      isLow: product.stock <= 5 && product.stock > 0,
+      isOut: product.stock === 0,
+      category: product.category || 'Sin categoría',
+    }))
+    
+    // Ordenar: sin stock primero, luego stock bajo, luego por nombre
+    stats.sort((a, b) => {
+      if (a.isOut && !b.isOut) return -1
+      if (!a.isOut && b.isOut) return 1
+      if (a.isLow && !b.isLow) return -1
+      if (!a.isLow && b.isLow) return 1
+      return a.name.localeCompare(b.name)
+    })
+    
+    return {
+      products: stats,
+      totalWithStock: productsWithStock.length,
+      outOfStock: stats.filter(s => s.isOut).length,
+      lowStock: stats.filter(s => s.isLow).length,
+    }
+  }, [products, orders])
+
+  // Estadísticas de stock global por categoría
+  const categoryStockStats = useMemo(() => {
+    const catsWithStock = categories.filter(c => c.maxStock !== null && c.maxStock !== undefined)
+    return {
+      total: catsWithStock.length,
+      outOfStock: catsWithStock.filter(c => c.currentStock === 0).length,
+      lowStock: catsWithStock.filter(c => c.currentStock > 0 && c.currentStock <= 5).length,
+      categories: catsWithStock.map(c => ({
+        id: c.id,
+        name: c.name,
+        current: c.currentStock ?? 0,
+        max: c.maxStock,
+        isOut: c.currentStock === 0,
+        isLow: c.currentStock > 0 && c.currentStock <= 5,
+      })).sort((a, b) => {
+        if (a.isOut && !b.isOut) return -1
+        if (!a.isOut && b.isOut) return 1
+        if (a.isLow && !b.isLow) return -1
+        if (!a.isLow && b.isLow) return 1
+        return a.name.localeCompare(b.name)
+      })
+    }
+  }, [categories])
 
   const handleToggleDeliveryType = async (type) => {
     const newConfig = {
@@ -500,31 +610,15 @@ export default function OrdersManager({ tenantId }) {
 
   return (
     <div className="ordersManager">
-      {/* Header con acciones */}
+      
       <div className="ordersManager__header">
         <div className="ordersManager__titleRow">
           <h3 className="ordersManager__title">Gestión de Pedidos</h3>
         </div>
+
         <div className="ordersManager__actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRefresh}
-            title="Actualizar pedidos"
-          >
-            <RefreshCw size={16} />
-            Actualizar
-          </Button>
-          <div className="ordersManager__searchBox">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por ID, nombre o teléfono..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="ordersManager__searchInput"
-            />
-          </div>
+         
+          
           <Button
             variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
@@ -544,6 +638,48 @@ export default function OrdersManager({ tenantId }) {
             <Truck size={16} />
             Configurar
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowStockGlobalModal(true)}
+            title="Configurar stock global por categoría"
+            className="ordersManager__stockBtn"
+          >
+            <Package size={16} />
+            <span>Stock Global</span>
+            {categoryStockStats.outOfStock > 0 && (
+              <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--danger">
+                {categoryStockStats.outOfStock}
+              </span>
+            )}
+            {categoryStockStats.lowStock > 0 && (
+              <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--warning">
+                {categoryStockStats.lowStock}
+              </span>
+            )}
+          </Button>
+          {stockStats.totalWithStock > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowStockProductsModal(true)}
+              title="Ver stock de productos"
+              className="ordersManager__stockBtn"
+            >
+              <Package size={16} />
+              <span>Stock Productos</span>
+              {stockStats.outOfStock > 0 && (
+                <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--danger">
+                  {stockStats.outOfStock}
+                </span>
+              )}
+              {stockStats.lowStock > 0 && (
+                <span className="ordersManager__stockBtnBadge ordersManager__stockBtnBadge--warning">
+                  {stockStats.lowStock}
+                </span>
+              )}
+            </Button>
+          )}
           <Button size="sm" onClick={() => setShowCreateStore(true)}>
             <Plus size={16} />
             Crear Pedido
@@ -772,6 +908,31 @@ export default function OrdersManager({ tenantId }) {
       {/* Vista normal de pedidos (solo cuando NO estamos en modo tienda) */}
       {!showCreateStore && (
         <>
+          {/* Indicador de Stock Global en Vivo */}
+          {categoryStockStats.total > 0 && (
+            <div className="ordersManager__stockLive">
+              <div className="ordersManager__stockLiveHeader">
+                <Package size={16} />
+                <span>Stock Global en Vivo</span>
+              </div>
+              <div className="ordersManager__stockLiveItems">
+                {categoryStockStats.categories.map(cat => (
+                  <div 
+                    key={cat.id} 
+                    className={`ordersManager__stockLiveItem ${cat.isOut ? 'ordersManager__stockLiveItem--out' : cat.isLow ? 'ordersManager__stockLiveItem--low' : ''}`}
+                    onClick={() => setShowStockGlobalModal(true)}
+                    title="Click para editar stock"
+                  >
+                    <span className="ordersManager__stockLiveName">{cat.name}</span>
+                    <span className="ordersManager__stockLiveValue">
+                      {cat.current}/{cat.max}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        
           {/* Selector de tipo de filtro + Filtros */}
           <div className="ordersManager__filterGroup">
             <div className="ordersManager__filterHeader">
@@ -938,6 +1099,28 @@ export default function OrdersManager({ tenantId }) {
             </div>
           )}
 
+          <div className="ordersManager__searchRow">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              title="Actualizar pedidos"
+            >
+              <RefreshCw size={16} />
+              Actualizar
+            </Button>
+            <div className="ordersManager__searchBox">
+              <Search size={16} />
+              <input
+                type="text"
+                placeholder="Buscar por ID, nombre o teléfono..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="ordersManager__searchInput"
+              />
+            </div>
+          </div>
+
           {/* Lista de pedidos */}
           <div className="ordersManager__list">
             {/* Header de selección */}
@@ -994,6 +1177,23 @@ export default function OrdersManager({ tenantId }) {
           onSave={handleSavePauseStatus}
           onClose={() => setShowPauseModal(false)}
           loading={pauseLoading}
+        />
+      )}
+
+      {/* Modal Stock Global por categoría */}
+      {showStockGlobalModal && (
+        <StockGlobalModal
+          categories={categories}
+          tenantId={tenantId}
+          onClose={() => setShowStockGlobalModal(false)}
+        />
+      )}
+
+      {/* Modal Stock de Productos */}
+      {showStockProductsModal && (
+        <StockProductsModal
+          stockStats={stockStats}
+          onClose={() => setShowStockProductsModal(false)}
         />
       )}
 
@@ -2025,6 +2225,361 @@ function PauseStoreModal({ isPaused: initialIsPaused, pauseMessage: initialPause
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Modal para configurar stock global por categoría
+function StockGlobalModal({ categories, tenantId, onClose }) {
+  const dispatch = useAppDispatch()
+  const [loading, setLoading] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState(null) // { type: 'success' | 'error', message: string }
+  const [localCategories, setLocalCategories] = useState(
+    categories.map(cat => ({
+      ...cat,
+      maxStock: cat.maxStock ?? null,
+      currentStock: cat.currentStock ?? null,
+      isUnlimited: cat.maxStock === null || cat.maxStock === undefined
+    }))
+  )
+
+  const handleToggleUnlimited = (catId) => {
+    setLocalCategories(prev => prev.map(cat => {
+      if (cat.id === catId) {
+        const newUnlimited = !cat.isUnlimited
+        return {
+          ...cat,
+          isUnlimited: newUnlimited,
+          maxStock: newUnlimited ? null : (cat.maxStock || 100),
+          currentStock: newUnlimited ? null : (cat.currentStock ?? cat.maxStock ?? 100)
+        }
+      }
+      return cat
+    }))
+  }
+
+  // Cambiar el stock máximo (límite)
+  const handleChangeMaxStock = (catId, value) => {
+    const numValue = parseInt(value, 10)
+    if (isNaN(numValue) || numValue < 0) return
+    
+    setLocalCategories(prev => prev.map(cat => {
+      if (cat.id === catId) {
+        return { ...cat, maxStock: numValue }
+      }
+      return cat
+    }))
+  }
+
+  // Reiniciar el stock actual al máximo
+  const handleResetStock = (catId) => {
+    setLocalCategories(prev => prev.map(cat => {
+      if (cat.id === catId) {
+        return { ...cat, currentStock: cat.maxStock }
+      }
+      return cat
+    }))
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      // Guardar cambios de cada categoría
+      for (const cat of localCategories) {
+        const originalCat = categories.find(c => c.id === cat.id)
+        const patch = {}
+        
+        // Solo actualizar max_stock si cambió
+        if (cat.isUnlimited) {
+          patch.max_stock = null
+          patch.current_stock = null
+        } else {
+          patch.max_stock = cat.maxStock
+          // Solo actualizar current_stock si fue reiniciado explícitamente
+          // (comparando con el valor original)
+          if (cat.currentStock !== originalCat?.currentStock) {
+            patch.current_stock = cat.currentStock
+          }
+        }
+        
+        await dispatch(patchCategory({
+          tenantId,
+          categoryId: cat.id,
+          patch
+        })).unwrap()
+      }
+      setFeedbackModal({
+        type: 'success',
+        message: 'La configuración de stock se guardó correctamente.'
+      })
+    } catch (error) {
+      console.error('Error guardando stock:', error)
+      setFeedbackModal({
+        type: 'error',
+        message: 'Hubo un error al guardar la configuración de stock. Por favor, intenta nuevamente.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCloseFeedback = () => {
+    if (feedbackModal?.type === 'success') {
+      setFeedbackModal(null)
+      onClose()
+    } else {
+      setFeedbackModal(null)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
+    }
+  }
+
+  return (
+    <div className="modal__overlay">
+      <Card
+        className="modal__card"
+        title="Stock Global por Categoría"
+        actions={<button className="modal__close" onClick={onClose}>✕</button>}
+      >
+        <div className="modal__content">
+          <p className="muted" style={{ marginBottom: '20px' }}>
+            Configura el stock máximo por categoría. El stock actual se resta automáticamente con cada venta.
+          </p>
+          
+          {localCategories.length === 0 ? (
+            <p className="muted" style={{ textAlign: 'center', padding: '20px' }}>No hay categorías disponibles.</p>
+          ) : (
+            <div className="stockConfig__list">
+              {localCategories.map(cat => (
+                <div key={cat.id} className="stockConfig__item">
+                  <div className="stockConfig__icon">
+                    <Package size={24} />
+                  </div>
+                  <div className="stockConfig__info">
+                    <h4 className="stockConfig__label">
+                      {cat.name}
+                      {!cat.isUnlimited && cat.currentStock === 0 && (
+                        <span className="stockConfig__outBadge">Sin stock</span>
+                      )}
+                    </h4>
+                    <p className="stockConfig__description">
+                      {cat.isUnlimited ? (
+                        <span style={{ color: '#10b981' }}>∞ Stock ilimitado</span>
+                      ) : (
+                        <span>
+                          Actual: <strong style={{ color: cat.currentStock === 0 ? '#dc2626' : cat.currentStock <= 5 ? '#f59e0b' : '#10b981' }}>{cat.currentStock ?? 0}</strong> / Máx: {cat.maxStock ?? 0}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="stockConfig__controls">
+                    {!cat.isUnlimited && (
+                      <>
+                        <div className="stockConfig__inputWrapper stockConfig__inputWrapper--visible">
+                          <label className="stockConfig__inputLabel">Máx:</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={cat.maxStock ?? 0}
+                            onChange={(e) => handleChangeMaxStock(cat.id, e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="stockConfig__inlineInput"
+                            placeholder="Máx"
+                          />
+                        </div>
+                        <button
+                          className="stockConfig__resetBtn"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleResetStock(cat.id)
+                          }}
+                          title="Reiniciar stock al máximo"
+                          disabled={cat.currentStock === cat.maxStock}
+                        >
+                          <RefreshCw size={14} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      className={`stockConfig__toggle ${cat.isUnlimited ? 'stockConfig__toggle--on' : ''}`}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleToggleUnlimited(cat.id)
+                      }}
+                      title={cat.isUnlimited ? 'Ilimitado' : 'Limitado'}
+                    >
+                      <span className="stockConfig__toggleCircle">
+                        {cat.isUnlimited ? <Infinity size={12} /> : null}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="modal__actions">
+            <Button variant="secondary" onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }} disabled={loading}>
+              Cerrar
+            </Button>
+            <Button onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleSave()
+            }} disabled={loading}>
+              {loading ? 'Guardando...' : '✓ Guardar Configuración'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Modal de feedback */}
+      {feedbackModal && (
+        <div className="modal__overlay stockFeedback__overlay">
+          <Card
+            className="modal__card stockFeedback__card"
+            title={feedbackModal.type === 'success' ? '✓ Guardado' : '✕ Error'}
+            actions={<button className="modal__close" onClick={handleCloseFeedback}>✕</button>}
+          >
+            <div className="modal__content">
+              <div className={`stockFeedback__icon ${feedbackModal.type === 'success' ? 'stockFeedback__icon--success' : 'stockFeedback__icon--error'}`}>
+                {feedbackModal.type === 'success' ? <CheckCircle size={48} /> : <AlertTriangle size={48} />}
+              </div>
+              <p className="stockFeedback__message">{feedbackModal.message}</p>
+              <div className="modal__actions" style={{ justifyContent: 'center' }}>
+                <Button onClick={handleCloseFeedback}>
+                  {feedbackModal.type === 'success' ? 'Continuar' : 'Cerrar'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Modal para ver stock de productos
+function StockProductsModal({ stockStats, onClose }) {
+  const [filter, setFilter] = useState('all') // 'all', 'out', 'low'
+  
+  // Filtrar productos según selección
+  const filteredProducts = stockStats.products.filter(product => {
+    if (filter === 'out') return product.isOut
+    if (filter === 'low') return product.isLow && !product.isOut
+    return true
+  })
+
+  return (
+    <div className="modal__overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="stockProductsModal">
+        <div className="stockProductsModal__header">
+          <h3>Stock de Productos</h3>
+          <button className="modal__close" onClick={onClose}>✕</button>
+        </div>
+        
+        <div className="stockProductsModal__body">
+          {/* Badges de filtro clickeables */}
+          <div className="stockProducts__filters">
+            <button 
+              className={`stockProducts__filterBtn ${filter === 'all' ? 'stockProducts__filterBtn--active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              <Package size={18} />
+              <span className="stockProducts__filterValue">{stockStats.totalWithStock}</span>
+              <span className="stockProducts__filterLabel">Con stock</span>
+            </button>
+            {stockStats.outOfStock > 0 && (
+              <button 
+                className={`stockProducts__filterBtn stockProducts__filterBtn--danger ${filter === 'out' ? 'stockProducts__filterBtn--active' : ''}`}
+                onClick={() => setFilter('out')}
+              >
+                <AlertCircle size={18} />
+                <span className="stockProducts__filterValue">{stockStats.outOfStock}</span>
+                <span className="stockProducts__filterLabel">Sin stock</span>
+              </button>
+            )}
+            {stockStats.lowStock > 0 && (
+              <button 
+                className={`stockProducts__filterBtn stockProducts__filterBtn--warning ${filter === 'low' ? 'stockProducts__filterBtn--active' : ''}`}
+                onClick={() => setFilter('low')}
+              >
+                <AlertTriangle size={18} />
+                <span className="stockProducts__filterValue">{stockStats.lowStock}</span>
+                <span className="stockProducts__filterLabel">Stock bajo</span>
+              </button>
+            )}
+          </div>
+
+          {/* Lista de productos */}
+          <div className="stockProducts__listContainer">
+            {filteredProducts.length > 0 ? (
+              <div className="stockProducts__list">
+                {filteredProducts.map(product => (
+                  <div 
+                    key={product.id} 
+                    className={`stockProducts__item ${product.isOut ? 'stockProducts__item--out' : ''} ${product.isLow ? 'stockProducts__item--low' : ''}`}
+                  >
+                    <div className="stockProducts__itemIcon">
+                      <Package size={24} />
+                    </div>
+                    <div className="stockProducts__itemInfo">
+                      <h4 className="stockProducts__itemName">
+                        {product.name}
+                        {product.isOut && (
+                          <span className="stockProducts__badge stockProducts__badge--danger">Sin stock</span>
+                        )}
+                        {product.isLow && !product.isOut && (
+                          <span className="stockProducts__badge stockProducts__badge--warning">Stock bajo</span>
+                        )}
+                      </h4>
+                      <p className="stockProducts__itemCategory">{product.category}</p>
+                    </div>
+                    <div className="stockProducts__itemStats">
+                      <div className="stockProducts__stat">
+                        <span className="stockProducts__statLabel">Vendidos</span>
+                        <span className="stockProducts__statValue stockProducts__statValue--sold">{product.sold}</span>
+                      </div>
+                      <div className="stockProducts__stat">
+                        <span className="stockProducts__statLabel">Disponible</span>
+                        <span className={`stockProducts__statValue ${product.isOut ? 'stockProducts__statValue--out' : ''} ${product.isLow ? 'stockProducts__statValue--low' : ''}`}>
+                          {product.currentStock}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="stockProducts__empty">
+                <Package size={48} />
+                <p>
+                  {filter === 'out' ? 'No hay productos sin stock' : 
+                   filter === 'low' ? 'No hay productos con stock bajo' :
+                   'No hay productos con stock limitado configurado'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="stockProductsModal__footer">
+          <Button onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

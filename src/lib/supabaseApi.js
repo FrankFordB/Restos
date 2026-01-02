@@ -845,7 +845,7 @@ export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('products')
-    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
 
@@ -859,16 +859,17 @@ export async function insertProduct({ tenantId, product }) {
     .from('products')
     .insert({
       tenant_id: tenantId,
-      name: product.name,
-      price: product.price,
+      name: product.name || 'Producto sin nombre',
+      price: product.price ?? 0,
       description: product.description || null,
       image_url: product.imageUrl || null,
+      focal_point: product.focalPoint || null,
       category: product.category || null,
       stock: product.stock ?? null,
       active: product.active ?? true,
       product_extras: product.productExtras || [],
     })
-    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
     .single()
 
   if (error) throw error
@@ -884,6 +885,7 @@ export async function updateProductRow({ tenantId, productId, patch }) {
       ...('price' in patch ? { price: patch.price } : null),
       ...('description' in patch ? { description: patch.description } : null),
       ...('imageUrl' in patch ? { image_url: patch.imageUrl || null } : null),
+      ...('focalPoint' in patch ? { focal_point: patch.focalPoint || null } : null),
       ...('category' in patch ? { category: patch.category || null } : null),
       ...('stock' in patch ? { stock: patch.stock ?? null } : null),
       ...('active' in patch ? { active: patch.active } : null),
@@ -891,7 +893,7 @@ export async function updateProductRow({ tenantId, productId, patch }) {
     })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
-    .select('id, tenant_id, name, price, description, image_url, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
     .single()
 
   if (error) throw error
@@ -1021,10 +1023,12 @@ export async function updateCategoryRow({ tenantId, categoryId, patch }) {
       ...('description' in patch ? { description: patch.description } : null),
       ...('sortOrder' in patch ? { sort_order: patch.sortOrder } : null),
       ...('active' in patch ? { active: patch.active } : null),
+      ...('max_stock' in patch ? { max_stock: patch.max_stock } : null),
+      ...('current_stock' in patch ? { current_stock: patch.current_stock } : null),
     })
     .eq('tenant_id', tenantId)
     .eq('id', categoryId)
-    .select('id, tenant_id, name, description, sort_order, active')
+    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
     .single()
 
   if (error) throw error
@@ -1170,3 +1174,164 @@ export async function deleteExtraRow({ tenantId, extraId }) {
   const { error } = await supabase.from('extras').delete().eq('tenant_id', tenantId).eq('id', extraId)
   if (error) throw error
 }
+
+// =========================================
+// DOWNGRADE: Reset configurations to FREE
+// =========================================
+
+import {
+  FREE_DEFAULT_THEME,
+  FREE_DEFAULT_TENANT_SETTINGS,
+} from '../shared/subscriptions'
+
+// Reset theme to FREE defaults
+export async function resetThemeToFree(tenantId) {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('tenant_themes')
+    .upsert({
+      tenant_id: tenantId,
+      primary_color: FREE_DEFAULT_THEME.primary,
+      accent_color: FREE_DEFAULT_THEME.accent,
+      background_color: FREE_DEFAULT_THEME.background,
+      text_color: FREE_DEFAULT_THEME.text,
+      radius: FREE_DEFAULT_THEME.radius,
+      product_card_layout: FREE_DEFAULT_THEME.productCardLayout,
+      card_bg: null,
+      card_text: null,
+      card_desc: null,
+      card_price: null,
+      card_button: null,
+      hero_style: FREE_DEFAULT_THEME.heroStyle,
+      hero_slides: [],
+      hero_title_position: FREE_DEFAULT_THEME.heroTitlePosition,
+      hero_overlay_opacity: FREE_DEFAULT_THEME.heroOverlayOpacity,
+      hero_show_title: FREE_DEFAULT_THEME.heroShowTitle,
+      hero_show_subtitle: FREE_DEFAULT_THEME.heroShowSubtitle,
+      hero_show_cta: FREE_DEFAULT_THEME.heroShowCta,
+      hero_carousel_button_style: null,
+    })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Reset tenant mobile/customization settings to FREE defaults
+export async function resetTenantSettingsToFree(tenantId) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .update({
+        mobile_header_design: FREE_DEFAULT_TENANT_SETTINGS.mobile_header_design,
+        mobile_card_design: FREE_DEFAULT_TENANT_SETTINGS.mobile_card_design,
+        mobile_spacing_option: FREE_DEFAULT_TENANT_SETTINGS.mobile_spacing_option,
+        mobile_typography_option: FREE_DEFAULT_TENANT_SETTINGS.mobile_typography_option,
+        welcome_modal_features_design: FREE_DEFAULT_TENANT_SETTINGS.welcome_modal_features_design,
+      })
+      .eq('id', tenantId)
+      .select('id')
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (err) {
+    // If columns don't exist, just log and continue
+    console.warn('resetTenantSettingsToFree: Some columns may not exist', err.message)
+    return { id: tenantId }
+  }
+}
+
+// Complete reset to FREE tier (tier + theme + settings)
+export async function performDowngradeToFree(tenantId) {
+  ensureSupabase()
+  
+  // 1. Update subscription tier to FREE
+  const { error: tierError } = await supabase
+    .from('tenants')
+    .update({
+      subscription_tier: 'free',
+      premium_until: null,
+    })
+    .eq('id', tenantId)
+
+  if (tierError) throw tierError
+
+  // 2. Reset theme to FREE defaults
+  try {
+    await resetThemeToFree(tenantId)
+  } catch (err) {
+    console.warn('performDowngradeToFree: Error resetting theme', err)
+  }
+
+  // 3. Reset tenant settings to FREE defaults
+  try {
+    await resetTenantSettingsToFree(tenantId)
+  } catch (err) {
+    console.warn('performDowngradeToFree: Error resetting settings', err)
+  }
+
+  return { success: true, tenantId }
+}
+
+// Downgrade to PREMIUM (from PREMIUM_PRO)
+export async function performDowngradeToPremium(tenantId, premiumUntil = null) {
+  ensureSupabase()
+  
+  // 1. Update subscription tier to PREMIUM
+  const updateData = {
+    subscription_tier: 'premium',
+  }
+  
+  if (premiumUntil) {
+    updateData.premium_until = premiumUntil
+  }
+
+  const { error: tierError } = await supabase
+    .from('tenants')
+    .update(updateData)
+    .eq('id', tenantId)
+
+  if (tierError) throw tierError
+
+  // 2. Reset only PREMIUM_PRO specific theme settings
+  try {
+    const { data: currentTheme } = await supabase
+      .from('tenant_themes')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (currentTheme) {
+      // Reset only PRO-exclusive features
+      const proExclusiveLayouts = ['magazine', 'minimal', 'polaroid', 'banner']
+      const proExclusiveHeroStyles = ['parallax_depth', 'cube_rotate', 'reveal_wipe', 'zoom_blur']
+      
+      const updates = {}
+      
+      if (proExclusiveLayouts.includes(currentTheme.product_card_layout)) {
+        updates.product_card_layout = 'horizontal' // Default PREMIUM layout
+      }
+      
+      if (proExclusiveHeroStyles.includes(currentTheme.hero_style)) {
+        updates.hero_style = 'slide_fade' // Default PREMIUM hero
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await supabase
+          .from('tenant_themes')
+          .update(updates)
+          .eq('tenant_id', tenantId)
+      }
+    }
+  } catch (err) {
+    console.warn('performDowngradeToPremium: Error resetting theme', err)
+  }
+
+  return { success: true, tenantId }
+}
+

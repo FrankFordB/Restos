@@ -120,6 +120,14 @@ export default function StoreHeader({
       {/* Hero Content */}
       <div className="storeHeader__hero">
         {/* Background/Image - key forces re-mount for animation on slide change */}
+        {currentSlideData.imageUrl && currentSlideData.focalPoint?.zoom && currentSlideData.focalPoint.zoom < 1 && (
+          <div 
+            className="storeHeader__heroLiquid"
+            style={{
+              backgroundImage: `url(${currentSlideData.imageUrl})`,
+            }}
+          />
+        )}
         <div 
           key={`slide-bg-${currentSlide}`}
           className="storeHeader__heroBg"
@@ -127,6 +135,12 @@ export default function StoreHeader({
             backgroundImage: currentSlideData.imageUrl 
               ? `url(${currentSlideData.imageUrl})` 
               : `linear-gradient(135deg, ${theme?.primary || '#1a1a2e'} 0%, ${theme?.accent || '#f97316'} 100%)`,
+            backgroundPosition: currentSlideData.focalPoint 
+              ? `${currentSlideData.focalPoint.x}% ${currentSlideData.focalPoint.y}%` 
+              : 'center',
+            backgroundSize: currentSlideData.focalPoint?.zoom 
+              ? `${currentSlideData.focalPoint.zoom * 100}%` 
+              : 'cover',
           }}
         />
         

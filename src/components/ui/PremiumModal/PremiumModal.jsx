@@ -71,12 +71,32 @@ export default function PremiumModal({
   tenantId,
   tenantName,
   userEmail,
+  premiumUntil,
 }) {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const navigate = useNavigate()
+
+  // Formatear fecha de expiración
+  const formatExpirationDate = (dateString) => {
+    if (!dateString) return null
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return null
+      return date.toLocaleDateString('es-AR', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      })
+    } catch {
+      return null
+    }
+  }
+
+  const expirationDate = formatExpirationDate(premiumUntil)
+  const daysUntilExpiration = premiumUntil ? Math.ceil((new Date(premiumUntil) - new Date()) / (1000 * 60 * 60 * 24)) : null
 
   if (!open) return null
 
@@ -158,16 +178,51 @@ export default function PremiumModal({
 
   const isPremium = currentTier === SUBSCRIPTION_TIERS.PREMIUM
   const isPremiumPro = currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO
+  const hasActivePlan = isPremium || isPremiumPro
 
   return (
     <div className="premiumModal__overlay">
       <div className="premiumModal">
         <button className="premiumModal__close" onClick={onClose}>✕</button>
         
+        {/* Current Plan Summary - Solo si tiene un plan activo */}
+        {hasActivePlan && (
+          <div className="premiumModal__currentPlan" style={{ '--plan-color': TIER_COLORS[currentTier] }}>
+            <div className="premiumModal__currentPlanHeader">
+              <span className="premiumModal__currentPlanIcon">
+                {currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}
+              </span>
+              <div className="premiumModal__currentPlanInfo">
+                <h3 className="premiumModal__currentPlanTitle">Tu Plan: {TIER_LABELS[currentTier]}</h3>
+                {expirationDate && (
+                  <p className="premiumModal__currentPlanExpiry">
+                    {daysUntilExpiration > 0 ? (
+                      <>
+                        <span className="expiry-icon">📅</span>
+                        Válido hasta el <strong>{expirationDate}</strong>
+                        {daysUntilExpiration <= 7 && (
+                          <span className="expiry-warning"> ⚠️ ({daysUntilExpiration} días restantes)</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="expiry-expired">⚠️ Plan expirado</span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            {isPremium && (
+              <p className="premiumModal__upgradeHint">
+                💡 ¿Quieres más funciones? Actualiza a <strong>Premium Pro</strong> abajo.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="premiumModal__header">
           <h2 className="premiumModal__title">
             <span className="premiumModal__crown">👑</span>
-            Desbloquea todo el potencial
+            {hasActivePlan ? 'Gestiona tu suscripción' : 'Desbloquea todo el potencial'}
           </h2>
           <p className="premiumModal__subtitle">
             Elige el plan perfecto para hacer crecer tu restaurante

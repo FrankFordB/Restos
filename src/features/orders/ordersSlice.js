@@ -25,8 +25,43 @@ export const fetchOrdersForTenant = createAsyncThunk('orders/fetchOrdersForTenan
 
 export const createPaidOrder = createAsyncThunk(
   'orders/createPaidOrder',
-  async ({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }) => {
+  async ({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }, { dispatch, getState }) => {
     if (!isSupabaseConfigured) {
+      // En modo MOCK, disparamos acción para restar stock localmente
+      const stockUpdates = items
+        .filter((it) => it.productId)
+        .map((it) => ({
+          productId: it.productId,
+          quantity: it.qty || it.quantity || 1,
+        }))
+      
+      // También calcular actualizaciones de stock de categoría
+      const state = getState()
+      const products = state.products?.productsByTenantId?.[tenantId] || []
+      const categories = state.categories?.categoriesByTenantId?.[tenantId] || []
+      
+      // Agrupar por categoría
+      const categoryQuantities = {}
+      items.forEach(item => {
+        if (item.productId) {
+          const product = products.find(p => p.id === item.productId)
+          if (product?.category) {
+            const category = categories.find(c => c.name === product.category)
+            if (category?.currentStock !== null && category?.currentStock !== undefined) {
+              if (!categoryQuantities[category.id]) {
+                categoryQuantities[category.id] = 0
+              }
+              categoryQuantities[category.id] += item.qty || item.quantity || 1
+            }
+          }
+        }
+      })
+      
+      const categoryStockUpdates = Object.entries(categoryQuantities).map(([categoryId, qty]) => ({
+        categoryId,
+        quantity: qty,
+      }))
+      
       return {
         tenantId,
         order: {
@@ -44,6 +79,8 @@ export const createPaidOrder = createAsyncThunk(
           payment_method: paymentMethod || 'efectivo',
           items,
         },
+        stockUpdates, // Para que el reducer pueda actualizar stock en MOCK
+        categoryStockUpdates, // Para actualizar stock de categorías
       }
     }
 

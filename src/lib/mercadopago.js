@@ -16,14 +16,31 @@ const MP_CONFIG = {
   appUrl: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
 }
 
+// Debug: Log de configuración MP al cargar
+console.log('🔷 MercadoPago Config:', {
+  mode: MP_CONFIG.mode,
+  hasSandboxPublicKey: Boolean(MP_CONFIG.sandboxPublicKey),
+  hasSandboxAccessToken: Boolean(MP_CONFIG.sandboxAccessToken),
+  hasProductionPublicKey: Boolean(MP_CONFIG.publicKey),
+  hasProductionAccessToken: Boolean(MP_CONFIG.accessToken),
+  appUrl: MP_CONFIG.appUrl,
+})
+
 /**
  * Verifica si las credenciales de plataforma están configuradas
  */
 export const isPlatformMPConfigured = () => {
-  if (MP_CONFIG.mode === 'sandbox') {
-    return Boolean(MP_CONFIG.sandboxPublicKey && MP_CONFIG.sandboxAccessToken)
-  }
-  return Boolean(MP_CONFIG.publicKey && MP_CONFIG.accessToken)
+  const isConfigured = MP_CONFIG.mode === 'sandbox'
+    ? Boolean(MP_CONFIG.sandboxPublicKey && MP_CONFIG.sandboxAccessToken)
+    : Boolean(MP_CONFIG.publicKey && MP_CONFIG.accessToken)
+  
+  console.log('🔷 isPlatformMPConfigured:', isConfigured, {
+    mode: MP_CONFIG.mode,
+    sandboxPK: MP_CONFIG.sandboxPublicKey?.substring(0, 20) + '...',
+    sandboxAT: MP_CONFIG.sandboxAccessToken?.substring(0, 20) + '...',
+  })
+  
+  return isConfigured
 }
 
 /**
@@ -81,6 +98,9 @@ export const createSubscriptionPreference = async ({
   const periodLabel = billingPeriod === 'yearly' ? 'Anual' : 'Mensual'
   const tierLabel = planTier === 'premium_pro' ? 'Premium Pro' : 'Premium'
   
+  // Detectar si estamos en localhost (desarrollo)
+  const isLocalhost = MP_CONFIG.appUrl.includes('localhost') || MP_CONFIG.appUrl.includes('127.0.0.1')
+  
   const preference = {
     items: [
       {
@@ -95,12 +115,6 @@ export const createSubscriptionPreference = async ({
     payer: {
       email: payerEmail,
     },
-    back_urls: {
-      success: `${MP_CONFIG.appUrl}/payment/success?type=subscription&tenant=${tenantId}`,
-      failure: `${MP_CONFIG.appUrl}/payment/failure?type=subscription&tenant=${tenantId}`,
-      pending: `${MP_CONFIG.appUrl}/payment/pending?type=subscription&tenant=${tenantId}`,
-    },
-    auto_return: 'approved',
     external_reference: JSON.stringify({
       type: 'subscription',
       tenantId,
@@ -108,16 +122,25 @@ export const createSubscriptionPreference = async ({
       billingPeriod,
       amount,
     }),
-    notification_url: `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`,
     statement_descriptor: 'RESTOS',
-    expires: true,
-    expiration_date_from: new Date().toISOString(),
-    expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+    // SIEMPRE enviar back_urls - MercadoPago las usa para el botón "Volver al sitio"
+    back_urls: {
+      success: `${MP_CONFIG.appUrl}/payment/success?type=subscription&tenant=${tenantId}`,
+      failure: `${MP_CONFIG.appUrl}/payment/failure?type=subscription&tenant=${tenantId}`,
+      pending: `${MP_CONFIG.appUrl}/payment/pending?type=subscription&tenant=${tenantId}`,
+    },
   }
 
-  const apiUrl = isSandbox
-    ? 'https://api.mercadopago.com/checkout/preferences'
-    : 'https://api.mercadopago.com/checkout/preferences'
+  // auto_return solo funciona con URLs públicas (no localhost)
+  // En localhost, el usuario verá un botón "Volver al sitio" que debe clickear manualmente
+  if (!isLocalhost) {
+    preference.auto_return = 'approved'
+    preference.notification_url = `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`
+  }
+
+  console.log('🔷 Creando preferencia MP:', { isLocalhost, isSandbox, preference })
+
+  const apiUrl = 'https://api.mercadopago.com/checkout/preferences'
 
   const response = await fetch(apiUrl, {
     method: 'POST',

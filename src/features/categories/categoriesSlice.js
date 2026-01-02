@@ -22,6 +22,8 @@ const seed = isSupabaseConfigured
           description: 'Las mejores hamburguesas',
           sortOrder: 0,
           active: true,
+          maxStock: null,
+          currentStock: null,
         },
         {
           id: 'cat_demo_2',
@@ -29,6 +31,8 @@ const seed = isSupabaseConfigured
           description: 'Papas, aros y más',
           sortOrder: 1,
           active: true,
+          maxStock: null,
+          currentStock: null,
         },
         {
           id: 'cat_demo_3',
@@ -36,6 +40,8 @@ const seed = isSupabaseConfigured
           description: 'Refrescos y agua',
           sortOrder: 2,
           active: true,
+          maxStock: null,
+          currentStock: null,
         },
         {
           id: 'cat_demo_4',
@@ -43,6 +49,8 @@ const seed = isSupabaseConfigured
           description: 'Ofertas especiales',
           sortOrder: 3,
           active: true,
+          maxStock: null,
+          currentStock: null,
         },
       ],
     }
@@ -75,6 +83,8 @@ export const createCategory = createAsyncThunk(
         description: category.description || null,
         sort_order: category.sortOrder ?? 0,
         active: category.active ?? true,
+        max_stock: category.maxStock ?? null,
+        current_stock: category.maxStock ?? null, // inicializa igual al máximo
       }
       return { tenantId, row }
     }
@@ -89,6 +99,29 @@ export const patchCategory = createAsyncThunk(
     if (!isSupabaseConfigured) return { tenantId, categoryId, row: null, patch }
     const row = await updateCategoryRow({ tenantId, categoryId, patch })
     return { tenantId, categoryId, row }
+  },
+)
+
+export const decrementCategoryStock = createAsyncThunk(
+  'categories/decrementCategoryStock',
+  async ({ tenantId, categoryName, quantity }, { getState }) => {
+    // Buscar la categoría por nombre
+    const state = getState()
+    const categories = state.categories?.categoriesByTenantId?.[tenantId] || []
+    const category = categories.find(c => c.name === categoryName)
+    
+    if (!category || category.currentStock === null) {
+      return { tenantId, categoryId: null, newStock: null }
+    }
+    
+    const newStock = Math.max(0, (category.currentStock || 0) - quantity)
+    
+    if (!isSupabaseConfigured) {
+      return { tenantId, categoryId: category.id, newStock }
+    }
+    
+    await updateCategoryRow({ tenantId, categoryId: category.id, patch: { current_stock: newStock } })
+    return { tenantId, categoryId: category.id, newStock }
   },
 )
 
@@ -144,6 +177,8 @@ const categoriesSlice = createSlice({
           description: r.description,
           sortOrder: r.sort_order ?? 0,
           active: r.active,
+          maxStock: r.max_stock ?? null,
+          currentStock: r.current_stock ?? null,
         }))
         persist(state)
       })
@@ -159,6 +194,8 @@ const categoriesSlice = createSlice({
             description: row.description,
             sortOrder: row.sort_order ?? 0,
             active: row.active,
+            maxStock: row.max_stock ?? null,
+            currentStock: row.current_stock ?? null,
           })
           persist(state)
         }
@@ -175,6 +212,8 @@ const categoriesSlice = createSlice({
             description: row.description,
             sortOrder: row.sort_order ?? 0,
             active: row.active,
+            maxStock: row.max_stock ?? null,
+            currentStock: row.current_stock ?? null,
           }
         } else {
           list[idx] = { ...list[idx], ...patch }
@@ -186,6 +225,16 @@ const categoriesSlice = createSlice({
         const list = state.categoriesByTenantId[tenantId] || []
         state.categoriesByTenantId[tenantId] = list.filter((c) => c.id !== categoryId)
         persist(state)
+      })
+      .addCase(decrementCategoryStock.fulfilled, (state, action) => {
+        const { tenantId, categoryId, newStock } = action.payload
+        if (!categoryId) return
+        const list = state.categoriesByTenantId[tenantId] || []
+        const idx = list.findIndex((c) => c.id === categoryId)
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], currentStock: newStock }
+          persist(state)
+        }
       })
   },
 })

@@ -546,6 +546,66 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Category with global stock display */
+.store__categoryName {
+  white-space: nowrap;
+}
+
+.store__categoryStock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #dcfce7;
+  color: #16a34a;
+  white-space: nowrap;
+}
+
+.store__categoryStock--low {
+  background: #fef3c7;
+  color: #d97706;
+  animation: stockPulse 1.5s ease-in-out infinite;
+}
+
+.store__categoryStock--empty {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.store__categoryTab--outOfStock {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.store__categoryTab--outOfStock:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.store__categoryTab--lowStock {
+  border-color: #fcd34d;
+}
+
+.store__categoryTab--active .store__categoryStock {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.store__categoryTab--active.store__categoryTab--lowStock .store__categoryStock {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes stockPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 .store__categoryTab--add {
   padding: 10px 14px;
   border-style: dashed;
@@ -890,6 +950,20 @@
 .store__pausedRealtimeBtn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(220, 38, 38, 0.3);
+}
+
+/* Out of Stock Modal Styles */
+.store__outOfStockIcon {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+  color: #2563eb !important;
+}
+
+.store__outOfStockModal .store__pausedRealtimeBtn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.store__outOfStockModal .store__pausedRealtimeBtn:hover {
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
 }
 
 @media (max-width: 640px) {
@@ -2375,6 +2449,51 @@
   color: #991b1b;
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+/* Stock Error */
+.checkoutPage__stockError {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  animation: stockErrorPulse 2s ease-in-out infinite;
+}
+
+@keyframes stockErrorPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+
+.checkoutPage__stockErrorIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.checkoutPage__stockErrorContent {
+  flex: 1;
+}
+
+.checkoutPage__stockErrorContent strong {
+  display: block;
+  color: #92400e;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.checkoutPage__stockErrorContent p {
+  margin: 0 0 8px;
+  color: #b45309;
+  font-size: 0.9rem;
+}
+
+.checkoutPage__stockErrorHint {
+  font-size: 0.8rem !important;
+  color: #a16207 !important;
+  font-style: italic;
 }
 
 /* Action Buttons - Sticky Sidebar */

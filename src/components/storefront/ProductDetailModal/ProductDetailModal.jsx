@@ -10,8 +10,17 @@ export default function ProductDetailModal({
   onClose,
   onAddToCart,
   initialQuantity = 1,
+  currentCartQuantity = 0, // Cantidad actual en el carrito para este producto
 }) {
-  const [quantity, setQuantity] = useState(initialQuantity)
+  // Detectar si el producto está sin stock
+  const isOutOfStock = product.stock !== null && product.stock !== undefined && product.stock === 0
+  
+  // Calcular stock máximo disponible
+  const maxStock = product.stock !== null && product.stock !== undefined 
+    ? Math.max(0, product.stock - currentCartQuantity)
+    : Infinity
+  
+  const [quantity, setQuantity] = useState(Math.min(initialQuantity, maxStock || 1))
   // State for simple extras: { extraId: true/false }
   const [selectedExtras, setSelectedExtras] = useState({})
   // State for extras with options: { extraId: { optionId: string, option: object } }
@@ -198,16 +207,63 @@ export default function ProductDetailModal({
 
   return (
     <div className="productModal__overlay">
-      <div className="productModal">
+      <div className={`productModal ${isOutOfStock ? 'productModal--outOfStock' : ''}`}>
         {/* Close Button */}
         <button className="productModal__close" onClick={onClose}>
           <X size={24} />
         </button>
 
+        {/* Banner de Sin Stock */}
+        {isOutOfStock && (
+          <div className="productModal__outOfStockBanner">
+            <AlertCircle size={20} />
+            <span>Este producto está agotado</span>
+          </div>
+        )}
+
         {/* Product Image */}
         {product.imageUrl && (
-          <div className="productModal__image">
-            <img src={product.imageUrl} alt={product.name} />
+          <div 
+            className={`productModal__image ${isOutOfStock ? 'productModal__image--outOfStock' : ''}`}
+          >
+            {/* Liquid Glass background effect cuando hay zoom < 1 */}
+            {product.focalPoint?.zoom && product.focalPoint.zoom < 1 && (
+              <>
+                <div 
+                  className="productModal__liquidBg"
+                  style={{
+                    backgroundImage: `url(${product.imageUrl})`,
+                  }}
+                />
+                <div 
+                  className="productModal__liquidOverlay"
+                  style={{
+                    backgroundColor: product.focalPoint.bgColor || 'rgba(0,0,0,0.1)',
+                  }}
+                />
+              </>
+            )}
+            {product.focalPoint?.zoom && product.focalPoint.zoom !== 1 ? (
+              <div 
+                className="productModal__imgBg"
+                style={{
+                  backgroundImage: `url(${product.imageUrl})`,
+                  backgroundPosition: `${product.focalPoint.x}% ${product.focalPoint.y}%`,
+                  backgroundSize: `${product.focalPoint.zoom * 100}%`,
+                }}
+                role="img"
+                aria-label={product.name}
+              />
+            ) : (
+              <img 
+                src={product.imageUrl} 
+                alt={product.name}
+                style={product.focalPoint ? {
+                  objectPosition: `${product.focalPoint.x}% ${product.focalPoint.y}%`
+                } : undefined}
+              />
+            )}
+            {isOutOfStock && <div className="productModal__imageOverlay">AGOTADO</div>}
           </div>
         )}
 
@@ -377,33 +433,51 @@ export default function ProductDetailModal({
         {/* Footer */}
         <div className="productModal__footer">
           {/* Quantity Selector */}
-          <div className="productModal__quantity">
+          <div className={`productModal__quantity ${isOutOfStock ? 'productModal__quantity--disabled' : ''}`}>
             <button
               type="button"
               className="productModal__qtyBtn"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              disabled={quantity <= 1}
+              disabled={quantity <= 1 || isOutOfStock}
             >
               <Minus size={18} />
             </button>
-            <span className="productModal__qtyValue">{quantity}</span>
+            <span className="productModal__qtyValue">{isOutOfStock ? 0 : quantity}</span>
             <button
               type="button"
               className="productModal__qtyBtn"
-              onClick={() => setQuantity((q) => q + 1)}
+              onClick={() => setQuantity((q) => Math.min(q + 1, maxStock === Infinity ? q + 1 : maxStock))}
+              disabled={(maxStock !== Infinity && quantity >= maxStock) || isOutOfStock}
             >
               <Plus size={18} />
             </button>
           </div>
+          
+          {/* Stock warning */}
+          {maxStock !== Infinity && maxStock <= 5 && maxStock > 0 && (
+            <span className="productModal__stockWarning">
+              ¡Solo quedan {maxStock}!
+            </span>
+          )}
+          {maxStock === 0 && (
+            <span className="productModal__outOfStock">
+              Sin stock disponible
+            </span>
+          )}
 
           {/* Add Button */}
           <button
             type="button"
-            className={`productModal__addBtn ${allGroupsValid ? '' : 'productModal__addBtn--disabled'}`}
+            className={`productModal__addBtn ${!allGroupsValid || isOutOfStock ? 'productModal__addBtn--disabled' : ''}`}
             onClick={handleAddToCart}
-            disabled={!allGroupsValid}
+            disabled={!allGroupsValid || isOutOfStock}
           >
-            {allGroupsValid ? (
+            {isOutOfStock ? (
+              <>
+                <AlertCircle size={18} />
+                Producto sin stock
+              </>
+            ) : allGroupsValid ? (
               <>
                 Agregar al carrito
                 <span className="productModal__addPrice">{formatPrice(totalPrice)}</span>

@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button/Button'
 import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import ProductsManager from '../../components/dashboard/ProductsManager/ProductsManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
+import SubscriptionsAdmin from '../../components/dashboard/SubscriptionsAdmin/SubscriptionsAdmin'
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal'
 import {
   adminListProfiles,
@@ -653,6 +654,11 @@ export default function AdminDashboardPage() {
             </Button>
           </div>
         )}
+      </Card>
+
+      {/* Subscriptions Admin Section */}
+      <Card title="💳 Suscripciones Activas" style={{ marginTop: '1.5rem' }}>
+        <SubscriptionsAdmin />
       </Card>
 
       {/* Tier Assignment Modal */}

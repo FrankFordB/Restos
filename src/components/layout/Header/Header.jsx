@@ -224,9 +224,14 @@ FrankFood
                           <span className="header__userMenuItemIcon">👤</span>
                           Mi cuenta
                         </button>
-                        <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                          <span className="header__userMenuItemIcon">📋</span>
-                          Planes
+                        <button className="header__userMenuItem header__userMenuItem--plan" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
+                          <span className="header__userMenuItemIcon">{isPremiumUser ? (currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐') : '📋'}</span>
+                          <span className="header__userMenuItemContent">
+                            Mi Plan
+                            <span className={`header__userMenuItemPlanBadge ${isPremiumUser ? 'premium' : 'free'}`}>
+                              {isPremiumUser ? TIER_LABELS[currentTier] : 'Free'}
+                            </span>
+                          </span>
                         </button>
                         <button className="header__userMenuItem" onClick={() => handleMenuTabClick('account')}>
                           <span className="header__userMenuItemIcon">💳</span>
@@ -241,14 +246,18 @@ FrankFood
                       <div className="header__userMenuDivider"></div>
 
                       <div className="header__userMenuSection">
-                        <button className="header__userMenuItem header__userMenuItem--highlight" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                          <span className="header__userMenuItemIcon">⭐</span>
-                          Actualiza tu Plan
-                        </button>
-                        <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                          <span className="header__userMenuItemIcon">🧩</span>
-                          Obtén un Complemento
-                        </button>
+                        {!isPremiumUser && (
+                          <button className="header__userMenuItem header__userMenuItem--highlight" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
+                            <span className="header__userMenuItemIcon">✨</span>
+                            Hazte Premium
+                          </button>
+                        )}
+                        {isPremiumUser && currentTier !== SUBSCRIPTION_TIERS.PREMIUM_PRO && (
+                          <button className="header__userMenuItem header__userMenuItem--highlight" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
+                            <span className="header__userMenuItemIcon">👑</span>
+                            Actualiza a Premium Pro
+                          </button>
+                        )}
                       </div>
 
                       <div className="header__userMenuDivider"></div>
@@ -311,6 +320,10 @@ FrankFood
         open={showPremiumModal} 
         onClose={() => setShowPremiumModal(false)}
         currentTier={currentTier}
+        tenantId={user?.tenantId}
+        tenantName={currentTenant?.name}
+        userEmail={user?.email}
+        premiumUntil={currentTenant?.premium_until}
       />
 
       <ConfirmModal
