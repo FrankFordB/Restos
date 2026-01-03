@@ -188,7 +188,7 @@ export default function StoreCheckout({
             {/* Resumen del pedido */}
             <div className="storeCheckout__section">
               <h3 className="storeCheckout__sectionTitle">
-                <span>🛒</span> Tu Pedido
+                <span></span> Tu Pedido
               </h3>
               <div className="storeCheckout__orderItems">
                 {items.map((item, idx) => (
@@ -218,7 +218,7 @@ export default function StoreCheckout({
               /* Step 1: Datos del cliente */
               <div className="storeCheckout__section">
                 <h3 className="storeCheckout__sectionTitle">
-                  <span>👤</span> Tus Datos
+                  <span></span> Tus Datos
                 </h3>
                 
                 <div className="storeCheckout__field">
@@ -270,7 +270,7 @@ export default function StoreCheckout({
               /* Step 2: Método de pago */
               <div className="storeCheckout__section">
                 <h3 className="storeCheckout__sectionTitle">
-                  <span>💳</span> ¿Cómo vas a pagar?
+                  <span></span> ¿Cómo vas a pagar?
                 </h3>
 
                 <div className="storeCheckout__paymentMethods">
@@ -280,7 +280,7 @@ export default function StoreCheckout({
                     onClick={() => mpConfigured && setPaymentMethod('mercadopago')}
                   >
                     <div className="storeCheckout__paymentRadio" />
-                    <span className="storeCheckout__paymentIcon">💳</span>
+                    <span className="storeCheckout__paymentIcon"></span>
                     <div className="storeCheckout__paymentInfo">
                       <h4>
                         MercadoPago
@@ -301,7 +301,7 @@ export default function StoreCheckout({
                     onClick={() => setPaymentMethod('cash')}
                   >
                     <div className="storeCheckout__paymentRadio" />
-                    <span className="storeCheckout__paymentIcon">💵</span>
+                    <span className="storeCheckout__paymentIcon"></span>
                     <div className="storeCheckout__paymentInfo">
                       <h4>Efectivo</h4>
                       <p>Pago al recibir el pedido</p>

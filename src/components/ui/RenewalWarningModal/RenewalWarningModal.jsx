@@ -7,6 +7,7 @@ import {
   TIER_PRICES,
   getDowngradeLostFeatures,
 } from '../../../shared/subscriptions'
+import { Clock, AlertTriangle, Ban, RefreshCw, Lock, Lightbulb } from 'lucide-react'
 
 /**
  * Modal de advertencia de renovación de suscripción
@@ -47,7 +48,7 @@ export default function RenewalWarningModal({
       <div className="renewalModal__card">
         {/* Header con icono de alerta */}
         <div className="renewalModal__header">
-          <div className="renewalModal__icon">⏰</div>
+          <div className="renewalModal__icon"><Clock size={32} /></div>
           <h2 className="renewalModal__title">Tu suscripción está por vencer</h2>
           <div className="renewalModal__countdown">
             {daysRemaining <= 0 ? (
@@ -64,7 +65,7 @@ export default function RenewalWarningModal({
         <div className="renewalModal__content">
           {/* Alerta principal */}
           <div className="renewalModal__alert">
-            <span className="renewalModal__alertIcon">⚠️</span>
+            <span className="renewalModal__alertIcon"><AlertTriangle size={20} /></span>
             <div className="renewalModal__alertContent">
               <strong>¡Atención!</strong>
               <p>
@@ -85,7 +86,7 @@ export default function RenewalWarningModal({
           {/* Lo que perderás */}
           <div className="renewalModal__lostFeatures">
             <h4 className="renewalModal__lostFeaturesTitle">
-              🚫 Perderás acceso a:
+              <Ban size={16} /> Perderás acceso a:
             </h4>
             <ul className="renewalModal__featuresList">
               {lostFeatures.slice(0, 5).map((feature, idx) => (
@@ -127,7 +128,7 @@ export default function RenewalWarningModal({
 
           {/* Aviso de reset */}
           <div className="renewalModal__resetWarning">
-            <span className="renewalModal__resetIcon">🔄</span>
+            <span className="renewalModal__resetIcon"><RefreshCw size={18} /></span>
             <p>
               <strong>Si no renuevas:</strong> Tu tienda se reseteará automáticamente 
               a las configuraciones del plan Gratis. Tendrás que reconfigurar todo desde cero.
@@ -142,7 +143,7 @@ export default function RenewalWarningModal({
             onClick={handleRenew}
             disabled={loading}
           >
-            {loading ? 'Procesando...' : `🔒 Renovar por $${price}`}
+            {loading ? 'Procesando...' : <><Lock size={16} style={{ marginRight: 4 }} /> Renovar por ${price}</>}
           </Button>
           <Button
             variant="secondary"
@@ -155,7 +156,7 @@ export default function RenewalWarningModal({
 
         {/* Nota */}
         <div className="renewalModal__note">
-          💡 Al renovar, tu nueva suscripción comenzará desde la fecha de expiración actual, 
+          <Lightbulb size={16} style={{ marginRight: 4 }} /> Al renovar, tu nueva suscripción comenzará desde la fecha de expiración actual, 
           sin perder días.
         </div>
       </div>

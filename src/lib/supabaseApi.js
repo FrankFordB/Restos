@@ -1337,3 +1337,212 @@ export async function performDowngradeToPremium(tenantId, premiumUntil = null) {
   return { success: true, tenantId }
 }
 
+// ============================================================================
+// Order Limits System
+// ============================================================================
+
+// Fetch order limits status for a tenant
+export async function fetchOrderLimitsStatus(tenantId) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, subscription_tier, orders_limit, orders_remaining, orders_reset_date')
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw error
+    
+    return {
+      tenantId: data?.id,
+      tier: data?.subscription_tier || 'free',
+      limit: data?.orders_limit,
+      remaining: data?.orders_remaining,
+      resetDate: data?.orders_reset_date,
+      isUnlimited: data?.orders_limit === null,
+      canAcceptOrders: data?.orders_limit === null || (data?.orders_remaining ?? 0) > 0,
+    }
+  } catch (err) {
+    // If columns don't exist, return default (can accept orders)
+    console.warn('fetchOrderLimitsStatus: columns may not exist yet. Run migration add_order_limits.sql')
+    return {
+      tenantId,
+      tier: 'free',
+      limit: 15,
+      remaining: 15,
+      resetDate: null,
+      isUnlimited: false,
+      canAcceptOrders: true,
+    }
+  }
+}
+
+// Fetch order limits by slug (for storefront)
+export async function fetchOrderLimitsStatusBySlug(slug) {
+  ensureSupabase()
+  
+  try {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, subscription_tier, orders_limit, orders_remaining, orders_reset_date')
+      .eq('slug', slug)
+      .single()
+
+    if (error) throw error
+    
+    return {
+      tenantId: data?.id,
+      tier: data?.subscription_tier || 'free',
+      limit: data?.orders_limit,
+      remaining: data?.orders_remaining,
+      resetDate: data?.orders_reset_date,
+      isUnlimited: data?.orders_limit === null,
+      canAcceptOrders: data?.orders_limit === null || (data?.orders_remaining ?? 0) > 0,
+    }
+  } catch (err) {
+    // If columns don't exist, return default (can accept orders)
+    return {
+      tenantId: null,
+      tier: 'free',
+      limit: 15,
+      remaining: 15,
+      resetDate: null,
+      isUnlimited: false,
+      canAcceptOrders: true,
+    }
+  }
+}
+
+// Subscribe to order limits changes in real-time
+export function subscribeToOrderLimits(tenantId, callback) {
+  if (!isSupabaseConfigured) return () => {}
+  
+  console.log('🔔 Subscribing to order limits for tenant:', tenantId)
+  
+  const channel = supabase
+    .channel(`tenant-orders-${tenantId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tenants',
+        filter: `id=eq.${tenantId}`,
+      },
+      (payload) => {
+        console.log('🔔 Order limits REALTIME update received:', payload.new)
+        const newData = payload.new
+        callback({
+          tenantId: newData.id,
+          tier: newData.subscription_tier || 'free',
+          limit: newData.orders_limit,
+          remaining: newData.orders_remaining,
+          resetDate: newData.orders_reset_date,
+          isUnlimited: newData.orders_limit === null,
+          canAcceptOrders: newData.orders_limit === null || (newData.orders_remaining ?? 0) > 0,
+        })
+      }
+    )
+    .subscribe((status) => {
+      console.log('🔔 Order limits subscription status:', status)
+    })
+
+  // Return unsubscribe function
+  return () => {
+    console.log('🔔 Unsubscribing from order limits')
+    supabase.removeChannel(channel)
+  }
+}
+
+// ============================================================================
+// Subscription Expiration System
+// ============================================================================
+
+// Check if subscription is expired and downgrade to free if needed
+export async function checkAndFixSubscriptionExpiration(tenantId) {
+  ensureSupabase()
+  
+  try {
+    // First, get current tenant data
+    const { data: tenant, error: fetchError } = await supabase
+      .from('tenants')
+      .select('id, name, subscription_tier, premium_until, orders_limit, orders_remaining')
+      .eq('id', tenantId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!tenant) return null
+
+    // Check if subscription is expired
+    const isExpired = tenant.subscription_tier !== 'free' && 
+                      tenant.premium_until && 
+                      new Date(tenant.premium_until) < new Date()
+
+    if (isExpired) {
+      console.log('⚠️ Subscription expired for tenant:', tenant.name)
+      console.log('⚠️ premium_until:', tenant.premium_until, '< now')
+      
+      // Downgrade to free
+      const { data: updated, error: updateError } = await supabase
+        .from('tenants')
+        .update({
+          subscription_tier: 'free',
+          orders_limit: 15,
+          orders_remaining: Math.min(tenant.orders_remaining || 15, 15)
+        })
+        .eq('id', tenantId)
+        .select('id, name, subscription_tier, premium_until, orders_limit, orders_remaining')
+        .single()
+
+      if (updateError) {
+        console.error('Error downgrading subscription:', updateError)
+        // If update fails (e.g., RLS), just return the original with a flag
+        return {
+          ...tenant,
+          wasExpired: true,
+          needsAdminFix: true
+        }
+      }
+
+      console.log('✅ Tenant downgraded to free:', updated)
+      return {
+        ...updated,
+        wasExpired: true
+      }
+    }
+
+    return {
+      ...tenant,
+      wasExpired: false
+    }
+  } catch (err) {
+    console.error('Error checking subscription expiration:', err)
+    return null
+  }
+}
+
+// Check subscription status with expiration check (call this on dashboard load)
+export async function fetchTenantWithSubscriptionCheck(tenantId) {
+  ensureSupabase()
+  
+  try {
+    // Try to use the database function first
+    const { data, error } = await supabase
+      .rpc('get_tenant_with_subscription_check', { p_tenant_id: tenantId })
+
+    if (!error && data && data.length > 0) {
+      const tenant = data[0]
+      if (tenant.is_expired) {
+        console.log('⚠️ Subscription was expired and auto-corrected by database')
+      }
+      return tenant
+    }
+
+    // Fallback to manual check if RPC doesn't exist
+    return await checkAndFixSubscriptionExpiration(tenantId)
+  } catch (err) {
+    console.warn('RPC not available, using fallback:', err.message)
+    return await checkAndFixSubscriptionExpiration(tenantId)
+  }
+}

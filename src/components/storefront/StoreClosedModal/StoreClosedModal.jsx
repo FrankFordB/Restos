@@ -1,6 +1,7 @@
 import './StoreClosedModal.css'
-import { X, Clock, Calendar, AlertCircle, Pause } from 'lucide-react'
+import { X, Clock, Calendar, AlertCircle, Pause, ShoppingBag, Crown } from 'lucide-react'
 import { formatOpeningHours } from '../../../shared/openingHours'
+import { TIER_LABELS } from '../../../shared/subscriptions'
 
 export default function StoreClosedModal({ 
   isOpen, 
@@ -10,7 +11,13 @@ export default function StoreClosedModal({
   theme = {},
   tenantName = 'Restaurante',
   isPaused = false,
-  pauseMessage = ''
+  pauseMessage = '',
+  // Order limit props
+  isOrderLimitReached = false,
+  ordersRemaining = 0,
+  ordersLimit = 15,
+  subscriptionTier = 'free',
+  resetDate = null
 }) {
   if (!isOpen) return null
 
@@ -28,6 +35,83 @@ export default function StoreClosedModal({
     }
     return acc
   }, [])
+
+  // Format reset date for display (now daily)
+  const formatResetDate = (dateStr) => {
+    if (!dateStr) return 'mañana a las 00:00'
+    const date = new Date(dateStr)
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    const isTomorrow = date.toDateString() === new Date(now.getTime() + 86400000).toDateString()
+    
+    if (isToday) return 'hoy a las 00:00'
+    if (isTomorrow) return 'mañana a las 00:00'
+    
+    return date.toLocaleDateString('es-ES', { 
+      weekday: 'long',
+      day: 'numeric', 
+      month: 'long'
+    }) + ' a las 00:00'
+  }
+
+  // If order limit reached, show that message
+  if (isOrderLimitReached) {
+    return (
+      <div className="storeClosedModal__overlay">
+        <div 
+          className="storeClosedModal storeClosedModal--orderLimit"
+          style={{ '--modal-accent': '#ef4444', '--modal-primary': primaryColor }}
+        >
+          {/* Header with themed gradient */}
+          <div className="storeClosedModal__header storeClosedModal__header--orderLimit">
+            <button className="storeClosedModal__close" onClick={onClose}>
+              <X size={20} />
+            </button>
+            <div className="storeClosedModal__icon storeClosedModal__icon--orderLimit">
+              <ShoppingBag size={32} />
+            </div>
+            <h2 className="storeClosedModal__title">Límite de pedidos alcanzado</h2>
+            <p className="storeClosedModal__subtitle">{tenantName}</p>
+          </div>
+
+          {/* Body */}
+          <div className="storeClosedModal__body">
+            <div className="storeClosedModal__message storeClosedModal__message--orderLimit">
+              <AlertCircle size={18} />
+              <p>
+                Lo sentimos, esta tienda ha alcanzado el límite de pedidos de hoy. Plan{' '}
+                <strong>{TIER_LABELS[subscriptionTier] || 'Gratis'}</strong> ({ordersLimit} pedidos/día).
+              </p>
+            </div>
+
+            <div className="storeClosedModal__orderLimitInfo">
+              <div className="storeClosedModal__orderLimitStat">
+                <span className="storeClosedModal__orderLimitLabel">Pedidos usados</span>
+                <span className="storeClosedModal__orderLimitValue">{ordersLimit} / {ordersLimit}</span>
+              </div>
+              {resetDate && (
+                <div className="storeClosedModal__orderLimitReset">
+                  <Clock size={16} />
+                  <span>Los pedidos se renuevan {formatResetDate(resetDate)}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="storeClosedModal__orderLimitSuggestion">
+              ¡Vuelve mañana! Los pedidos se renuevan cada día a la medianoche.
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="storeClosedModal__footer">
+            <button className="storeClosedModal__button" onClick={onClose}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // If store is paused, show pause message instead of schedule
   if (isPaused) {

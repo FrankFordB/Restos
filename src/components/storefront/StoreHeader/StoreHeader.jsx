@@ -4,6 +4,7 @@ import './StoreHeader.css'
 import { STORE_HERO_STYLES } from '../../../shared/subscriptions'
 import { checkIsStoreOpen } from '../../../shared/openingHours'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import OrdersRemainingBadge from '../OrdersRemainingBadge/OrdersRemainingBadge'
 
 export default function StoreHeader({
   tenant,
@@ -19,6 +20,8 @@ export default function StoreHeader({
   cart = {},
   onOpenCart,
   openingHours = [],
+  // Order limits props
+  orderLimitsStatus = null,
 }) {
   // Debug: ver qué valores recibe el componente
   console.log('[StoreHeader] Props recibidas:', { showTitle, showSubtitle, showCta })
@@ -103,6 +106,17 @@ export default function StoreHeader({
         </div>
 
         <div className="storeHeader__actions">
+          {/* Orders Remaining Badge */}
+          {orderLimitsStatus && !orderLimitsStatus.isUnlimited && (
+            <OrdersRemainingBadge
+              remaining={orderLimitsStatus.remaining}
+              limit={orderLimitsStatus.limit}
+              tier={orderLimitsStatus.tier}
+              isUnlimited={orderLimitsStatus.isUnlimited}
+              size="small"
+            />
+          )}
+          
           {/* Open/Closed Badge */}
           {!storeStatus.noSchedule && (
             <span className={`storeHeader__statusBadge ${storeStatus.isOpen ? 'storeHeader__statusBadge--open' : 'storeHeader__statusBadge--closed'}`}>

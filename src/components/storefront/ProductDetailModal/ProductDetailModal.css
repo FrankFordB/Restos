@@ -17,13 +17,20 @@
   background: var(--card-bg, #ffffff);
   border-radius: 16px;
   width: 100%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+/* Modal más amplio en pantallas grandes */
+@media (min-width: 1024px) {
+  .productModal {
+    max-width: 700px;
+  }
 }
 
 /* Modal sin stock */

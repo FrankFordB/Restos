@@ -21,6 +21,8 @@ import {
   Layers,
   CreditCard,
   Crown,
+  ShoppingBag,
+  Infinity,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -51,6 +53,8 @@ export default function Sidebar({
   isCollapsed = false,
   onCollapsedChange,
   onPendingOrdersClick,
+  // Order limits props
+  orderLimitsStatus = null,
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const navigate = useNavigate()
@@ -142,7 +146,20 @@ export default function Sidebar({
             {MENU_ITEMS.map((item) => {
               const Icon = item.icon
               const isActive = activeTab === item.id
-              const showBadge = item.id === 'orders' && pendingOrdersCount > 0
+              const showPendingBadge = item.id === 'orders' && pendingOrdersCount > 0
+              const showOrderLimitsBadge = item.id === 'orders' && orderLimitsStatus && !orderLimitsStatus.isUnlimited
+              
+              // Calculate order limits urgency
+              const getOrderLimitsUrgency = () => {
+                if (!orderLimitsStatus || orderLimitsStatus.isUnlimited) return 'normal'
+                const { remaining, limit } = orderLimitsStatus
+                if (remaining <= 0) return 'empty'
+                const percentage = limit > 0 ? (remaining / limit) * 100 : 0
+                if (percentage <= 20) return 'critical'
+                if (percentage <= 40) return 'warning'
+                return 'normal'
+              }
+              const orderLimitsUrgency = getOrderLimitsUrgency()
               
               return (
                 <li key={item.id}>
@@ -153,7 +170,7 @@ export default function Sidebar({
                   >
                     <span className="sidebar__menuIcon">
                       <Icon size={20} />
-                      {showBadge && (
+                      {showPendingBadge && (
                         <span 
                           className="sidebar__ordersBadge"
                           onClick={(e) => {
@@ -169,7 +186,7 @@ export default function Sidebar({
                     {!isCollapsed && (
                       <span className="sidebar__menuLabel">{item.label}</span>
                     )}
-                    {!isCollapsed && showBadge && (
+                    {!isCollapsed && showPendingBadge && (
                       <span 
                         className="sidebar__ordersCount"
                         onClick={(e) => {
@@ -183,6 +200,32 @@ export default function Sidebar({
                     )}
                     {isActive && <span className="sidebar__menuIndicator" />}
                   </button>
+                  
+                  {/* Order Limits Badge - Only show for orders menu item */}
+                  {item.id === 'orders' && showOrderLimitsBadge && !isCollapsed && (
+                    <div 
+                      className={`sidebar__orderLimitsBadge sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
+                      title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
+                    >
+                      <ShoppingBag size={14} />
+                      <span className="sidebar__orderLimitsCount">
+                        {orderLimitsStatus.remaining}
+                      </span>
+                      <span className="sidebar__orderLimitsLabel">
+                        pedidos hoy
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Collapsed version of order limits */}
+                  {item.id === 'orders' && showOrderLimitsBadge && isCollapsed && (
+                    <div 
+                      className={`sidebar__orderLimitsBadgeCollapsed sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
+                      title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
+                    >
+                      {orderLimitsStatus.remaining}
+                    </div>
+                  )}
                 </li>
               )
             })}

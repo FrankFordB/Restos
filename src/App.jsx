@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout/AppLayout'
 import RequireAuth from './shared/guards/RequireAuth'
 import RequireRole from './shared/guards/RequireRole'
+import RedirectIfAuth from './shared/guards/RedirectIfAuth'
 import { ROLES } from './shared/constants'
 
 import HomePage from './pages/Home/HomePage'
@@ -16,6 +17,7 @@ import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
 import NotFoundPage from './pages/System/NotFoundPage'
 import PaymentResult from './pages/Payment/PaymentResult'
+import { TermsPage, PrivacyPage, CookiesPage, ReturnsPage } from './pages/Legal'
 
 export default function App() {
   return (
@@ -24,8 +26,15 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/restaurantes" element={<DirectoryPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
+          <Route path="/register" element={<RedirectIfAuth><RegisterPage /></RedirectIfAuth>} />
+          
+          {/* Páginas legales */}
+          <Route path="/terminos" element={<TermsPage />} />
+          <Route path="/privacidad" element={<PrivacyPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
+          <Route path="/devoluciones" element={<ReturnsPage />} />
+
           <Route path="/r/:slug" element={<TenantHomePage />} />
           <Route path="/store/:slug" element={<StorefrontPage />} />
           <Route path="/tienda/:slug" element={<StorefrontPage />} />

@@ -1,0 +1,159 @@
+.ordersRemainingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 0.85rem;
+  color: #374151;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Size variants */
+.ordersRemainingBadge--small {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  gap: 4px;
+  border-radius: 8px;
+}
+
+.ordersRemainingBadge--large {
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  gap: 10px;
+  border-radius: 16px;
+}
+
+.ordersRemainingBadge__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tier-color, #64748b);
+}
+
+.ordersRemainingBadge__content {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.ordersRemainingBadge__count {
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+.ordersRemainingBadge__label {
+  color: #6b7280;
+  font-size: 0.9em;
+}
+
+/* Progress bar */
+.ordersRemainingBadge__progressContainer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.ordersRemainingBadge__progress {
+  height: 100%;
+  background: var(--tier-color, #64748b);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.3s ease;
+}
+
+/* Urgency states */
+.ordersRemainingBadge--normal .ordersRemainingBadge__count {
+  color: #059669;
+}
+
+.ordersRemainingBadge--normal .ordersRemainingBadge__progress {
+  background: #10b981;
+}
+
+.ordersRemainingBadge--warning {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.ordersRemainingBadge--warning .ordersRemainingBadge__count {
+  color: #d97706;
+}
+
+.ordersRemainingBadge--warning .ordersRemainingBadge__progress {
+  background: #f59e0b;
+}
+
+.ordersRemainingBadge--critical {
+  border-color: rgba(239, 68, 68, 0.3);
+  animation: pulse-critical 2s ease-in-out infinite;
+}
+
+.ordersRemainingBadge--critical .ordersRemainingBadge__count {
+  color: #dc2626;
+}
+
+.ordersRemainingBadge--critical .ordersRemainingBadge__progress {
+  background: #ef4444;
+}
+
+.ordersRemainingBadge--empty {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(254, 226, 226, 0.9);
+}
+
+.ordersRemainingBadge--empty .ordersRemainingBadge__count {
+  color: #991b1b;
+}
+
+.ordersRemainingBadge--empty .ordersRemainingBadge__icon {
+  color: #dc2626;
+}
+
+.ordersRemainingBadge--unlimited {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.ordersRemainingBadge--unlimited .ordersRemainingBadge__text {
+  font-weight: 600;
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ordersRemainingBadge--unlimited .ordersRemainingBadge__icon {
+  color: #8b5cf6;
+}
+
+.ordersRemainingBadge--unlimited .ordersRemainingBadge__progressContainer {
+  display: none;
+}
+
+@keyframes pulse-critical {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    box-shadow: 0 2px 16px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .ordersRemainingBadge {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+  
+  .ordersRemainingBadge__label {
+    display: none;
+  }
+}

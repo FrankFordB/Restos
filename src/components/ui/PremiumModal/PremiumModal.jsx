@@ -183,14 +183,14 @@ export default function PremiumModal({
   return (
     <div className="premiumModal__overlay">
       <div className="premiumModal">
-        <button className="premiumModal__close" onClick={onClose}>✕</button>
+        <button className="premiumModal__close" onClick={onClose}><XIcon size={20} /></button>
         
         {/* Current Plan Summary - Solo si tiene un plan activo */}
         {hasActivePlan && (
           <div className="premiumModal__currentPlan" style={{ '--plan-color': TIER_COLORS[currentTier] }}>
             <div className="premiumModal__currentPlanHeader">
               <span className="premiumModal__currentPlanIcon">
-                {currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}
+                {currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? <Crown size={24} /> : <Star size={24} />}
               </span>
               <div className="premiumModal__currentPlanInfo">
                 <h3 className="premiumModal__currentPlanTitle">Tu Plan: {TIER_LABELS[currentTier]}</h3>
@@ -198,14 +198,14 @@ export default function PremiumModal({
                   <p className="premiumModal__currentPlanExpiry">
                     {daysUntilExpiration > 0 ? (
                       <>
-                        <span className="expiry-icon">📅</span>
+                        <span className="expiry-icon"><Star size={14} /></span>
                         Válido hasta el <strong>{expirationDate}</strong>
                         {daysUntilExpiration <= 7 && (
-                          <span className="expiry-warning"> ⚠️ ({daysUntilExpiration} días restantes)</span>
+                          <span className="expiry-warning"> <AlertTriangle size={14} /> ({daysUntilExpiration} días restantes)</span>
                         )}
                       </>
                     ) : (
-                      <span className="expiry-expired">⚠️ Plan expirado</span>
+                      <span className="expiry-expired"><AlertTriangle size={14} /> Plan expirado</span>
                     )}
                   </p>
                 )}
@@ -213,7 +213,7 @@ export default function PremiumModal({
             </div>
             {isPremium && (
               <p className="premiumModal__upgradeHint">
-                💡 ¿Quieres más funciones? Actualiza a <strong>Premium Pro</strong> abajo.
+                <Lightbulb size={16} /> ¿Quieres más funciones? Actualiza a <strong>Premium Pro</strong> abajo.
               </p>
             )}
           </div>
@@ -221,7 +221,7 @@ export default function PremiumModal({
 
         <div className="premiumModal__header">
           <h2 className="premiumModal__title">
-            <span className="premiumModal__crown">👑</span>
+            <span className="premiumModal__crown"><Crown size={28} /></span>
             {hasActivePlan ? 'Gestiona tu suscripción' : 'Desbloquea todo el potencial'}
           </h2>
           <p className="premiumModal__subtitle">
@@ -280,7 +280,7 @@ export default function PremiumModal({
               <div className="premiumModal__notIncluded">
                 <span className="notIncluded-label">No incluido:</span>
                 {PLAN_FEATURES[SUBSCRIPTION_TIERS.PREMIUM].notIncluded.slice(0, 3).map((f, i) => (
-                  <span key={i} className="notIncluded-item">❌ {f}</span>
+                  <span key={i} className="notIncluded-item"><XIcon size={12} /> {f}</span>
                 ))}
                 {PLAN_FEATURES[SUBSCRIPTION_TIERS.PREMIUM].notIncluded.length > 3 && (
                   <span className="notIncluded-more">
@@ -306,7 +306,7 @@ export default function PremiumModal({
             onClick={() => !isPremiumPro && handleSelectPlan(SUBSCRIPTION_TIERS.PREMIUM_PRO)}
             style={{ '--plan-color': PLAN_FEATURES[SUBSCRIPTION_TIERS.PREMIUM_PRO].color }}
           >
-            <div className="premiumModal__popularBadge">🔥 Más popular</div>
+            <div className="premiumModal__popularBadge"><Flame size={14} /> Más popular</div>
             {isPremiumPro && <div className="premiumModal__currentBadge">Tu plan actual</div>}
             <div className="premiumModal__planIcon">{PLAN_FEATURES[SUBSCRIPTION_TIERS.PREMIUM_PRO].icon}</div>
             <h3 className="premiumModal__planName">{TIER_LABELS[SUBSCRIPTION_TIERS.PREMIUM_PRO]}</h3>
@@ -355,7 +355,7 @@ export default function PremiumModal({
                 marginBottom: '1rem',
                 textAlign: 'center',
               }}>
-                ⚠️ {error}
+                <AlertTriangle size={16} style={{ marginRight: 4 }} /> {error}
               </div>
             )}
             <Button 
@@ -365,9 +365,9 @@ export default function PremiumModal({
               disabled={loading}
             >
               {loading ? (
-                '⏳ Procesando...'
+                'Procesando...'
               ) : (
-                <>🚀 Continuar con {TIER_LABELS[selectedPlan]} - {billingCycle === 'monthly' 
+                <>Continuar con {TIER_LABELS[selectedPlan]} - {billingCycle === 'monthly' 
                   ? PLAN_FEATURES[selectedPlan].price 
                   : PLAN_FEATURES[selectedPlan].yearlyPrice}</>
               )}
@@ -375,7 +375,7 @@ export default function PremiumModal({
             <p className="premiumModal__ctaNote">
               {isPlatformMPConfigured() 
                 ? 'Pago seguro con MercadoPago · Cancela cuando quieras'
-                : '🧪 Modo Demo: Suscripción simulada'
+                : 'Modo Demo: Suscripción simulada'
               }
             </p>
           </div>
@@ -384,7 +384,7 @@ export default function PremiumModal({
         {/* Comparison Link */}
         <div className="premiumModal__footer">
           <span className="premiumModal__guarantee">
-            🛡️ Garantía de devolución de 30 días
+            <Shield size={16} style={{ marginRight: 4 }} /> Garantía de devolución de 30 días
           </span>
         </div>
       </div>

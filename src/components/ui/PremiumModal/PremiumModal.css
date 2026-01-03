@@ -11,12 +11,12 @@
   padding: 16px;
 }
 
-/* Modal Container - Compacto */
+/* Modal Container - Más amplio en PC */
 .premiumModal {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  max-width: 700px;
+  max-width: 900px;
   width: 100%;
   max-height: calc(100vh - 32px);
   overflow-y: auto;

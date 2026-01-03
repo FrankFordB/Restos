@@ -20,7 +20,7 @@
   background: var(--surface, #1a1a2e);
   border-radius: 16px;
   width: 90%;
-  max-width: 700px;
+  max-width: 850px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;

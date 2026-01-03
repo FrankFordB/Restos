@@ -4,6 +4,7 @@ import Header from '../Header/Header'
 import Footer from '../Footer/Footer'
 import ThemeApplier from '../../theme/ThemeApplier'
 import ConfirmModal from '../../ui/ConfirmModal/ConfirmModal'
+import LoginWelcomeModal from '../../ui/LoginWelcomeModal/LoginWelcomeModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { clearBannedInfo, clearWelcomeInfo, selectAuth, signOut } from '../../../features/auth/authSlice'
 import { DashboardProvider, useDashboard } from '../../../contexts/DashboardContext'
@@ -50,15 +51,10 @@ Cuenta: ${bannedEmail}` : bannedMessage}
         onConfirm={null}
         onCancel={null}
       />
-      <ConfirmModal
+      <LoginWelcomeModal
         open={showWelcomeModal}
-        title="¡Bienvenido!"
-        message={welcomeInfo?.message || ''}
-        confirmLabel="Explorar"
-        confirmVariant="primary"
-        cancelLabel={null}
-        onConfirm={() => dispatch(clearWelcomeInfo())}
-        onCancel={() => dispatch(clearWelcomeInfo())}
+        onClose={() => dispatch(clearWelcomeInfo())}
+        userName={user?.email}
       />
       <ThemeApplier tenantId={tenantId} key={location.pathname} />
       {showGlobalHeader && <Header onTabChange={dashboard?.changeTab} />}

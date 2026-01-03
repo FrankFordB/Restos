@@ -6,6 +6,11 @@
   color: var(--text);
 }
 
+/* Auth pages background - applied to app but header/footer have their own styles */
+.app:has(.authPage) {
+  background: #f8fafc;
+}
+
 /* Cuando hay sidebar, el header se desplaza a la derecha */
 .app--withSidebar .app__header {
   margin-left: 260px;
@@ -20,6 +25,13 @@
 .app__main {
   flex: 1;
   padding: 32px 0;
+}
+
+/* Legal pages - full width, no container padding */
+.app__main:has(.legalPage) {
+  padding: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 /* Store pages - full width, no padding */

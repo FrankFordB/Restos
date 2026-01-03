@@ -1,18 +1,22 @@
+/* ============================================
+   WELCOME MODAL - Modern Restaurant/Store Style
+   ============================================ */
+
 .welcomeModal__overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 20px;
   opacity: 0;
-  transition: opacity 250ms ease;
+  transition: opacity 300ms ease;
 }
 
 .welcomeModal__overlay--visible {
@@ -22,18 +26,18 @@
 .welcomeModal {
   position: relative;
   background: white;
-  border-radius: 24px;
-  max-width: 640px;
-  
+  border-radius: 28px;
+  max-width: 520px;
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
   box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  transform: scale(0.9) translateY(20px);
+    0 25px 80px -12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 60px rgba(245, 158, 11, 0.15);
+  transform: scale(0.9) translateY(30px);
   opacity: 0;
-  transition: all 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .welcomeModal--visible {
@@ -45,46 +49,51 @@
   position: absolute;
   top: 16px;
   left: 16px;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.75);
-  color: white;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
+  color: #f59e0b;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: 6px;
+  letter-spacing: 0.1em;
+  border-radius: 8px;
   z-index: 20;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .welcomeModal__close {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   z-index: 20;
-  transition: all 200ms ease;
+  transition: all 250ms ease;
 }
 
 .welcomeModal__close:hover {
-  background: rgba(0, 0, 0, 0.6);
-  transform: scale(1.1);
+  background: rgba(15, 23, 42, 0.8);
+  transform: scale(1.1) rotate(90deg);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Hero Section */
+/* ========== Hero Section ========== */
 .welcomeModal__hero {
   position: relative;
-  height: 200px;
+  height: 220px;
   overflow: hidden;
 }
 
@@ -105,10 +114,7 @@
 .welcomeModal__heroGradient {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, 
-    var(--accent, #f59e0b) 0%, 
-    color-mix(in srgb, var(--accent, #f59e0b) 70%, #000) 100%
-  );
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
 .welcomeModal__heroOverlay {
@@ -119,11 +125,90 @@
   bottom: 0;
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.2) 0%,
-    rgba(0, 0, 0, 0.5) 100%
+    rgba(15, 23, 42, 0.3) 0%,
+    rgba(15, 23, 42, 0.6) 100%
   );
 }
 
+.welcomeModal__heroPattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+  opacity: 0.6;
+}
+
+/* Floating Food Decorations */
+.welcomeModal__floatingElements {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.welcomeModal__floatingItem {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  animation: floatItem 8s ease-in-out infinite;
+}
+
+.welcomeModal__floatingItem--1 {
+  top: 8%;
+  left: 8%;
+  animation-delay: 0s;
+}
+
+.welcomeModal__floatingItem--2 {
+  top: 15%;
+  right: 12%;
+  animation-delay: -1.3s;
+}
+
+.welcomeModal__floatingItem--3 {
+  bottom: 25%;
+  left: 5%;
+  animation-delay: -2.6s;
+}
+
+.welcomeModal__floatingItem--4 {
+  bottom: 20%;
+  right: 8%;
+  animation-delay: -4s;
+}
+
+.welcomeModal__floatingItem--5 {
+  top: 50%;
+  left: 15%;
+  animation-delay: -5.3s;
+}
+
+.welcomeModal__floatingItem--6 {
+  top: 45%;
+  right: 5%;
+  animation-delay: -6.6s;
+}
+
+@keyframes floatItem {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(8deg);
+  }
+}
+
+/* Hero Content */
 .welcomeModal__heroContent {
   position: absolute;
   top: 0;
@@ -140,19 +225,37 @@
 }
 
 .welcomeModal__logoWrapper {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
   background: white;
-  padding: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  margin-bottom: 12px;
-  animation: logoFloat 3s ease-in-out infinite;
+  padding: 6px;
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.3),
+    0 0 0 3px rgba(245, 158, 11, 0.3);
+  margin-bottom: 14px;
+  animation: logoFloat 4s ease-in-out infinite;
+}
+
+.welcomeModal__logoPlaceholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 
+    0 12px 32px rgba(245, 158, 11, 0.4),
+    0 0 0 3px rgba(255, 255, 255, 0.2);
+  margin-bottom: 14px;
+  animation: logoFloat 4s ease-in-out infinite;
 }
 
 @keyframes logoFloat {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  50% { transform: translateY(-8px); }
 }
 
 .welcomeModal__logo {
@@ -164,18 +267,18 @@
 
 .welcomeModal__storeName {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.85rem;
   font-weight: 800;
   color: white;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   letter-spacing: -0.02em;
 }
 
 .welcomeModal__slogan {
-  margin: 6px 0 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   font-weight: 500;
 }
 
@@ -183,22 +286,15 @@
 .welcomeModal__statusBadge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-  margin-top: 2px;
-  padding: 6px 14px;
-  border-radius: 20px;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 18px;
+  border-radius: 24px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  backdrop-filter: blur(8px);
-  animation: statusPulse 2s ease-in-out infinite;
-}
-
-@keyframes statusPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(12px);
 }
 
 .welcomeModal__statusDot {
@@ -209,76 +305,96 @@
 }
 
 @keyframes dotPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
 }
 
 /* Status: Open */
 .welcomeModal__statusBadge--open {
-  background: rgba(34, 197, 94, 0.25);
-  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
   border: 1px solid rgba(34, 197, 94, 0.4);
 }
 
 .welcomeModal__statusBadge--open .welcomeModal__statusDot {
   background: #22c55e;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
 }
 
 /* Status: Closed */
 .welcomeModal__statusBadge--closed {
-  background: rgba(239, 68, 68, 0.25);
-  color: #fecaca;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
 .welcomeModal__statusBadge--closed .welcomeModal__statusDot {
   background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
 }
 
 /* Status: Paused */
 .welcomeModal__statusBadge--paused {
-  background: rgba(251, 191, 36, 0.25);
-  color: #fef08a;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde047;
   border: 1px solid rgba(251, 191, 36, 0.4);
 }
 
 .welcomeModal__statusBadge--paused .welcomeModal__statusDot {
   background: #fbbf24;
-  box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.8);
 }
 
-/* Body Content */
+/* ========== Body Content ========== */
 .welcomeModal__body {
-  padding: 24px;
+  padding: 28px 28px 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .welcomeModal__welcome {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.welcomeModal__titleWrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.welcomeModal__titleIcon {
+  color: #f59e0b;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.1) rotate(10deg); opacity: 0.8; }
 }
 
 .welcomeModal__title {
-  margin: 0 0 8px 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--text, #111);
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
   line-height: 1.3;
 }
 
 .welcomeModal__message {
   margin: 0;
   font-size: 0.95rem;
-  color: var(--text-muted, #666);
-  line-height: 1.6;
+  color: #64748b;
+  line-height: 1.7;
+  max-width: 380px;
+  margin: 0 auto;
 }
 
-/* Features */
+/* ========== Features ========== */
 .welcomeModal__features {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
@@ -286,210 +402,278 @@
 .welcomeModal__feature {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
-  font-size: 0.8rem;
+  gap: 10px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 14px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text, #333);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: all 200ms ease;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 250ms ease;
 }
 
 .welcomeModal__feature:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .welcomeModal__featureIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent, #f59e0b);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 /* ========== Feature Design Variants ========== */
 
 /* Design: Pills (default) */
 .welcomeModal__features--pills .welcomeModal__feature {
-  padding: 10px 14px;
+  padding: 12px 18px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 20px;
-  color: var(--text, #333);
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
 }
 
 .welcomeModal__features--pills .welcomeModal__featureIcon {
-  width: 32px;
-  height: 32px;
-  background: var(--accent, #f59e0b);
-  color: white;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 10px;
 }
 
 /* Design: Cards */
 .welcomeModal__features--cards .welcomeModal__feature {
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 16px 18px;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
   flex-direction: column;
   text-align: center;
-  min-width: 90px;
+  min-width: 95px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .welcomeModal__features--cards .welcomeModal__featureIcon {
-  width: 36px;
-  height: 36px;
-  background: var(--accent, #f59e0b);
-  color: white;
-  border-radius: 10px;
-  margin-bottom: 6px;
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 12px;
+  margin-bottom: 8px;
 }
 
 /* Design: Minimal */
 .welcomeModal__features--minimal .welcomeModal__feature {
   flex-direction: column;
   text-align: center;
-  padding: 8px;
-  color: var(--text-muted, #666);
+  padding: 10px;
+  color: #64748b;
   background: transparent;
   border: none;
+  box-shadow: none;
 }
 
 .welcomeModal__features--minimal .welcomeModal__featureIcon {
   background: transparent;
-  color: var(--accent, #f59e0b);
+  color: #f59e0b;
+  box-shadow: none;
+}
+
+.welcomeModal__features--minimal .welcomeModal__feature:hover {
+  transform: translateY(-2px);
+  box-shadow: none;
 }
 
 /* Design: Gradient */
 .welcomeModal__features--gradient .welcomeModal__feature {
-  padding: 10px 16px;
-  background: linear-gradient(135deg, var(--accent, #f59e0b) 0%, #d97706 100%);
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
   color: white;
-  border-radius: 24px;
+  border-radius: 28px;
   border: none;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
 }
 
 .welcomeModal__features--gradient .welcomeModal__featureIcon {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   color: white;
+  box-shadow: none;
+}
+
+.welcomeModal__features--gradient .welcomeModal__feature:hover {
+  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.45);
 }
 
 /* Design: Glassmorphism */
 .welcomeModal__features--glassmorphism .welcomeModal__feature {
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 .welcomeModal__features--glassmorphism .welcomeModal__featureIcon {
-  background: var(--accent, #f59e0b);
-  color: white;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
 }
 
 /* Design: Neon */
 .welcomeModal__features--neon .welcomeModal__feature {
-  padding: 10px 16px;
+  padding: 12px 18px;
   background: #0f172a;
-  color: var(--accent, #f59e0b);
-  border-radius: 10px;
-  border: 1px solid var(--accent, #f59e0b);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3), inset 0 0 12px rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-radius: 12px;
+  border: 1px solid #f59e0b;
+  box-shadow: 
+    0 0 20px rgba(245, 158, 11, 0.25), 
+    inset 0 0 20px rgba(245, 158, 11, 0.08);
 }
 
 .welcomeModal__features--neon .welcomeModal__featureIcon {
   background: transparent;
-  color: var(--accent, #f59e0b);
-  filter: drop-shadow(0 0 6px var(--accent, #f59e0b));
+  color: #f59e0b;
+  filter: drop-shadow(0 0 8px #f59e0b);
+  box-shadow: none;
+}
+
+.welcomeModal__features--neon .welcomeModal__feature:hover {
+  box-shadow: 
+    0 0 30px rgba(245, 158, 11, 0.4), 
+    inset 0 0 30px rgba(245, 158, 11, 0.12);
 }
 
 /* Design: Outlined */
 .welcomeModal__features--outlined .welcomeModal__feature {
-  padding: 10px 16px;
+  padding: 12px 18px;
   background: transparent;
-  border: 2px solid var(--accent, #f59e0b);
-  color: var(--accent, #f59e0b);
-  border-radius: 10px;
+  border: 2px solid #f59e0b;
+  color: #f59e0b;
+  border-radius: 12px;
+  box-shadow: none;
 }
 
 .welcomeModal__features--outlined .welcomeModal__featureIcon {
   background: transparent;
-  color: var(--accent, #f59e0b);
+  color: #f59e0b;
+  box-shadow: none;
+}
+
+.welcomeModal__features--outlined .welcomeModal__feature:hover {
+  background: rgba(245, 158, 11, 0.08);
 }
 
 /* Design: Floating */
 .welcomeModal__features--floating .welcomeModal__feature {
-  padding: 12px 18px;
+  padding: 14px 20px;
   background: white;
-  border-radius: 14px;
+  border-radius: 16px;
   border: none;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  transform: translateY(-3px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
 }
 
 .welcomeModal__features--floating .welcomeModal__feature:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-8px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
 }
 
 .welcomeModal__features--floating .welcomeModal__featureIcon {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, var(--accent, #f59e0b) 0%, #d97706 100%);
-  color: white;
-  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 12px;
 }
 
-/* CTA Actions */
+/* ========== CTA Actions ========== */
 .welcomeModal__actions {
   display: flex;
   justify-content: center;
+  margin-bottom: 16px;
 }
 
-.welcomeModal__actions .btn,
-.welcomeModal__cta {
+.welcomeModal__ctaBtn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 32px;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 14px;
-  width: 100%;
   justify-content: center;
-  transition: all 200ms ease;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 32px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 300ms ease;
+  box-shadow: 
+    0 8px 24px rgba(245, 158, 11, 0.35),
+    0 0 0 0 rgba(245, 158, 11, 0.5);
 }
 
-.welcomeModal__actions .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+.welcomeModal__ctaBtn:hover {
+  transform: translateY(-3px);
+  box-shadow: 
+    0 14px 36px rgba(245, 158, 11, 0.45),
+    0 0 0 3px rgba(245, 158, 11, 0.2);
 }
 
-/* Responsive */
+.welcomeModal__ctaBtn:active {
+  transform: translateY(-1px);
+}
+
+/* Footer Note */
+.welcomeModal__footerNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.welcomeModal__footerNote svg {
+  color: #f59e0b;
+}
+
+/* ========== Responsive ========== */
 @media (max-width: 480px) {
+  .welcomeModal__overlay {
+    padding: 16px;
+  }
+
   .welcomeModal {
     max-width: 100%;
-    border-radius: 20px;
-    margin: 10px;
+    border-radius: 24px;
   }
 
   .welcomeModal__hero {
-    height: 180px;
+    height: 200px;
   }
 
-  .welcomeModal__logoWrapper {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
+  .welcomeModal__floatingItem {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    border-radius: 12px;
+  }
+
+  .welcomeModal__logoWrapper,
+  .welcomeModal__logoPlaceholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
   }
 
   .welcomeModal__storeName {
@@ -501,11 +685,15 @@
   }
 
   .welcomeModal__body {
-    padding: 20px;
+    padding: 24px 20px 20px;
   }
 
   .welcomeModal__title {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+  }
+
+  .welcomeModal__message {
+    font-size: 0.9rem;
   }
 
   .welcomeModal__features {
@@ -513,16 +701,18 @@
   }
 
   .welcomeModal__feature {
-    padding: 8px 12px;
-    font-size: 0.75rem;
+    padding: 10px 14px;
+    font-size: 0.8rem;
   }
 
   .welcomeModal__featureIcon {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
   }
 
-  .welcomeModal__actions .btn {
-    padding: 12px 24px;
+  .welcomeModal__ctaBtn {
+    padding: 14px 28px;
+    font-size: 1rem;
+    border-radius: 14px;
   }
 }

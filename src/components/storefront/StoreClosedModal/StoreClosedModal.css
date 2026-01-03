@@ -20,10 +20,13 @@
   background: white;
   border-radius: 16px;
   width: 100%;
-  max-width: 420px;
+  max-width: 560px;
+  max-height: 85vh;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUp {
@@ -94,6 +97,8 @@
 /* Body */
 .storeClosedModal__body {
   padding: 24px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .storeClosedModal__message {
@@ -165,8 +170,10 @@
 
 .storeClosedModal__scheduleItem {
   display: flex;
-  align-items: center;
+  flex-direction: row;
   justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   background: white;
   border-radius: 8px;
@@ -238,4 +245,116 @@
   font-size: 1rem;
   line-height: 1.6;
   color: #92400e;
+}
+
+/* Order Limit Reached state styles */
+.storeClosedModal--orderLimit {
+  border: 2px solid #ef4444;
+}
+
+.storeClosedModal__header--orderLimit {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.storeClosedModal__icon--orderLimit {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.storeClosedModal__message--orderLimit {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.storeClosedModal__message--orderLimit p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #991b1b;
+}
+
+.storeClosedModal__message--orderLimit strong {
+  color: #b91c1c;
+}
+
+.storeClosedModal__orderLimitInfo {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.storeClosedModal__orderLimitStat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.storeClosedModal__orderLimitLabel {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.storeClosedModal__orderLimitValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.storeClosedModal__orderLimitReset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.storeClosedModal__orderLimitReset svg {
+  color: #f59e0b;
+}
+
+.storeClosedModal__orderLimitSuggestion {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .storeClosedModal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+  }
+  
+  .storeClosedModal__overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  
+  .storeClosedModal__scheduleList {
+    grid-template-columns: 1fr;
+  }
+  
+  .storeClosedModal__scheduleItem {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .storeClosedModal__header {
+    padding: 24px 20px 20px;
+  }
+  
+  .storeClosedModal__body {
+    padding: 20px;
+  }
 }

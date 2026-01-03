@@ -17,7 +17,7 @@ import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
 import { SUBSCRIPTION_TIERS, getActiveSubscriptionTier } from '../../shared/subscriptions'
-import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX } from 'lucide-react'
+import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX, Pencil } from 'lucide-react'
 
 const MOCK_TENANT_KEY = 'mock.tenantCustomization'
 
@@ -58,6 +58,8 @@ export default function StoreEditor() {
   const [newHourOpen, setNewHourOpen] = useState('09:00')
   const [newHourClose, setNewHourClose] = useState('22:00')
   const [savingHours, setSavingHours] = useState(false)
+  const [editingHourIndex, setEditingHourIndex] = useState(null) // Para edición
+  const [hourError, setHourError] = useState('') // Para errores de validación
   
   // Image Cropper states
   const [showLogoCropper, setShowLogoCropper] = useState(false)
@@ -371,25 +373,70 @@ export default function StoreEditor() {
   const handleAddHour = async () => {
     if (!newHourDay) return
     
-    // Check if day already exists
-    const existingIndex = openingHours.findIndex(h => h.day === newHourDay)
+    // Validar que la hora de apertura sea menor que la de cierre
+    const openMinutes = parseInt(newHourOpen.split(':')[0]) * 60 + parseInt(newHourOpen.split(':')[1])
+    const closeMinutes = parseInt(newHourClose.split(':')[0]) * 60 + parseInt(newHourClose.split(':')[1])
+    
+    if (openMinutes >= closeMinutes) {
+      setHourError('La hora de apertura debe ser menor que la hora de cierre')
+      return
+    }
+    
+    setHourError('') // Limpiar error si todo está bien
+    
     let newHours
-    if (existingIndex >= 0) {
-      // Update existing
+    
+    // Si estamos editando un horario existente
+    if (editingHourIndex !== null) {
       newHours = [...openingHours]
-      newHours[existingIndex] = { day: newHourDay, open: newHourOpen, close: newHourClose, enabled: true }
+      newHours[editingHourIndex] = { 
+        day: newHourDay, 
+        open: newHourOpen, 
+        close: newHourClose, 
+        enabled: newHours[editingHourIndex].enabled 
+      }
     } else {
-      // Add new
-      newHours = [...openingHours, { day: newHourDay, open: newHourOpen, close: newHourClose, enabled: true }]
+      // Check if day already exists
+      const existingIndex = openingHours.findIndex(h => h.day === newHourDay)
+      if (existingIndex >= 0) {
+        // Update existing
+        newHours = [...openingHours]
+        newHours[existingIndex] = { day: newHourDay, open: newHourOpen, close: newHourClose, enabled: true }
+      } else {
+        // Add new
+        newHours = [...openingHours, { day: newHourDay, open: newHourOpen, close: newHourClose, enabled: true }]
+      }
     }
     
     setOpeningHours(newHours)
     await saveOpeningHours(newHours)
     
+    // Reset form
     setShowAddHour(false)
+    setEditingHourIndex(null)
     setNewHourDay('')
     setNewHourOpen('09:00')
     setNewHourClose('22:00')
+    setHourError('')
+  }
+
+  const handleEditHour = (index) => {
+    const hour = openingHours[index]
+    setNewHourDay(hour.day)
+    setNewHourOpen(hour.open)
+    setNewHourClose(hour.close)
+    setEditingHourIndex(index)
+    setShowAddHour(true)
+    setHourError('')
+  }
+
+  const handleCancelEdit = () => {
+    setShowAddHour(false)
+    setEditingHourIndex(null)
+    setNewHourDay('')
+    setNewHourOpen('09:00')
+    setNewHourClose('22:00')
+    setHourError('')
   }
 
   const handleRemoveHour = async (index) => {
@@ -626,6 +673,13 @@ export default function StoreEditor() {
                   </span>
                   <div className="account__hoursActions">
                     <button 
+                      className="account__hoursEdit"
+                      onClick={() => handleEditHour(index)}
+                      title="Editar"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button 
                       className="account__hoursToggle"
                       onClick={() => handleToggleHourEnabled(index)}
                       title={hour.enabled ? 'Desactivar' : 'Activar'}
@@ -660,7 +714,7 @@ export default function StoreEditor() {
                 </select>
                 <select 
                   value={newHourOpen} 
-                  onChange={(e) => setNewHourOpen(e.target.value)}
+                  onChange={(e) => { setNewHourOpen(e.target.value); setHourError(''); }}
                   className="account__select"
                 >
                   {TIME_OPTIONS.map(time => (
@@ -670,7 +724,7 @@ export default function StoreEditor() {
                 <span className="account__addHourSeparator">a</span>
                 <select 
                   value={newHourClose} 
-                  onChange={(e) => setNewHourClose(e.target.value)}
+                  onChange={(e) => { setNewHourClose(e.target.value); setHourError(''); }}
                   className="account__select"
                 >
                   {TIME_OPTIONS.map(time => (
@@ -678,13 +732,19 @@ export default function StoreEditor() {
                   ))}
                 </select>
               </div>
+              {hourError && (
+                <div className="account__hourError">
+                  <AlertTriangle size={14} />
+                  {hourError}
+                </div>
+              )}
               <div className="account__addHourActions">
-                <Button variant="secondary" size="sm" onClick={() => setShowAddHour(false)}>
+                <Button variant="secondary" size="sm" onClick={handleCancelEdit}>
                   Cancelar
                 </Button>
                 <Button size="sm" onClick={handleAddHour} disabled={!newHourDay}>
-                  <Plus size={16} />
-                  Agregar
+                  {editingHourIndex !== null ? <Save size={16} /> : <Plus size={16} />}
+                  {editingHourIndex !== null ? 'Guardar' : 'Agregar'}
                 </Button>
               </div>
             </div>
@@ -698,7 +758,7 @@ export default function StoreEditor() {
       </Card>
 
       {/* Configuración de Notificaciones de Sonido */}
-      <Card title="🔔 Notificaciones de Sonido">
+      <Card title="Notificaciones de Sonido">
         <div className="account__section">
           <p className="account__hint" style={{ marginBottom: '20px' }}>
             Configura cómo suena la notificación cuando llega un nuevo pedido.

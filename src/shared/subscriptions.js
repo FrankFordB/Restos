@@ -5,6 +5,24 @@ export const SUBSCRIPTION_TIERS = {
   PREMIUM_PRO: 'premium_pro',
 }
 
+// Límites de pedidos por plan POR DÍA (null = ilimitado)
+// Los pedidos se reinician cada día a las 00:00
+export const ORDER_LIMITS = {
+  [SUBSCRIPTION_TIERS.FREE]: 15,        // 15 pedidos/día
+  [SUBSCRIPTION_TIERS.PREMIUM]: 80,     // 80 pedidos/día
+  [SUBSCRIPTION_TIERS.PREMIUM_PRO]: null, // ilimitado
+}
+
+// Helper para obtener el límite de pedidos según el plan
+export function getOrderLimit(tier) {
+  return ORDER_LIMITS[tier] ?? 15
+}
+
+// Helper para verificar si el plan tiene pedidos ilimitados
+export function hasUnlimitedOrders(tier) {
+  return ORDER_LIMITS[tier] === null
+}
+
 export const TIER_LABELS = {
   [SUBSCRIPTION_TIERS.FREE]: 'Gratis',
   [SUBSCRIPTION_TIERS.PREMIUM]: 'Premium',

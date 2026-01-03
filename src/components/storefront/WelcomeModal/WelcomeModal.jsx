@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './WelcomeModal.css'
-import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle } from 'lucide-react'
+import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle, Store, Utensils, ShoppingBag, ChefHat } from 'lucide-react'
 import Button from '../../ui/Button/Button'
 
 // Iconos disponibles para features
@@ -17,6 +17,10 @@ const AVAILABLE_ICONS = {
   award: Award,
   gift: Gift,
   checkCircle: CheckCircle,
+  store: Store,
+  utensils: Utensils,
+  shoppingBag: ShoppingBag,
+  chefHat: ChefHat,
 }
 
 // Features por defecto
@@ -25,6 +29,9 @@ const DEFAULT_FEATURES = [
   { id: '2', icon: 'star', text: 'Calidad premium' },
   { id: '3', icon: 'mapPin', text: 'Delivery disponible' },
 ]
+
+// Decoraciones flotantes con emojis de comida
+const FLOATING_ITEMS = ['🍕', '🍔', '🍣', '🥗', '🌮', '☕']
 
 export default function WelcomeModal({ 
   isOpen, 
@@ -119,6 +126,7 @@ export default function WelcomeModal({
       <div className={`welcomeModal ${visible ? 'welcomeModal--visible' : ''}`}>
         {isPreviewMode && (
           <div className="welcomeModal__previewBadge">
+            <Sparkles size={12} />
             Vista previa
           </div>
         )}
@@ -127,9 +135,9 @@ export default function WelcomeModal({
           <X size={20} />
         </button>
 
-        {/* Hero Section with Image, Logo and Store Name */}
+        {/* Hero Section - Modern Split Design */}
         <div className="welcomeModal__hero">
-          {/* Background Image */}
+          {/* Background with Gradient or Image */}
           <div className="welcomeModal__heroBg">
             {heroImage ? (
               <img src={heroImage} alt="" className="welcomeModal__heroImage" />
@@ -137,19 +145,41 @@ export default function WelcomeModal({
               <div className="welcomeModal__heroGradient" />
             )}
             <div className="welcomeModal__heroOverlay" />
+            
+            {/* Grid Pattern Overlay */}
+            <div className="welcomeModal__heroPattern" />
           </div>
 
-          {/* Logo and Store Info - Centered on the image */}
+          {/* Floating Food Decorations */}
+          <div className="welcomeModal__floatingElements">
+            {FLOATING_ITEMS.map((emoji, i) => (
+              <div 
+                key={i} 
+                className={`welcomeModal__floatingItem welcomeModal__floatingItem--${i + 1}`}
+              >
+                {emoji}
+              </div>
+            ))}
+          </div>
+
+          {/* Logo and Store Info */}
           <div className="welcomeModal__heroContent">
-            {logo && (
+            {logo ? (
               <div className="welcomeModal__logoWrapper">
                 <img src={logo} alt={storeName} className="welcomeModal__logo" />
               </div>
+            ) : (
+              <div className="welcomeModal__logoPlaceholder">
+                <Store size={40} />
+              </div>
             )}
+            
             <h1 className="welcomeModal__storeName">{storeName}</h1>
+            
             {slogan && (
               <p className="welcomeModal__slogan">{slogan}</p>
             )}
+            
             {/* Badge de estado de la tienda */}
             <div className={`welcomeModal__statusBadge ${statusInfo.className}`}>
               <span className="welcomeModal__statusDot"></span>
@@ -158,23 +188,32 @@ export default function WelcomeModal({
           </div>
         </div>
 
-        {/* Content Section */}
+        {/* Content Section - Modern Card Style */}
         <div className="welcomeModal__body">
           <div className="welcomeModal__welcome">
-            <h2 className="welcomeModal__title">{title}</h2>
+            <div className="welcomeModal__titleWrapper">
+              <Sparkles className="welcomeModal__titleIcon" size={20} />
+              <h2 className="welcomeModal__title">{title}</h2>
+            </div>
             <p className="welcomeModal__message">{message}</p>
           </div>
 
           {/* Features/Highlights - Dynamic */}
           {renderFeatures()}
 
-          {/* CTA Button */}
+          {/* CTA Button - Modern Gradient */}
           <div className="welcomeModal__actions">
-            <Button onClick={handleClose} className="welcomeModal__cta">
-              Ver menú
+            <button onClick={handleClose} className="welcomeModal__ctaBtn">
+              <span>Explorar menú</span>
               <ArrowRight size={18} />
-            </Button>
+            </button>
           </div>
+
+          {/* Footer Note */}
+          <p className="welcomeModal__footerNote">
+            <ShoppingBag size={14} />
+            Haz tu pedido en minutos
+          </p>
         </div>
       </div>
     </div>

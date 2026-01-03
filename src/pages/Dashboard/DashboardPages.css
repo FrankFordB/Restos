@@ -1544,3 +1544,156 @@
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+
+/* ========================================
+   RESPONSIVE MOBILE DASHBOARD IMPROVEMENTS
+   ======================================== */
+
+@media (max-width: 900px) {
+  .dash--withSidebar .dash__main {
+    margin-left: 0 !important;
+    padding: 16px;
+    padding-top: 70px;
+  }
+  
+  .dash__header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .dash__header-top {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .dash__tier-badge {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .dash--withSidebar .dash__main {
+    padding: 12px;
+    padding-top: 65px;
+  }
+  
+  .dash__header h1 {
+    font-size: 1.25rem;
+  }
+  
+  .dash__header .muted {
+    font-size: 0.85rem;
+  }
+  
+  /* Stats cards en mobile */
+  .dash__statsRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  
+  .dash__statCard {
+    padding: 14px;
+    gap: 10px;
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .dash__statIcon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .dash__statValue {
+    font-size: 1.25rem;
+  }
+  
+  .dash__statLabel {
+    font-size: 0.75rem;
+  }
+  
+  /* Quick actions */
+  .dash__quickGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  
+  .dash__quickAction {
+    padding: 12px 8px;
+    font-size: 0.7rem;
+  }
+  
+  .dash__quickAction svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  /* QR Section */
+  .dash__qrSection {
+    padding: 16px;
+  }
+  
+  .dash__qrGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .dash__linkUrl {
+    max-width: 100%;
+    font-size: 0.8rem;
+  }
+  
+  /* Section headers */
+  .dash__sectionHeader h2 {
+    font-size: 1.1rem;
+  }
+  
+  /* Global notification */
+  .dash__globalNotification {
+    bottom: 16px;
+    right: 16px;
+    width: 50px;
+    height: 50px;
+  }
+  
+  /* Pending orders modal mobile */
+  .pendingModal {
+    max-height: 85vh;
+    margin: 10px;
+  }
+  
+  .pendingModal__header {
+    padding: 16px;
+  }
+  
+  .pendingModal__title {
+    font-size: 1.1rem;
+  }
+  
+  .pendingModal__list {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .pendingModal__orderCard {
+    padding: 14px;
+  }
+  
+  .pendingModal__orderInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .pendingModal__orderTotal {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .pendingModal__orderActions {
+    flex-wrap: wrap;
+  }
+  
+  .pendingModal__orderActions button {
+    flex: 1;
+    min-width: 100px;
+  }
+}

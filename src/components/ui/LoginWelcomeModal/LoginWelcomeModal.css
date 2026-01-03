@@ -1,0 +1,409 @@
+/* ============================================
+   LOGIN WELCOME MODAL - Modern Post-Login Welcome
+   ============================================ */
+
+.loginWelcome__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.loginWelcome__overlay--visible {
+  opacity: 1;
+}
+
+.loginWelcome {
+  position: relative;
+  background: white;
+  border-radius: 28px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 
+    0 25px 80px -12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 60px rgba(245, 158, 11, 0.15);
+  transform: scale(0.9) translateY(30px);
+  opacity: 0;
+  transition: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.loginWelcome--visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.loginWelcome__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 20;
+  transition: all 250ms ease;
+}
+
+.loginWelcome__close:hover {
+  background: rgba(15, 23, 42, 0.7);
+  transform: scale(1.1) rotate(90deg);
+}
+
+/* ========== Hero Section ========== */
+.loginWelcome__hero {
+  position: relative;
+  padding: 32px 32px 28px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  overflow: hidden;
+}
+
+.loginWelcome__heroPattern {
+  position: absolute;
+  inset: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+  opacity: 0.6;
+}
+
+/* Floating Decorations */
+.loginWelcome__floatingElements {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.loginWelcome__floatingItem {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: floatWelcome 7s ease-in-out infinite;
+}
+
+.loginWelcome__floatingItem--1 {
+  top: 15%;
+  left: 8%;
+  animation-delay: 0s;
+}
+
+.loginWelcome__floatingItem--2 {
+  top: 20%;
+  right: 10%;
+  animation-delay: -1.5s;
+}
+
+.loginWelcome__floatingItem--3 {
+  bottom: 20%;
+  left: 12%;
+  animation-delay: -3s;
+}
+
+.loginWelcome__floatingItem--4 {
+  bottom: 15%;
+  right: 8%;
+  animation-delay: -4.5s;
+}
+
+@keyframes floatWelcome {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(6deg);
+  }
+}
+
+.loginWelcome__heroContent {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+}
+
+.loginWelcome__iconWrapper {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 
+    0 12px 32px rgba(245, 158, 11, 0.4),
+    0 0 0 4px rgba(255, 255, 255, 0.1);
+  animation: iconPulse 3s ease-in-out infinite;
+}
+
+.loginWelcome__iconWrapper svg {
+  width: 32px;
+  height: 32px;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.loginWelcome__title {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.02em;
+}
+
+.loginWelcome__title span {
+  background: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.loginWelcome__subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+/* ========== Body Content ========== */
+.loginWelcome__body {
+  padding: 24px 28px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.loginWelcome__message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.loginWelcome__messageIcon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.loginWelcome__message p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #78350f;
+  font-weight: 500;
+}
+
+/* Features Grid */
+.loginWelcome__features {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.loginWelcome__feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  transition: all 250ms ease;
+}
+
+.loginWelcome__feature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.loginWelcome__featureIcon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.loginWelcome__featureText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.loginWelcome__featureText strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.loginWelcome__featureText span {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* CTA Button */
+.loginWelcome__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 300ms ease;
+  box-shadow: 
+    0 8px 24px rgba(245, 158, 11, 0.35),
+    0 0 0 0 rgba(245, 158, 11, 0.5);
+}
+
+.loginWelcome__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 32px rgba(245, 158, 11, 0.45),
+    0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.loginWelcome__cta:active {
+  transform: translateY(-1px);
+}
+
+/* Footer */
+.loginWelcome__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.loginWelcome__footer svg {
+  color: #f59e0b;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 640px) {
+  .loginWelcome {
+    max-width: 100%;
+    border-radius: 24px;
+  }
+
+  .loginWelcome__features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .loginWelcome__overlay {
+    padding: 16px;
+  }
+
+  .loginWelcome {
+    border-radius: 20px;
+  }
+
+  .loginWelcome__hero {
+    padding: 28px 20px 24px;
+  }
+
+  .loginWelcome__floatingItem {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .loginWelcome__iconWrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .loginWelcome__iconWrapper svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .loginWelcome__title {
+    font-size: 1.4rem;
+  }
+
+  .loginWelcome__body {
+    padding: 20px 16px;
+  }
+
+  .loginWelcome__features {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .loginWelcome__feature {
+    padding: 10px 8px;
+  }
+
+  .loginWelcome__featureIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .loginWelcome__cta {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+  }
+}

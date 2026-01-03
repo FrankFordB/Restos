@@ -20,6 +20,22 @@ import { isSupabaseConfigured } from '../../lib/supabaseClient'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { selectAdminManagedTenantId, setAdminManagedTenantId } from '../../features/auth/authSlice'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../shared/subscriptions'
+import {
+  Store,
+  Star,
+  Crown,
+  Package,
+  Globe,
+  EyeOff,
+  ClipboardList,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Ban,
+  Utensils,
+  Lock
+} from 'lucide-react'
 
 const ITEMS_PER_PAGE = 10
 
@@ -241,7 +257,7 @@ export default function AdminDashboardPage() {
               <div className="admin__infoItem">
                 <span className="admin__infoLabel">Estado</span>
                 <span className={`admin__badge ${managedTenant.is_public !== false ? 'admin__badge--success' : 'admin__badge--warning'}`}>
-                  {managedTenant.is_public !== false ? '🌐 Público' : '🔒 Oculto'}
+                  {managedTenant.is_public !== false ? <><Globe size={14} /> Público</> : <><Lock size={14} /> Oculto</>}
                 </span>
               </div>
               <div className="admin__infoItem">
@@ -250,7 +266,7 @@ export default function AdminDashboardPage() {
                   className="admin__tierBadge"
                   style={{ '--tier-color': TIER_COLORS[managedTenant.subscription_tier] || TIER_COLORS.free }}
                 >
-                  {managedTenant.subscription_tier === 'premium_pro' ? '👑' : managedTenant.subscription_tier === 'premium' ? '⭐' : '📦'}
+                  {managedTenant.subscription_tier === 'premium_pro' ? <Crown size={14} /> : managedTenant.subscription_tier === 'premium' ? <Star size={14} /> : <Package size={14} />}
                   {TIER_LABELS[managedTenant.subscription_tier] || 'Free'}
                 </span>
               </div>
@@ -282,7 +298,7 @@ export default function AdminDashboardPage() {
                 rel="noreferrer"
                 className="admin__link"
               >
-                🔗 Ver tienda
+                Ver tienda
               </a>
             </div>
 
@@ -291,21 +307,21 @@ export default function AdminDashboardPage() {
                 className={`dash__tab ${activeTab === 'theme' ? 'active' : ''}`}
                 onClick={() => setActiveTab('theme')}
               >
-                <span className="tab-icon">🎨</span>
+                <span className="tab-icon"><span style={{ fontSize: '1rem' }}>🎨</span></span>
                 Tema
               </button>
               <button 
                 className={`dash__tab ${activeTab === 'products' ? 'active' : ''}`}
                 onClick={() => setActiveTab('products')}
               >
-                <span className="tab-icon">🍔</span>
+                <span className="tab-icon"><Utensils size={16} /></span>
                 Productos
               </button>
               <button 
                 className={`dash__tab ${activeTab === 'orders' ? 'active' : ''}`}
                 onClick={() => setActiveTab('orders')}
               >
-                <span className="tab-icon">📋</span>
+                <span className="tab-icon"><ClipboardList size={16} /></span>
                 Pedidos
               </button>
             </nav>
@@ -331,11 +347,11 @@ export default function AdminDashboardPage() {
       <header className="dash__header">
         <div className="dash__header-top">
           <div>
-            <h1>🛡️ Panel de Super Admin</h1>
+            <h1>Panel de Super Admin</h1>
             <p className="muted">Gestión centralizada de restaurantes y usuarios</p>
           </div>
           <div className="dash__tier-badge" data-tier="premium_pro">
-            <span className="tier-icon">👑</span>
+            <span className="tier-icon"><Crown size={16} /></span>
             <span className="tier-name">Super Admin</span>
           </div>
         </div>
@@ -343,42 +359,42 @@ export default function AdminDashboardPage() {
 
       {!isSupabaseConfigured && (
         <div className="admin__warning">
-          ⚠️ Supabase no está configurado. Configura las variables de entorno.
+          <AlertTriangle size={16} /> Supabase no está configurado. Configura las variables de entorno.
         </div>
       )}
 
       {/* Stats Grid */}
       <div className="admin__statsGrid">
         <div className="admin__statCard">
-          <div className="admin__statIcon">🏪</div>
+          <div className="admin__statIcon"><Store size={24} /></div>
           <div className="admin__statInfo">
             <span className="admin__statValue">{stats.total}</span>
             <span className="admin__statLabel">Restaurantes</span>
           </div>
         </div>
         <div className="admin__statCard">
-          <div className="admin__statIcon">🌐</div>
+          <div className="admin__statIcon"><Globe size={24} /></div>
           <div className="admin__statInfo">
             <span className="admin__statValue">{stats.publicCount}</span>
             <span className="admin__statLabel">Públicos</span>
           </div>
         </div>
         <div className="admin__statCard admin__statCard--premium">
-          <div className="admin__statIcon">⭐</div>
+          <div className="admin__statIcon"><Star size={24} /></div>
           <div className="admin__statInfo">
             <span className="admin__statValue">{stats.premiumCount}</span>
             <span className="admin__statLabel">Premium</span>
           </div>
         </div>
         <div className="admin__statCard admin__statCard--premiumPro">
-          <div className="admin__statIcon">👑</div>
+          <div className="admin__statIcon"><Crown size={24} /></div>
           <div className="admin__statInfo">
             <span className="admin__statValue">{stats.premiumProCount}</span>
             <span className="admin__statLabel">Premium Pro</span>
           </div>
         </div>
         <div className="admin__statCard admin__statCard--danger">
-          <div className="admin__statIcon">🚫</div>
+          <div className="admin__statIcon"><Ban size={24} /></div>
           <div className="admin__statInfo">
             <span className="admin__statValue">{stats.bannedOwners}</span>
             <span className="admin__statLabel">Baneados</span>
@@ -387,13 +403,13 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Tenants Card */}
-      <Card title="🏪 Restaurantes">
+      <Card title="Restaurantes">
         <div className="admin__toolbar">
           <div className="admin__searchBox">
             <Input
               value={tenantSearch}
               onChange={setTenantSearch}
-              placeholder="🔍 Buscar por nombre, slug o ID..."
+              placeholder="Buscar por nombre, slug o ID..."
             />
           </div>
           
@@ -403,9 +419,9 @@ export default function AdminDashboardPage() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="all">📊 Todos</option>
-              <option value="public">🌐 Públicos</option>
-              <option value="hidden">🔒 Ocultos</option>
+              <option value="all">Todos</option>
+              <option value="public">Públicos</option>
+              <option value="hidden">Ocultos</option>
             </select>
             
             <select 
@@ -413,14 +429,14 @@ export default function AdminDashboardPage() {
               value={filterPremium}
               onChange={(e) => setFilterPremium(e.target.value)}
             >
-              <option value="all">💎 Todos</option>
-              <option value="premium">⭐ Premium</option>
-              <option value="premium_pro">👑 Premium Pro</option>
-              <option value="free">📦 Free</option>
+              <option value="all">Todos</option>
+              <option value="premium">Premium</option>
+              <option value="premium_pro">Premium Pro</option>
+              <option value="free">Free</option>
             </select>
             
             <Button size="sm" variant="secondary" onClick={refreshTenants} disabled={loadingTenants}>
-              🔄 {loadingTenants ? 'Cargando...' : 'Refrescar'}
+              {loadingTenants ? 'Cargando...' : 'Refrescar'}
             </Button>
           </div>
         </div>
@@ -474,14 +490,14 @@ export default function AdminDashboardPage() {
                         {owner?.fullName || owner?.email?.split('@')[0] || '—'}
                       </span>
                       {ownerIsCancelled && (
-                        <span className="admin__badge admin__badge--danger">🚫</span>
+                        <span className="admin__badge admin__badge--danger"><Ban size={12} /></span>
                       )}
                     </div>
                   </div>
                   
                   <div className="admin__tableCol admin__tableCol--status">
                     <span className={`admin__badge ${isPublic ? 'admin__badge--success' : 'admin__badge--warning'}`}>
-                      {isPublic ? '🌐' : '🔒'}
+                      {isPublic ? <Globe size={14} /> : <Lock size={14} />}
                     </span>
                   </div>
                   
@@ -490,7 +506,7 @@ export default function AdminDashboardPage() {
                       className="admin__tierBadge"
                       style={{ '--tier-color': TIER_COLORS[tier] || TIER_COLORS.free }}
                     >
-                      {tier === 'premium_pro' ? '👑' : tier === 'premium' ? '⭐' : '📦'}
+                      {tier === 'premium_pro' ? <Crown size={14} /> : tier === 'premium' ? <Star size={14} /> : <Package size={14} />}
                       <span className="tier-label">{TIER_LABELS[tier] || 'Free'}</span>
                     </span>
                     {remainingDays !== null && (
@@ -507,7 +523,7 @@ export default function AdminDashboardPage() {
                           dispatch(setAdminManagedTenantId(t.id))
                         }}
                       >
-                        ✏️
+                        Editar
                       </Button>
                       
                       <Button
@@ -515,7 +531,7 @@ export default function AdminDashboardPage() {
                         variant="secondary"
                         onClick={() => window.open(`/store/${t.slug}`, '_blank')}
                       >
-                        👁️
+                        Ver
                       </Button>
                       
                       <div className="admin__dropdownWrapper">
@@ -540,12 +556,12 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              {isPublic ? '🔒 Ocultar' : '🌐 Publicar'}
+                              {isPublic ? <><Lock size={14} /> Ocultar</> : <><Globe size={14} /> Publicar</>}
                             </button>
                             
                             <div className="admin__menuDivider" />
                             
-                            <div className="admin__menuLabel">📋 Asignar Plan</div>
+                            <div className="admin__menuLabel"><ClipboardList size={14} /> Asignar Plan</div>
                             
                             <button
                               className={`admin__menuItem ${tier === 'free' ? 'admin__menuItem--active' : ''}`}
@@ -555,7 +571,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              📦 Free {tier === 'free' && '✓'}
+                              <Package size={14} /> Free {tier === 'free' && '✓'}
                             </button>
                             
                             <button
@@ -566,7 +582,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              ⭐ Premium... {tier === 'premium' && '✓'}
+                              <Star size={14} /> Premium... {tier === 'premium' && '✓'}
                             </button>
                             
                             <button
@@ -577,7 +593,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              👑 Premium Pro... {tier === 'premium_pro' && '✓'}
+                              <Crown size={14} /> Premium Pro... {tier === 'premium_pro' && '✓'}
                             </button>
                             
                             <div className="admin__menuDivider" />
@@ -593,7 +609,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              {ownerIsCancelled ? '✅ Reactivar dueño' : '🚫 Banear dueño'}
+                              {ownerIsCancelled ? <><CheckCircle size={14} /> Reactivar dueño</> : <><Ban size={14} /> Banear dueño</>}
                             </button>
                           </div>
                         )}
@@ -606,7 +622,7 @@ export default function AdminDashboardPage() {
 
             {paginatedTenants.length === 0 && !loadingTenants && (
               <div className="admin__emptyState">
-                <span className="admin__emptyIcon">🔍</span>
+                <span className="admin__emptyIcon"></span>
                 <span className="admin__emptyText">No se encontraron restaurantes</span>
               </div>
             )}
@@ -657,14 +673,14 @@ export default function AdminDashboardPage() {
       </Card>
 
       {/* Subscriptions Admin Section */}
-      <Card title="💳 Suscripciones Activas" style={{ marginTop: '1.5rem' }}>
+      <Card title="Suscripciones Activas" style={{ marginTop: '1.5rem' }}>
         <SubscriptionsAdmin />
       </Card>
 
       {/* Tier Assignment Modal */}
       <ConfirmModal
         open={Boolean(tierModal)}
-        title={tierModal?.tier === 'premium_pro' ? '👑 Asignar Premium Pro' : '⭐ Asignar Premium'}
+        title={tierModal?.tier === 'premium_pro' ? 'Asignar Premium Pro' : 'Asignar Premium'}
         message={
           <div className="admin__tierModalContent">
             <p>
@@ -699,7 +715,7 @@ export default function AdminDashboardPage() {
 
       <ConfirmModal
         open={Boolean(ownerStatusModal)}
-        title={ownerStatusModal?.action === 'cancelled' ? '🚫 Banear dueño' : '✅ Reactivar dueño'}
+        title={ownerStatusModal?.action === 'cancelled' ? 'Banear dueño' : 'Reactivar dueño'}
         message={(() => {
           if (!ownerStatusModal) return ''
           const tenantName = ownerStatusModal.tenant?.name || 'este restaurante'

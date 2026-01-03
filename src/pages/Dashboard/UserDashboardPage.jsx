@@ -16,16 +16,17 @@ import MobilePreviewEditor from '../../components/dashboard/MobilePreviewEditor/
 import MercadoPagoConfig from '../../components/dashboard/MercadoPagoConfig/MercadoPagoConfig'
 import SubscriptionCheckout from '../../components/dashboard/SubscriptionCheckout/SubscriptionCheckout'
 import SubscriptionStatus from '../../components/dashboard/SubscriptionStatus/SubscriptionStatus'
+import OrderLimitWarningModal from '../../components/dashboard/OrderLimitWarningModal/OrderLimitWarningModal'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
 import { createTenant } from '../../features/tenants/tenantsSlice'
 import { selectOrdersForTenant, updateOrder, deleteOrder, fetchOrdersForTenant } from '../../features/orders/ordersSlice'
 import { selectProductsForTenant, fetchProductsForTenant } from '../../features/products/productsSlice'
-import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig } from '../../lib/supabaseApi'
+import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig, fetchOrderLimitsStatus, subscribeToOrderLimits, checkAndFixSubscriptionExpiration } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { loadJson } from '../../shared/storage'
-import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS, getSubscriptionStatus } from '../../shared/subscriptions'
+import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS, getSubscriptionStatus, ORDER_LIMITS } from '../../shared/subscriptions'
 import { ROLES } from '../../shared/constants'
 import { useDashboard } from '../../contexts/DashboardContext'
 import { 
@@ -160,6 +161,7 @@ export default function UserDashboardPage() {
 
   // ========== NOTIFICACIONES GLOBALES DE NUEVOS PEDIDOS ==========
   const audioRef = useRef(null)
+  const alertAudioRef = useRef(null) // Sonido de alerta para límite de pedidos
   const [globalNewOrdersCount, setGlobalNewOrdersCount] = useState(0)
   const [soundEnabled, setSoundEnabled] = useState(true) // Toggle local de sonido
   const [soundConfig, setSoundConfig] = useState({
@@ -167,6 +169,18 @@ export default function UserDashboardPage() {
     repeatCount: 3,
     delayMs: 1500,
   })
+  
+  // ========== LÍMITES DE PEDIDOS ==========
+  const [orderLimitsStatus, setOrderLimitsStatus] = useState({
+    limit: null,
+    remaining: null,
+    isUnlimited: true,
+    canAcceptOrders: true,
+    resetDate: null,
+    tier: 'free',
+  })
+  const [showOrderLimitModal, setShowOrderLimitModal] = useState(false)
+  const prevOrdersRemainingRef = useRef(null) // Para detectar cuando llega a 0
 
   // Cargar configuración de sonido
   useEffect(() => {
@@ -231,6 +245,82 @@ export default function UserDashboardPage() {
     
     playOnce()
   }, [soundEnabled, soundConfig.repeatCount, soundConfig.delayMs])
+
+  // Función para reproducir sonido de alerta (límite de pedidos)
+  const playAlertSound = useCallback(() => {
+    if (!alertAudioRef.current) return
+    
+    console.log('🚨 ¡ALERTA! Límite de pedidos alcanzado')
+    
+    // Reproducir sonido de alerta 3 veces con más urgencia
+    let played = 0
+    const playOnce = () => {
+      if (played >= 3) return
+      
+      alertAudioRef.current.currentTime = 0
+      alertAudioRef.current.play()
+        .then(() => {
+          console.log(`🚨 Alerta ${played + 1}/3`)
+        })
+        .catch((err) => {
+          console.warn('⚠️ No se pudo reproducir alerta:', err.message)
+        })
+      played++
+      
+      if (played < 3) {
+        setTimeout(playOnce, 800)
+      }
+    }
+    
+    playOnce()
+  }, [])
+
+  // Cargar y suscribirse a límites de pedidos
+  useEffect(() => {
+    if (!user?.tenantId) {
+      console.log('📊 Order limits: No tenantId available')
+      return
+    }
+    
+    const loadOrderLimits = async () => {
+      try {
+        console.log('📊 Loading order limits for tenant:', user.tenantId)
+        console.log('📊 isSupabaseConfigured:', isSupabaseConfigured)
+        
+        const status = await fetchOrderLimitsStatus(user.tenantId)
+        console.log('📊 Order limits status loaded:', JSON.stringify(status, null, 2))
+        console.log('📊 isUnlimited:', status.isUnlimited, '| remaining:', status.remaining, '| limit:', status.limit)
+        setOrderLimitsStatus(status)
+        prevOrdersRemainingRef.current = status.remaining
+      } catch (err) {
+        console.error('Error loading order limits:', err)
+      }
+    }
+    
+    loadOrderLimits()
+    
+    // Suscribirse a cambios en tiempo real
+    if (isSupabaseConfigured) {
+      const unsubscribe = subscribeToOrderLimits(user.tenantId, (newStatus) => {
+        console.log('📊 Order limits updated:', newStatus)
+        
+        // Detectar si acaba de llegar a 0
+        const wasNotZero = prevOrdersRemainingRef.current > 0
+        const isNowZero = !newStatus.isUnlimited && newStatus.remaining <= 0
+        
+        if (wasNotZero && isNowZero) {
+          console.log('🚨 ¡Límite de pedidos alcanzado!')
+          playAlertSound()
+          setShowOrderLimitModal(true)
+        }
+        
+        prevOrdersRemainingRef.current = newStatus.remaining
+        setOrderLimitsStatus(newStatus)
+      })
+      
+      return () => unsubscribe()
+    }
+  }, [user?.tenantId, playAlertSound])
 
   // Suscripción global a tiempo real de pedidos
   useEffect(() => {
@@ -347,6 +437,13 @@ export default function UserDashboardPage() {
       setLoadingTenant(true)
       setTenantLoadError(null)
       try {
+        // Primero verificar si la suscripción expiró y corregir
+        const subscriptionCheck = await checkAndFixSubscriptionExpiration(user.tenantId)
+        if (subscriptionCheck?.wasExpired) {
+          console.log('⚠️ Subscription was expired, downgraded to free')
+        }
+        
+        // Luego cargar el tenant actualizado
         const tenant = await fetchTenantById(user.tenantId)
         if (!cancelled) setCurrentTenant(tenant)
       } catch (e) {
@@ -449,6 +546,8 @@ export default function UserDashboardPage() {
     <div className={`dash dash--withSidebar ${sidebarCollapsed ? 'dash--sidebarCollapsed' : ''}`}>
       {/* Audio global para notificaciones de pedidos */}
       <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
+      {/* Audio de alerta para límite de pedidos agotado */}
+      <audio ref={alertAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3" preload="auto" />
       
       {/* Indicador global de notificaciones - fijo en pantalla */}
       <div 
@@ -488,6 +587,7 @@ export default function UserDashboardPage() {
         isCollapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         onPendingOrdersClick={() => setShowPendingModal(true)}
+        orderLimitsStatus={orderLimitsStatus}
       />
 
       {/* Modal de pedidos pendientes */}
@@ -498,6 +598,19 @@ export default function UserDashboardPage() {
           onClose={() => setShowPendingModal(false)}
         />
       )}
+
+      {/* Modal de límite de pedidos alcanzado */}
+      <OrderLimitWarningModal
+        isOpen={showOrderLimitModal}
+        onClose={() => setShowOrderLimitModal(false)}
+        currentTier={subscriptionTier}
+        ordersUsed={orderLimitsStatus?.ordersLimit - orderLimitsStatus?.ordersRemaining || 0}
+        ordersLimit={orderLimitsStatus?.ordersLimit || ORDER_LIMITS[subscriptionTier]}
+        onUpgrade={(selectedPlan) => {
+          setShowOrderLimitModal(false);
+          setActiveTab('plans');
+        }}
+      />
 
       <main className="dash__main">
         {/* Overview Tab */}

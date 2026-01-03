@@ -216,6 +216,41 @@
   border-radius: 8px;
 }
 
+/* Orders remaining */
+.subscriptionStatus__orders {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.subscriptionStatus__ordersCount {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.subscriptionStatus__ordersCount--warning {
+  color: #d97706;
+}
+
+.subscriptionStatus__ordersCount--critical {
+  color: #dc2626;
+  animation: pulse 2s infinite;
+}
+
+.subscriptionStatus__ordersCount--empty {
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.subscriptionStatus__ordersUnlimited {
+  font-weight: 600;
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .subscriptionStatus__alert {

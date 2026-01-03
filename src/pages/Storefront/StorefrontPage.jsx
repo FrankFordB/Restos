@@ -25,7 +25,7 @@ import SuccessModal from '../../components/storefront/SuccessModal/SuccessModal'
 import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
 import FloatingCart from '../../components/storefront/FloatingCart/FloatingCart'
 import { loadJson, saveJson } from '../../shared/storage'
-import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug } from '../../lib/supabaseApi'
+import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug, fetchOrderLimitsStatusBySlug, subscribeToOrderLimits } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { checkIsStoreOpen } from '../../shared/openingHours'
 import {
@@ -35,6 +35,8 @@ import {
   STORE_HERO_STYLES,
   CAROUSEL_BUTTON_STYLES,
   isFeatureAvailable,
+  ORDER_LIMITS,
+  hasUnlimitedOrders,
 } from '../../shared/subscriptions'
 import { uploadHeroImage, uploadProductImage } from '../../lib/supabaseStorage'
 import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
@@ -380,9 +382,22 @@ export default function StorefrontPage() {
   const [outOfStockCategories, setOutOfStockCategories] = useState([])
   const justPurchasedRef = useRef(false) // Track if user just made a purchase
   
+  // Order limits state (for subscription-based order limits)
+  const [orderLimitsStatus, setOrderLimitsStatus] = useState({
+    limit: 15,
+    remaining: 15,
+    isUnlimited: false,
+    canAcceptOrders: true,
+    resetDate: null,
+    tier: 'free',
+  })
+  const [showOrderLimitModal, setShowOrderLimitModal] = useState(false)
+  const wasOrderLimitReachedRef = useRef(false) // Track previous order limit state
+  
   // Calculate if store is closed for blocking cart (paused state only - NOT out of stock)
   // Ahora solo bloqueamos por horario o pausa, NO por stock agotado (se puede comprar en otras categorías)
-  const isStoreClosed = (!storeStatus.isOpen && !storeStatus.noSchedule) || isPaused
+  // También bloqueamos si se alcanzó el límite de pedidos del plan
+  const isStoreClosed = (!storeStatus.isOpen && !storeStatus.noSchedule) || isPaused || !orderLimitsStatus.canAcceptOrders
   
   // Show out of stock modal when categories run out (but not for the buyer who just purchased)
   useEffect(() => {
@@ -460,6 +475,59 @@ export default function StorefrontPage() {
     initialCheck()
     const interval = setInterval(checkPauseStatus, 10000) // Check every 10 seconds
     return () => clearInterval(interval)
+  }, [slug, tenantId])
+  
+  // Load and subscribe to order limits in real-time
+  useEffect(() => {
+    if (!slug || !tenantId) return
+    
+    // Initial load
+    const loadOrderLimits = async () => {
+      try {
+        if (isSupabaseConfigured) {
+          const status = await fetchOrderLimitsStatusBySlug(slug)
+          setOrderLimitsStatus(status)
+          wasOrderLimitReachedRef.current = !status.canAcceptOrders
+          
+          // If limit was already reached on load, show modal
+          if (!status.canAcceptOrders && !status.isUnlimited) {
+            setShowOrderLimitModal(true)
+          }
+        } else {
+          // Mock mode: use localStorage
+          const mockStatus = loadJson(`orderLimits.${tenantId}`, {
+            limit: 15,
+            remaining: 15,
+            isUnlimited: false,
+            canAcceptOrders: true,
+            resetDate: null,
+            tier: 'free',
+          })
+          setOrderLimitsStatus(mockStatus)
+        }
+      } catch (err) {
+        console.error('Error loading order limits:', err)
+      }
+    }
+    
+    loadOrderLimits()
+    
+    // Subscribe to real-time updates
+    if (isSupabaseConfigured && tenantId) {
+      const unsubscribe = subscribeToOrderLimits(tenantId, (newStatus) => {
+        console.log('📊 Order limits updated:', newStatus)
+        setOrderLimitsStatus(newStatus)
+        
+        // If limit was just reached (wasn't reached before, now it is)
+        if (!newStatus.canAcceptOrders && !wasOrderLimitReachedRef.current && !newStatus.isUnlimited) {
+          setShowOrderLimitModal(true)
+        }
+        
+        wasOrderLimitReachedRef.current = !newStatus.canAcceptOrders
+      })
+      
+      return () => unsubscribe()
+    }
   }, [slug, tenantId])
   
   // Check store status periodically
@@ -1316,6 +1384,7 @@ export default function StorefrontPage() {
         cart={cart}
         onOpenCart={() => setShowCart(true)}
         openingHours={tenantFullData?.opening_hours || []}
+        orderLimitsStatus={orderLimitsStatus}
       />
 
       <div className={`store__layout ${showHeroPanel ? 'store__layout--heroEditing' : ''}`} id="productos">
@@ -2465,6 +2534,19 @@ export default function StorefrontPage() {
         tenantName={tenant?.name}
         isPaused={isPaused}
         pauseMessage={pauseMessage}
+      />
+
+      {/* Order Limit Reached Modal */}
+      <StoreClosedModal
+        isOpen={showOrderLimitModal}
+        onClose={() => setShowOrderLimitModal(false)}
+        theme={theme}
+        tenantName={tenant?.name}
+        isOrderLimitReached={true}
+        ordersRemaining={orderLimitsStatus.remaining}
+        ordersLimit={orderLimitsStatus.limit}
+        subscriptionTier={orderLimitsStatus.tier}
+        resetDate={orderLimitsStatus.resetDate}
       />
 
       {/* Realtime Pause Modal - Shows when store is paused while customer is browsing */}

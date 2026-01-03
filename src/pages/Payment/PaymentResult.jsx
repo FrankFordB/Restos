@@ -7,6 +7,7 @@ import {
   updateTenantSubscriptionTier,
   getPendingSubscriptionByPreference,
 } from '../../lib/supabaseMercadopagoApi'
+import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper } from 'lucide-react'
 
 /**
  * Página de resultado de pago
@@ -256,7 +257,7 @@ export default function PaymentResult() {
                 <div className="paymentResult__detailRow">
                   <span className="paymentResult__detailLabel">Plan</span>
                   <span className="paymentResult__detailValue">
-                    {result.planTier === 'premium_pro' ? '👑 Premium Pro' : '⭐ Premium'}
+                    {result.planTier === 'premium_pro' ? <><Crown size={16} /> Premium Pro</> : <><Star size={16} /> Premium</>}
                     {result.billingPeriod === 'yearly' ? ' Anual' : ' Mensual'}
                   </span>
                 </div>
@@ -281,7 +282,7 @@ export default function PaymentResult() {
           {/* Info box */}
           <div className={`paymentResult__info paymentResult__info--${headerClass}`}>
             <span className="paymentResult__infoIcon">
-              {result.isSuccess ? '📧' : result.isPending ? '⏰' : '💡'}
+              {result.isSuccess ? <Mail size={20} /> : result.isPending ? <Clock size={20} /> : <Lightbulb size={20} />}
             </span>
             <p className="paymentResult__infoText">
               {currentContent.info}
@@ -296,7 +297,7 @@ export default function PaymentResult() {
                   className="paymentResult__btn paymentResult__btn--primary"
                   onClick={result.type === 'subscription' ? handleGoToDashboard : handleGoToStore}
                 >
-                  🎉 {result.type === 'subscription' ? 'Ir a Mi Dashboard' : 'Ver Mi Pedido'}
+                  <PartyPopper size={16} style={{ marginRight: 4 }} /> {result.type === 'subscription' ? 'Ir a Mi Dashboard' : 'Ver Mi Pedido'}
                 </button>
                 {result.type !== 'subscription' && (
                   <button
