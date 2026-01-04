@@ -12,6 +12,7 @@ import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/su
 import { fetchTenantPauseStatus } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { loadJson } from '../../../shared/storage'
+import { Menu, X } from 'lucide-react'
 
 export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const user = useAppSelector(selectUser)
@@ -35,8 +36,10 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const menuRef = useRef(null)
+  const mobileMenuRef = useRef(null)
 
   const isLanding = location.pathname === '/'
 
@@ -45,6 +48,9 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowUserMenu(false)
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && !event.target.closest('.header__mobileToggle')) {
+        setShowMobileMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -131,8 +137,35 @@ FrankFood
             </div>
           )}
 
-          <nav className="header__nav">
-            <NavLink className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')} to="/">
+          {/* Mobile Toggle Button */}
+          <button 
+            className="header__mobileToggle"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            aria-label="Toggle menu"
+          >
+            {showMobileMenu ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          {/* Mobile Menu Overlay */}
+          {showMobileMenu && (
+            <div className="header__mobileOverlay" onClick={() => setShowMobileMenu(false)} />
+          )}
+
+          {/* Navigation - Desktop & Mobile */}
+          <nav className={`header__nav ${showMobileMenu ? 'header__nav--open' : ''}`} ref={mobileMenuRef}>
+            {/* Close button inside mobile menu */}
+            <button 
+              className="header__mobileClose"
+              onClick={() => setShowMobileMenu(false)}
+            >
+              <X size={24} />
+            </button>
+
+            <NavLink 
+              className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')} 
+              to="/"
+              onClick={() => setShowMobileMenu(false)}
+            >
               Home
             </NavLink>
 
@@ -141,12 +174,14 @@ FrankFood
                 <NavLink
                   className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')}
                   to={storeHref}
+                  onClick={() => setShowMobileMenu(false)}
                 >
                   Tienda
                 </NavLink>
                 <NavLink
                   className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')}
                   to={user.role === ROLES.SUPER_ADMIN ? '/admin' : '/dashboard'}
+                  onClick={() => setShowMobileMenu(false)}
                 >
                   Dashboard
                 </NavLink>
@@ -159,7 +194,7 @@ FrankFood
                 <button 
                   className="header__tierBadge"
                   style={{ '--tier-color': TIER_COLORS[currentTier] }}
-                  onClick={() => setShowPremiumModal(true)}
+                  onClick={() => { setShowPremiumModal(true); setShowMobileMenu(false); }}
                 >
                   <span className="tier-icon">{currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}</span>
                   <span className="tier-name">{TIER_LABELS[currentTier]}</span>
@@ -167,7 +202,7 @@ FrankFood
               ) : (
                 <button 
                   className="header__upgradeCta"
-                  onClick={() => setShowPremiumModal(true)}
+                  onClick={() => { setShowPremiumModal(true); setShowMobileMenu(false); }}
                 >
                   <span className="upgrade-icon">✨</span>
                   <span className="upgrade-text">Hazte Premium</span>
@@ -301,14 +336,9 @@ FrankFood
                 <NavLink
                   className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')}
                   to="/login"
+                  onClick={() => setShowMobileMenu(false)}
                 >
                   Login
-                </NavLink>
-                <NavLink
-                  className={({ isActive }) => (isActive ? 'navlink navlink--active' : 'navlink')}
-                  to="/register"
-                >
-                  Registro
                 </NavLink>
               </>
             )}

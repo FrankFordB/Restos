@@ -2909,6 +2909,38 @@
   .orderDetailModal__secondaryActions {
     justify-content: center;
   }
+  
+  .orderDetailModal__content {
+    max-width: 95vw;
+    max-height: 90vh;
+    margin: 16px;
+  }
+  
+  .orderDetailModal__header {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .orderDetailModal__content {
+    max-width: 100%;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .orderDetailModal__header {
+    padding: 12px 14px;
+  }
+  
+  .orderDetailModal__title {
+    font-size: 1rem;
+  }
+  
+  .orderDetailModal__actions button {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
 }
 
 /* ================================================

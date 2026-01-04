@@ -78,6 +78,8 @@ import {
   Focus,
   Link2,
 } from 'lucide-react'
+import StoreFooter from '../../components/storefront/StoreFooter/StoreFooter'
+import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
 
 export default function StorefrontPage() {
   const { slug } = useParams()
@@ -377,6 +379,9 @@ export default function StorefrontPage() {
   const [showPausedRealtimeModal, setShowPausedRealtimeModal] = useState(false)
   const wasPausedRef = useRef(false) // Track previous pause state
   
+  // Store footer data
+  const [storeFooterData, setStoreFooterData] = useState(null)
+  
   // Out of stock modal state - now tracks which categories ran out
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false)
   const [outOfStockCategories, setOutOfStockCategories] = useState([])
@@ -622,6 +627,29 @@ export default function StorefrontPage() {
       setPauseMessage(tenantFullData.pause_message || '')
     }
   }, [tenantFullData])
+
+  // Load store footer data
+  useEffect(() => {
+    const loadFooterData = async () => {
+      if (!tenantId) return
+      try {
+        if (isSupabaseConfigured) {
+          const footerData = await fetchPublicStoreFooter(tenantId)
+          setStoreFooterData(footerData)
+        } else {
+          // Mock mode: check localStorage
+          const mockFooterKey = 'mock.storeFooterSettings'
+          const mockData = loadJson(mockFooterKey, {})
+          if (mockData[tenantId]) {
+            setStoreFooterData(mockData[tenantId])
+          }
+        }
+      } catch (err) {
+        console.error('Error loading store footer data:', err)
+      }
+    }
+    loadFooterData()
+  }, [tenantId])
 
   // Show welcome modal for non-logged users or preview mode
   useEffect(() => {
@@ -2611,6 +2639,16 @@ export default function StorefrontPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Store Footer - Show in normal view and preview mode */}
+      {!isCheckingOut && (
+        <StoreFooter 
+          footerData={storeFooterData}
+          tenantData={tenantFullData || tenant}
+          themeData={theme}
+          storeSlug={slug}
+        />
       )}
     </div>
   )

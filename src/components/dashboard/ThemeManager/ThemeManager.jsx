@@ -15,6 +15,7 @@ import {
   COLOR_PALETTES,
   isFeatureAvailable,
 } from '../../../shared/subscriptions'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION_TIERS.FREE, isSuperAdmin = false }) {
   const dispatch = useAppDispatch()
@@ -27,6 +28,13 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
   const [localTheme, setLocalTheme] = useState(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [saving, setSaving] = useState(false)
+  
+  // Accordion state - only one section open at a time
+  const [openSection, setOpenSection] = useState('colors') // 'colors' | 'typography' | 'styles' | null
+  
+  const toggleSection = (section) => {
+    setOpenSection(prev => prev === section ? null : section)
+  }
 
   // Sincronizar con el tema guardado cuando cambia
   useEffect(() => {
@@ -133,182 +141,211 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
       
       <div className="theme">
         {/* PALETAS DE COLORES PREDISEÑADAS */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle">🎨 Paletas de Colores</div>
-          <p className="theme__sectionDesc">Selecciona una paleta prediseñada o personaliza los colores manualmente</p>
-          
-          <div className="theme__palettesGrid">
-            {Object.entries(COLOR_PALETTES).map(([key, palette]) => {
-              const available = isFeatureAvailable(palette.tier, effectiveTier)
-              const isSelected = theme.primary === palette.colors.primary && 
-                                theme.accent === palette.colors.accent &&
-                                theme.background === palette.colors.background
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`theme__paletteItem ${isSelected ? 'theme__paletteItem--selected' : ''} ${!available ? 'theme__paletteItem--locked' : ''}`}
-                  onClick={() => available && updateLocal(palette.colors)}
-                  disabled={!available}
-                  title={available ? palette.label : `Requiere ${TIER_LABELS[palette.tier]}`}
-                >
-                  <div className="theme__paletteColors">
-                    {palette.preview.map((color, i) => (
-                      <div 
-                        key={i} 
-                        className="theme__paletteColor" 
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <span className="theme__paletteName">
-                    {palette.label}
-                    {!available && (
-                      <span className="theme__paletteTier">
-                        {palette.tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+        <div className="theme__accordion">
+          <button 
+            className={`theme__accordionHeader ${openSection === 'colors' ? 'expanded' : ''}`}
+            onClick={() => toggleSection('colors')}
+            type="button"
+          >
+            <span>🎨 Paleta de Colores</span>
+            {openSection === 'colors' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {openSection === 'colors' && (
+            <div className="theme__accordionContent">
+              <p className="theme__sectionDesc">Selecciona una paleta prediseñada o personaliza los colores manualmente</p>
+              
+              <div className="theme__palettesGrid">
+                {Object.entries(COLOR_PALETTES).map(([key, palette]) => {
+                  const available = isFeatureAvailable(palette.tier, effectiveTier)
+                  const isSelected = theme.primary === palette.colors.primary && 
+                                    theme.accent === palette.colors.accent &&
+                                    theme.background === palette.colors.background
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`theme__paletteItem ${isSelected ? 'theme__paletteItem--selected' : ''} ${!available ? 'theme__paletteItem--locked' : ''}`}
+                      onClick={() => available && updateLocal(palette.colors)}
+                      disabled={!available}
+                      title={available ? palette.label : `Requiere ${TIER_LABELS[palette.tier]}`}
+                    >
+                      <div className="theme__paletteColors">
+                        {palette.preview.map((color, i) => (
+                          <div 
+                            key={i} 
+                            className="theme__paletteColor" 
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <span className="theme__paletteName">
+                        {palette.label}
+                        {!available && (
+                          <span className="theme__paletteTier">
+                            {palette.tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+                    </button>
+                  )
+                })}
+              </div>
 
-        {/* COLORES MANUALES */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle">Colores Personalizados</div>
-          
-          <div className="theme__colorGroup">
-            <div className="theme__colorItem">
-              <input
-                type="color"
-                className="theme__colorInput"
-                value={theme.primary}
-                onChange={(e) => updateLocal({ primary: e.target.value })}
-              />
-              <span className="theme__colorLabel">Primario</span>
+              {/* COLORES MANUALES */}
+              <div className="theme__sectionTitle" style={{ marginTop: '16px' }}>Colores Personalizados</div>
+              
+              <div className="theme__colorGroup">
+                <div className="theme__colorItem">
+                  <input
+                    type="color"
+                    className="theme__colorInput"
+                    value={theme.primary}
+                    onChange={(e) => updateLocal({ primary: e.target.value })}
+                  />
+                  <span className="theme__colorLabel">Primario</span>
+                </div>
+                <div className="theme__colorItem">
+                  <input
+                    type="color"
+                    className="theme__colorInput"
+                    value={theme.accent}
+                    onChange={(e) => updateLocal({ accent: e.target.value })}
+                  />
+                  <span className="theme__colorLabel">Acento</span>
+                </div>
+                <div className="theme__colorItem">
+                  <input
+                    type="color"
+                    className="theme__colorInput"
+                    value={theme.background}
+                    onChange={(e) => updateLocal({ background: e.target.value })}
+                  />
+                  <span className="theme__colorLabel">Fondo</span>
+                </div>
+                <div className="theme__colorItem">
+                  <input
+                    type="color"
+                    className="theme__colorInput"
+                    value={theme.text}
+                    onChange={(e) => updateLocal({ text: e.target.value })}
+                  />
+                  <span className="theme__colorLabel">Texto</span>
+                </div>
+              </div>
             </div>
-            <div className="theme__colorItem">
-              <input
-                type="color"
-                className="theme__colorInput"
-                value={theme.accent}
-                onChange={(e) => updateLocal({ accent: e.target.value })}
-              />
-              <span className="theme__colorLabel">Acento</span>
-            </div>
-            <div className="theme__colorItem">
-              <input
-                type="color"
-                className="theme__colorInput"
-                value={theme.background}
-                onChange={(e) => updateLocal({ background: e.target.value })}
-              />
-              <span className="theme__colorLabel">Fondo</span>
-            </div>
-            <div className="theme__colorItem">
-              <input
-                type="color"
-                className="theme__colorInput"
-                value={theme.text}
-                onChange={(e) => updateLocal({ text: e.target.value })}
-              />
-              <span className="theme__colorLabel">Texto</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* TIPOGRAFÍA */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle"> Tipografía</div>
-          
-          <label className="theme__row">
-            <span className="theme__label">Fuente principal</span>
-            <select
-              className="theme__select"
-              value={theme.fontFamily || 'Inter'}
-              onChange={(e) => updateLocal({ fontFamily: e.target.value })}
-            >
-              {Object.entries(FONTS).map(([font, config]) => {
-                const available = isFeatureAvailable(config.tier, effectiveTier)
-                return (
-                  <option key={font} value={font} disabled={!available}>
-                    {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
-                  </option>
-                )
-              })}
-            </select>
-          </label>
+        <div className="theme__accordion">
+          <button 
+            className={`theme__accordionHeader ${openSection === 'typography' ? 'expanded' : ''}`}
+            onClick={() => toggleSection('typography')}
+            type="button"
+          >
+            <span>🔤 Tipografía</span>
+            {openSection === 'typography' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {openSection === 'typography' && (
+            <div className="theme__accordionContent">
+              <label className="theme__row">
+                <span className="theme__label">Fuente principal</span>
+                <select
+                  className="theme__select"
+                  value={theme.fontFamily || 'Inter'}
+                  onChange={(e) => updateLocal({ fontFamily: e.target.value })}
+                >
+                  {Object.entries(FONTS).map(([font, config]) => {
+                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                    return (
+                      <option key={font} value={font} disabled={!available}>
+                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
 
-          <label className="theme__row">
-            <span className="theme__label">Border radius</span>
-            <input
-              className="theme__radius"
-              value={theme.radius}
-              onChange={(e) => updateLocal({ radius: e.target.value })}
-              placeholder="16px"
-            />
-          </label>
+              <label className="theme__row">
+                <span className="theme__label">Border radius</span>
+                <input
+                  className="theme__radius"
+                  value={theme.radius}
+                  onChange={(e) => updateLocal({ radius: e.target.value })}
+                  placeholder="16px"
+                />
+              </label>
+            </div>
+          )}
         </div>
 
         {/* ESTILOS */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle"> Estilos</div>
-          
-          <label className="theme__row">
-            <span className="theme__label">Estilo de cards</span>
-            <select
-              className="theme__select"
-              value={theme.cardStyle || 'glass'}
-              onChange={(e) => updateLocal({ cardStyle: e.target.value })}
-            >
-              {Object.entries(CARD_STYLES).map(([style, config]) => {
-                const available = isFeatureAvailable(config.tier, effectiveTier)
-                return (
-                  <option key={style} value={style} disabled={!available}>
-                    {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
-                  </option>
-                )
-              })}
-            </select>
-          </label>
+        <div className="theme__accordion">
+          <button 
+            className={`theme__accordionHeader ${openSection === 'styles' ? 'expanded' : ''}`}
+            onClick={() => toggleSection('styles')}
+            type="button"
+          >
+            <span>✨ Estilos</span>
+            {openSection === 'styles' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {openSection === 'styles' && (
+            <div className="theme__accordionContent">
+              <label className="theme__row">
+                <span className="theme__label">Estilo de cards</span>
+                <select
+                  className="theme__select"
+                  value={theme.cardStyle || 'glass'}
+                  onChange={(e) => updateLocal({ cardStyle: e.target.value })}
+                >
+                  {Object.entries(CARD_STYLES).map(([style, config]) => {
+                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                    return (
+                      <option key={style} value={style} disabled={!available}>
+                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
 
-          <label className="theme__row">
-            <span className="theme__label">Estilo de botones</span>
-            <select
-              className="theme__select"
-              value={theme.buttonStyle || 'rounded'}
-              onChange={(e) => updateLocal({ buttonStyle: e.target.value })}
-            >
-              {Object.entries(BUTTON_STYLES).map(([style, config]) => {
-                const available = isFeatureAvailable(config.tier, effectiveTier)
-                return (
-                  <option key={style} value={style} disabled={!available}>
-                    {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
-                  </option>
-                )
-              })}
-            </select>
-          </label>
+              <label className="theme__row">
+                <span className="theme__label">Estilo de botones</span>
+                <select
+                  className="theme__select"
+                  value={theme.buttonStyle || 'rounded'}
+                  onChange={(e) => updateLocal({ buttonStyle: e.target.value })}
+                >
+                  {Object.entries(BUTTON_STYLES).map(([style, config]) => {
+                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                    return (
+                      <option key={style} value={style} disabled={!available}>
+                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
 
-          <label className="theme__row">
-            <span className="theme__label">Estilo de layout</span>
-            <select
-              className="theme__select"
-              value={theme.layoutStyle || 'modern'}
-              onChange={(e) => updateLocal({ layoutStyle: e.target.value })}
-            >
-              {Object.entries(LAYOUT_STYLES).map(([style, config]) => {
-                const available = isFeatureAvailable(config.tier, effectiveTier)
-                return (
-                  <option key={style} value={style} disabled={!available}>
-                    {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
-                  </option>
-                )
-              })}
-            </select>
-          </label>
+              <label className="theme__row">
+                <span className="theme__label">Estilo de layout</span>
+                <select
+                  className="theme__select"
+                  value={theme.layoutStyle || 'modern'}
+                  onChange={(e) => updateLocal({ layoutStyle: e.target.value })}
+                >
+                  {Object.entries(LAYOUT_STYLES).map(([style, config]) => {
+                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                    return (
+                      <option key={style} value={style} disabled={!available}>
+                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
+            </div>
+          )}
         </div>
 
         {/* ENLACE A EDICIÓN DE CARDS */}

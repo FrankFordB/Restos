@@ -6,8 +6,7 @@ import Button from '../../components/ui/Button/Button'
 import WelcomeModalEditor from '../../components/dashboard/WelcomeModalEditor/WelcomeModalEditor'
 import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
 import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
-import PageBuilder from '../../components/dashboard/PageBuilder/PageBuilder'
-import SubscriptionPlans from '../../components/dashboard/SubscriptionPlans/SubscriptionPlans'
+import StoreFooterEditor from '../../components/dashboard/StoreFooterEditor/StoreFooterEditor'
 import { useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { selectTenants } from '../../features/tenants/tenantsSlice'
@@ -884,11 +883,8 @@ export default function StoreEditor() {
       {/* Diseño y Personalización */}
       <ThemeManager tenantId={user?.tenantId} subscriptionTier={subscriptionTier} />
 
-      {/* Configuración de Página */}
-      <PageBuilder tenantId={user?.tenantId} subscriptionTier={subscriptionTier} />
-
-      {/* Planes de Suscripción */}
-      <SubscriptionPlans currentTier={subscriptionTier} tenantId={user?.tenantId} />
+      {/* Footer de la tienda */}
+      <StoreFooterEditor tenantId={user?.tenantId} tenantName={tenantName} openingHours={openingHours} />
 
       {/* Modal de Recorte de Logo */}
       <ImageCropperModal

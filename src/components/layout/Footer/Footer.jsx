@@ -78,33 +78,7 @@ export default function Footer({ variant = 'full' }) {
   return (
     <footer className="footer">
       <div className="footer__container">
-        {/* Sección superior con newsletter */}
-        <div className="footer__newsletter">
-          <div className="footer__newsletterContent">
-            <h3 className="footer__newsletterTitle">
-              <Send size={20} />
-              Suscríbete a nuestro boletín
-            </h3>
-            <p className="footer__newsletterText">
-              Recibe ofertas exclusivas, novedades de restaurantes y promociones especiales
-            </p>
-          </div>
-          <form className="footer__newsletterForm" onSubmit={handleSubscribe}>
-            <input
-              type="email"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="footer__newsletterInput"
-              required
-            />
-            <button type="submit" className="footer__newsletterBtn">
-              {subscribed ? '¡Suscrito!' : 'Suscribirse'}
-            </button>
-          </form>
-        </div>
-
-        {/* Grid principal del footer */}
+ {/* Grid principal del footer */}
         <div className="footer__grid">
           {/* Columna 1: Marca y descripción */}
           <div className="footer__column footer__column--brand">
@@ -176,7 +150,7 @@ export default function Footer({ variant = 'full' }) {
                 </a>
               </li>
               <li>
-                <Link to="/terminos" className="footer__link">
+                <Link to="/faq" className="footer__link">
                   <ChevronRight size={14} />
                   Preguntas frecuentes
                 </Link>
@@ -248,66 +222,10 @@ export default function Footer({ variant = 'full' }) {
                 <span>Lun - Vie: 9:00 - 18:00</span>
               </li>
             </ul>
-          </div>
-        </div>
-
-        {/* Sección de métodos de pago y certificaciones */}
-        <div className="footer__trust">
-          <div className="footer__payments">
-            <span className="footer__trustLabel">Métodos de pago aceptados:</span>
-            <div className="footer__paymentIcons">
-              <div className="footer__paymentIcon" title="Visa">
-                <CreditCard size={20} />
-                <span>Visa</span>
-              </div>
-              <div className="footer__paymentIcon" title="Mastercard">
-                <CreditCard size={20} />
-                <span>Mastercard</span>
-              </div>
-              <div className="footer__paymentIcon" title="MercadoPago">
-                <CreditCard size={20} />
-                <span>MercadoPago</span>
-              </div>
-              <div className="footer__paymentIcon" title="Efectivo">
-                💵
-                <span>Efectivo</span>
-              </div>
-            </div>
+            
           </div>
           
-          <div className="footer__certifications">
-            <div className="footer__certification" title="Sitio Seguro">
-              <Shield size={20} />
-              <span>Sitio Seguro</span>
-            </div>
-            <div className="footer__certification" title="Calidad Garantizada">
-              <Award size={20} />
-              <span>Calidad</span>
-            </div>
-          </div>
         </div>
-
-        {/* Botón de ayuda flotante para no logueados */}
-        <div className="footer__helpSection">
-          <div className="footer__helpContent">
-            <HelpCircle size={24} />
-            <div>
-              <h4>¿Necesitas ayuda?</h4>
-              <p>Nuestro equipo está listo para asistirte</p>
-            </div>
-          </div>
-          <div className="footer__helpActions">
-            <a href="https://wa.me" target="_blank" rel="noreferrer" className="footer__helpBtn footer__helpBtn--primary">
-              <MessageCircle size={18} />
-              Chat en vivo
-            </a>
-            <a href="mailto:soporte@restos.app" className="footer__helpBtn footer__helpBtn--secondary">
-              <Mail size={18} />
-              Enviar email
-            </a>
-          </div>
-        </div>
-
         {/* Copyright */}
         <div className="footer__bottom">
           <div className="footer__copyright">

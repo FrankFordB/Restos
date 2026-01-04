@@ -771,3 +771,103 @@
 .account__toggle--on .account__toggleCircle {
   transform: translateX(24px);
 }
+
+/* ========== RESPONSIVE ADICIONAL ========== */
+@media (max-width: 768px) {
+  .account {
+    gap: 16px;
+  }
+  
+  .account__section {
+    gap: 16px;
+  }
+  
+  .account__successMessage {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+  }
+  
+  .account__successIcon {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  
+  .account__soundItem {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 0;
+  }
+  
+  .account__soundControl {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .account__logoUpload {
+    align-items: stretch;
+  }
+  
+  .account__logoActions {
+    flex-direction: column;
+  }
+  
+  .account__logoActions button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .account__urlInput {
+    flex-direction: column;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .account__label {
+    font-size: 0.8rem;
+  }
+  
+  .account__value {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+  
+  .account__soundBtn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .account__soundValue {
+    font-size: 1rem;
+    min-width: 36px;
+  }
+  
+  .account__toggle {
+    width: 48px;
+    height: 26px;
+  }
+  
+  .account__toggleCircle {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .account__toggle--on .account__toggleCircle {
+    transform: translateX(22px);
+  }
+  
+  .account__logoPreview {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .account__logoPlaceholder {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .account__textarea {
+    min-height: 80px;
+  }
+}

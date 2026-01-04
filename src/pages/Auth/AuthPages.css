@@ -6,6 +6,8 @@
   display: flex;
   min-height: calc(100vh - 80px);
   background: #f8fafc;
+  padding: 40px 0;
+  margin: 20px 0;
 }
 
 /* Hero Panel (Left Side) */
@@ -16,8 +18,35 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  overflow: hidden;
+  overflow: visible;
   padding: 40px;
+  border-radius: 10px;
+  margin: 20px;
+}
+
+/* Subtle edge fade - all borders */
+.authPage__hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  box-shadow: 
+    inset 0 0 6px 1px #f8fafc,
+    0 0 8px 2px #f8fafc;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Soft glow behind hero */
+.authPage__hero::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-radius: 14px;
+  filter: blur(10px);
+  opacity: 0.3;
+  z-index: -1;
 }
 
 /* Form Panel (Right Side) */
@@ -39,7 +68,7 @@
     0 4px 20px rgba(0, 0, 0, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.8) inset;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 420px;
+  max-width: 480px;
   width: 100%;
 }
 
@@ -54,14 +83,43 @@
 
 .authPage__heroOverlay {
   position: absolute;
-  inset: 0;
+  inset: 20px;
   background: 
     radial-gradient(ellipse at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 70%, rgba(245, 158, 11, 0.12) 0%, transparent 50%),
     url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
   opacity: 0.8;
-  border-radius: 20px;
+  border-radius: 24px;
   animation: breathe 2s ease-in-out infinite;
+}
+
+/* Edge fade effect for hero overlay */
+.authPage__heroOverlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: linear-gradient(to right, 
+    rgba(26, 26, 46, 0.8) 0%, 
+    transparent 15%, 
+    transparent 85%, 
+    rgba(26, 26, 46, 0.8) 100%
+  );
+  pointer-events: none;
+}
+
+.authPage__heroOverlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: linear-gradient(to bottom, 
+    rgba(26, 26, 46, 0.8) 0%, 
+    transparent 15%, 
+    transparent 85%, 
+    rgba(26, 26, 46, 0.8) 100%
+  );
+  pointer-events: none;
 }
 
 @keyframes breathe {
@@ -248,6 +306,65 @@
   margin: 0;
 }
 
+/* Step Indicator */
+.authPage__steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-top: 24px;
+}
+
+.authPage__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.authPage__step--active {
+  opacity: 1;
+}
+
+.authPage__step--completed .authPage__stepCircle {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.authPage__stepCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+
+.authPage__step--active .authPage__stepCircle {
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  color: white;
+}
+
+.authPage__step span {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.authPage__stepLine {
+  width: 60px;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 12px;
+  margin-bottom: 24px;
+}
+
 .authPage__form {
   display: flex;
   flex-direction: column;
@@ -271,6 +388,158 @@
 
 .authPage__label svg {
   color: #6b7280;
+}
+
+/* Input Row (side by side) */
+.authPage__inputRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Select Dropdown */
+.authPage__select {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
+
+.authPage__select:hover {
+  border-color: #d1d5db;
+}
+
+.authPage__select:focus {
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* Phone Input with Code */
+.authPage__phoneInput {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.authPage__phoneCode {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.authPage__phoneInput input,
+.authPage__phoneInput .input {
+  border-radius: 0 10px 10px 0 !important;
+  flex: 1;
+}
+
+/* Slug Input */
+.authPage__slugInput {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.authPage__slugPrefix {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.authPage__slugInput input,
+.authPage__slugInput .input {
+  border-radius: 0 10px 10px 0 !important;
+  flex: 1;
+}
+
+/* Checkbox */
+.authPage__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.authPage__checkbox:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.authPage__checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #f59e0b;
+  cursor: pointer;
+}
+
+.authPage__checkbox span {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+/* Form Actions (Back + Submit) */
+.authPage__formActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.authPage__backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.authPage__backBtn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.authPage__formActions .authPage__submitBtn {
+  flex: 1;
 }
 
 .authPage__error {
@@ -418,6 +687,23 @@
   
   .authPage__formTitle {
     font-size: 1.5rem;
+  }
+  
+  .authPage__inputRow {
+    grid-template-columns: 1fr;
+  }
+  
+  .authPage__slugPrefix {
+    font-size: 0.75rem;
+    padding: 0 8px;
+  }
+  
+  .authPage__formActions {
+    flex-direction: column;
+  }
+  
+  .authPage__backBtn {
+    order: 2;
   }
 }
 

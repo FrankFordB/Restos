@@ -476,6 +476,26 @@
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .extrasManager__tabs {
+    flex-wrap: wrap;
+  }
+  
+  .extrasManager__tab {
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    padding: 10px 14px;
+  }
+  
+  .extrasManager__option {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 640px) {
   .extrasManager__header {
     flex-direction: column;
@@ -505,5 +525,23 @@
 
   .extrasManager__fieldRow {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .extrasManager__option {
+    padding: 10px;
+  }
+  
+  .extrasManager__optionName {
+    font-size: 0.85rem;
+  }
+  
+  .extrasManager__optionPrice {
+    font-size: 0.85rem;
+  }
+  
+  .extrasManager__optionActions button {
+    padding: 6px;
   }
 }

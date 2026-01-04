@@ -348,6 +348,22 @@
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .mpConfig__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .mpConfig__status {
+    align-self: flex-start;
+  }
+  
+  .mpConfig__info {
+    padding: 14px;
+  }
+}
+
 @media (max-width: 640px) {
   .mpConfig__actions {
     flex-direction: column;
@@ -360,5 +376,20 @@
   .mpConfig__modeBtn {
     flex: 1;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .mpConfig__form {
+    gap: 14px;
+  }
+  
+  .mpConfig__input {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+  
+  .mpConfig__info {
+    font-size: 0.8rem;
   }
 }

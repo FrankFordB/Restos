@@ -1,0 +1,652 @@
+/* ============================================
+   STORE FOOTER EDITOR
+   ============================================ */
+
+.footerEditor__description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.footerEditor__loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.footerEditor__error {
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+/* Sections */
+.footerEditor__section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.footerEditor__sectionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background 0.2s ease;
+}
+
+.footerEditor__sectionHeader:hover {
+  background: var(--bg-hover);
+}
+
+.footerEditor__sectionHeader.expanded {
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.footerEditor__sectionHeader svg:last-child {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.footerEditor__sectionContent {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footerEditor__hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.footerEditor__hint--success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+/* Phone Input with Country Code */
+.footerEditor__phoneInput {
+  display: flex;
+  gap: 8px;
+}
+
+.footerEditor__phoneCode {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  min-width: 110px;
+  cursor: pointer;
+}
+
+.footerEditor__phoneCode:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.footerEditor__phoneInput .input {
+  flex: 1;
+}
+
+/* Map Preview Link */
+.footerEditor__mapPreview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4285f4, #34a853);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: fit-content;
+}
+
+.footerEditor__mapPreview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+/* Info Section (for hours) */
+.footerEditor__sectionContent--info {
+  background: rgba(var(--accent-rgb, 245, 158, 11), 0.05);
+  border-top: 1px solid var(--border);
+}
+
+.footerEditor__infoText {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.footerEditor__infoText svg {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.footerEditor__infoText strong {
+  color: var(--text);
+}
+
+.footerEditor__hoursPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.footerEditor__hoursPreviewItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.footerEditor__hoursPreviewItem:nth-child(odd) {
+  background: var(--bg-hover);
+}
+
+/* Terms Checkbox */
+.footerEditor__checkboxItem--full {
+  align-items: flex-start;
+}
+
+.footerEditor__termsInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footerEditor__termsInfo span {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.footerEditor__termsInfo small {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Section Save Button */
+.footerEditor__sectionSave {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.footerEditor__sectionSuccess {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #10b981;
+  animation: fadeIn 0.3s ease;
+}
+
+.footerEditor__sectionError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #dc2626;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Map Search */
+.footerEditor__mapSearch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footerEditor__mapSearchInput {
+  display: flex;
+  gap: 8px;
+}
+
+.footerEditor__mapSearchInput .inputComponent {
+  flex: 1;
+}
+
+.footerEditor__mapSearchBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: var(--accent, #f97316);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.footerEditor__mapSearchBtn:hover:not(:disabled) {
+  background: var(--accent-hover, #ea580c);
+  transform: scale(1.02);
+}
+
+.footerEditor__mapSearchBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.footerEditor__mapSearchResults {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.footerEditor__mapSearchResults li {
+  border-bottom: 1px solid var(--border);
+}
+
+.footerEditor__mapSearchResults li:last-child {
+  border-bottom: none;
+}
+
+.footerEditor__mapSearchResult {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.footerEditor__mapSearchResult:hover {
+  background: var(--bg-hover);
+}
+
+.footerEditor__mapSearchResult svg {
+  color: #4285f4;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.footerEditor__mapSearchResult span {
+  line-height: 1.4;
+}
+
+/* Interactive Map Container */
+.footerEditor__mapContainer {
+  width: 100%;
+  height: 300px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--bg-hover);
+}
+
+.footerEditor__mapContainer .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Current Location Display */
+.footerEditor__currentLocation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(52, 168, 83, 0.1));
+  border-radius: 10px;
+  border: 1px solid rgba(66, 133, 244, 0.2);
+}
+
+.footerEditor__currentLocation svg {
+  color: #4285f4;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.footerEditor__currentLocation span {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Fields */
+.footerEditor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footerEditor__field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.footerEditor__field label svg {
+  color: var(--accent);
+}
+
+.footerEditor__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Business Hours */
+.footerEditor__hours {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footerEditor__hourRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.footerEditor__dayLabel {
+  min-width: 80px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.footerEditor__hourInputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.footerEditor__closedToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.footerEditor__closedToggle input {
+  accent-color: var(--accent);
+}
+
+.footerEditor__timeInput {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.footerEditor__timeInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Checkbox Lists */
+.footerEditor__checkboxList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footerEditor__checkboxList--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.footerEditor__checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.footerEditor__checkboxItem:hover {
+  background: var(--border);
+}
+
+.footerEditor__checkboxItem input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.footerEditor__checkboxItem svg {
+  color: var(--accent);
+}
+
+.footerEditor__checkboxItem span {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Custom Links */
+.footerEditor__linksList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footerEditor__linkItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.footerEditor__linkLabel {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.footerEditor__linkUrl {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footerEditor__linkRemove {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.footerEditor__linkRemove:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.footerEditor__addLink {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+/* Actions */
+.footerEditor__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.footerEditor__success {
+  color: #10b981;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footerEditor__row {
+    grid-template-columns: 1fr;
+  }
+
+  .footerEditor__hourRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footerEditor__hourInputs {
+    flex-wrap: wrap;
+  }
+
+  .footerEditor__checkboxList--grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .footerEditor__addLink {
+    grid-template-columns: 1fr;
+  }
+  
+  .footerEditor__sectionHeader {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+  
+  .footerEditor__sectionContent {
+    padding: 14px;
+    gap: 14px;
+  }
+  
+  .footerEditor__mapContainer {
+    height: 250px;
+  }
+  
+  .footerEditor__mapSearchInput {
+    flex-direction: column;
+  }
+  
+  .footerEditor__mapSearchBtn {
+    width: 100%;
+    height: 40px;
+  }
+  
+  .footerEditor__phoneInput {
+    flex-direction: column;
+  }
+  
+  .footerEditor__phoneCode {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .footerEditor__checkboxList--grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .footerEditor__section {
+    margin-bottom: 10px;
+  }
+  
+  .footerEditor__sectionSave {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .footerEditor__sectionSave button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .footerEditor__currentLocation {
+    padding: 12px;
+    font-size: 0.85rem;
+  }
+  
+  .footerEditor__currentLocation span {
+    font-size: 0.8rem;
+  }
+}

@@ -89,15 +89,6 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button 
-        className="sidebar__mobileToggle"
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        aria-label={isMobileOpen ? 'Cerrar menú' : 'Abrir menú'}
-      >
-        {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
-
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div 
@@ -108,26 +99,37 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside className={`sidebar ${isCollapsed ? 'sidebar--collapsed' : ''} ${isMobileOpen ? 'sidebar--mobileOpen' : ''}`}>
-        {/* Header */}
-        <div className="sidebar__header">
-          {!isCollapsed && (
-            <div className="sidebar__brand">
-              <div className="sidebar__brandIcon">
-                {tenantLogo ? (
-                  <img src={tenantLogo} alt={tenantName} className="sidebar__brandLogo" />
-                ) : (
-                  <UtensilsCrossed size={20} />
-                )}
+        {/* Mobile Toggle Tab - Parte del sidebar */}
+        <button 
+          className="sidebar__mobileTab"
+          onClick={() => setIsMobileOpen(!isMobileOpen)}
+          aria-label={isMobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+        >
+          {isMobileOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        {/* Sidebar Content - Scrolleable */}
+        <div className="sidebar__content">
+          {/* Header */}
+          <div className="sidebar__header">
+            {!isCollapsed && (
+              <div className="sidebar__brand">
+                <div className="sidebar__brandIcon">
+                  {tenantLogo ? (
+                    <img src={tenantLogo} alt={tenantName} className="sidebar__brandLogo" />
+                  ) : (
+                    <UtensilsCrossed size={20} />
+                  )}
+                </div>
+                <div className="sidebar__brandInfo">
+                  <span className="sidebar__brandName">{tenantName}</span>
+                  {tierBadge && (
+                    <span className={`sidebar__tierBadge sidebar__tierBadge--${tierBadge.class}`}>
+                      {tierBadge.label}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="sidebar__brandInfo">
-                <span className="sidebar__brandName">{tenantName}</span>
-                {tierBadge && (
-                  <span className={`sidebar__tierBadge sidebar__tierBadge--${tierBadge.class}`}>
-                    {tierBadge.label}
-                  </span>
-                )}
-              </div>
-            </div>
           )}
           {isCollapsed && (
             <div className="sidebar__brandIcon sidebar__brandIcon--collapsed">
@@ -138,109 +140,110 @@ export default function Sidebar({
               )}
             </div>
           )}
-        </div>
+          </div>
 
-        {/* Navigation */}
-        <nav className="sidebar__nav">
-          <ul className="sidebar__menu">
-            {MENU_ITEMS.map((item) => {
-              const Icon = item.icon
-              const isActive = activeTab === item.id
-              const showPendingBadge = item.id === 'orders' && pendingOrdersCount > 0
-              const showOrderLimitsBadge = item.id === 'orders' && orderLimitsStatus && !orderLimitsStatus.isUnlimited
-              
-              // Calculate order limits urgency
-              const getOrderLimitsUrgency = () => {
-                if (!orderLimitsStatus || orderLimitsStatus.isUnlimited) return 'normal'
-                const { remaining, limit } = orderLimitsStatus
-                if (remaining <= 0) return 'empty'
-                const percentage = limit > 0 ? (remaining / limit) * 100 : 0
-                if (percentage <= 20) return 'critical'
-                if (percentage <= 40) return 'warning'
-                return 'normal'
-              }
-              const orderLimitsUrgency = getOrderLimitsUrgency()
-              
-              return (
-                <li key={item.id}>
-                  <button
-                    className={`sidebar__menuItem ${isActive ? 'sidebar__menuItem--active' : ''}`}
-                    onClick={() => handleTabClick(item.id)}
-                    title={isCollapsed ? item.label : undefined}
-                  >
-                    <span className="sidebar__menuIcon">
-                      <Icon size={20} />
-                      {showPendingBadge && (
+          {/* Navigation */}
+          <nav className="sidebar__nav">
+            <ul className="sidebar__menu">
+              {MENU_ITEMS.map((item) => {
+                const Icon = item.icon
+                const isActive = activeTab === item.id
+                const showPendingBadge = item.id === 'orders' && pendingOrdersCount > 0
+                const showOrderLimitsBadge = item.id === 'orders' && orderLimitsStatus && !orderLimitsStatus.isUnlimited
+                
+                // Calculate order limits urgency
+                const getOrderLimitsUrgency = () => {
+                  if (!orderLimitsStatus || orderLimitsStatus.isUnlimited) return 'normal'
+                  const { remaining, limit } = orderLimitsStatus
+                  if (remaining <= 0) return 'empty'
+                  const percentage = limit > 0 ? (remaining / limit) * 100 : 0
+                  if (percentage <= 20) return 'critical'
+                  if (percentage <= 40) return 'warning'
+                  return 'normal'
+                }
+                const orderLimitsUrgency = getOrderLimitsUrgency()
+                
+                return (
+                  <li key={item.id}>
+                    <button
+                      className={`sidebar__menuItem ${isActive ? 'sidebar__menuItem--active' : ''}`}
+                      onClick={() => handleTabClick(item.id)}
+                      title={isCollapsed ? item.label : undefined}
+                    >
+                      <span className="sidebar__menuIcon">
+                        <Icon size={20} />
+                        {showPendingBadge && (
+                          <span 
+                            className="sidebar__ordersBadge"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onPendingOrdersClick?.()
+                            }}
+                            title="Ver pedidos pendientes"
+                          >
+                            {pendingOrdersCount > 9 ? '9+' : pendingOrdersCount}
+                          </span>
+                        )}
+                      </span>
+                      {!isCollapsed && (
+                        <span className="sidebar__menuLabel">{item.label}</span>
+                      )}
+                      {!isCollapsed && showPendingBadge && (
                         <span 
-                          className="sidebar__ordersBadge"
+                          className="sidebar__ordersCount"
                           onClick={(e) => {
                             e.stopPropagation()
                             onPendingOrdersClick?.()
                           }}
                           title="Ver pedidos pendientes"
                         >
-                          {pendingOrdersCount > 9 ? '9+' : pendingOrdersCount}
+                          {pendingOrdersCount}
                         </span>
                       )}
-                    </span>
-                    {!isCollapsed && (
-                      <span className="sidebar__menuLabel">{item.label}</span>
-                    )}
-                    {!isCollapsed && showPendingBadge && (
-                      <span 
-                        className="sidebar__ordersCount"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onPendingOrdersClick?.()
-                        }}
-                        title="Ver pedidos pendientes"
+                      {isActive && <span className="sidebar__menuIndicator" />}
+                    </button>
+                    
+                    {/* Order Limits Badge - Only show for orders menu item */}
+                    {item.id === 'orders' && showOrderLimitsBadge && !isCollapsed && (
+                      <div 
+                        className={`sidebar__orderLimitsBadge sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
+                        title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
                       >
-                        {pendingOrdersCount}
-                      </span>
+                        <ShoppingBag size={14} />
+                        <span className="sidebar__orderLimitsCount">
+                          {orderLimitsStatus.remaining}
+                        </span>
+                        <span className="sidebar__orderLimitsLabel">
+                          pedidos hoy
+                        </span>
+                      </div>
                     )}
-                    {isActive && <span className="sidebar__menuIndicator" />}
-                  </button>
-                  
-                  {/* Order Limits Badge - Only show for orders menu item */}
-                  {item.id === 'orders' && showOrderLimitsBadge && !isCollapsed && (
-                    <div 
-                      className={`sidebar__orderLimitsBadge sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
-                      title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
-                    >
-                      <ShoppingBag size={14} />
-                      <span className="sidebar__orderLimitsCount">
+                    
+                    {/* Collapsed version of order limits */}
+                    {item.id === 'orders' && showOrderLimitsBadge && isCollapsed && (
+                      <div 
+                        className={`sidebar__orderLimitsBadgeCollapsed sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
+                        title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
+                      >
                         {orderLimitsStatus.remaining}
-                      </span>
-                      <span className="sidebar__orderLimitsLabel">
-                        pedidos hoy
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Collapsed version of order limits */}
-                  {item.id === 'orders' && showOrderLimitsBadge && isCollapsed && (
-                    <div 
-                      className={`sidebar__orderLimitsBadgeCollapsed sidebar__orderLimitsBadge--${orderLimitsUrgency}`}
-                      title={`${orderLimitsStatus.remaining} de ${orderLimitsStatus.limit} pedidos disponibles hoy`}
-                    >
-                      {orderLimitsStatus.remaining}
-                    </div>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
 
-        {/* Collapse Toggle */}
-        <button 
-          className="sidebar__collapseBtn"
-          onClick={() => onCollapsedChange?.(!isCollapsed)}
-          title={isCollapsed ? 'Expandir' : 'Colapsar'}
-        >
-          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          {!isCollapsed && <span>Contraer</span>}
-        </button>
+          {/* Collapse Toggle */}
+          <button 
+            className="sidebar__collapseBtn"
+            onClick={() => onCollapsedChange?.(!isCollapsed)}
+            title={isCollapsed ? 'Expandir' : 'Colapsar'}
+          >
+            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {!isCollapsed && <span>Contraer</span>}
+          </button>
+        </div>
       </aside>
     </>
   )

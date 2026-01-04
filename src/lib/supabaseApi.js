@@ -910,7 +910,7 @@ export async function fetchThemeByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenant_themes')
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -929,6 +929,10 @@ export async function upsertTheme({ tenantId, theme }) {
       background_color: theme.background,
       text_color: theme.text,
       radius: theme.radius,
+      font_family: theme.fontFamily,
+      card_style: theme.cardStyle,
+      button_style: theme.buttonStyle,
+      layout_style: theme.layoutStyle,
       product_card_layout: theme.productCardLayout,
       card_bg: theme.cardBg,
       card_text: theme.cardText,
@@ -944,7 +948,7 @@ export async function upsertTheme({ tenantId, theme }) {
       hero_show_cta: theme.heroShowCta,
       hero_carousel_button_style: theme.heroCarouselButtonStyle,
     })
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .single()
 
   if (error) throw error
@@ -1546,3 +1550,84 @@ export async function fetchTenantWithSubscriptionCheck(tenantId) {
     return await checkAndFixSubscriptionExpiration(tenantId)
   }
 }
+
+// -------------------------
+// Store Footer Settings
+// -------------------------
+
+// Fetch store footer settings for a tenant
+export async function fetchStoreFooterSettings(tenantId) {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('store_footer_settings')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  // If table doesn't exist or no data, return null (use defaults)
+  if (error) {
+    console.warn('fetchStoreFooterSettings: Error or table not exists', error.message)
+    return null
+  }
+  
+  return data
+}
+
+// Create or update store footer settings
+export async function upsertStoreFooterSettings({ tenantId, settings }) {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('store_footer_settings')
+    .upsert({
+      tenant_id: tenantId,
+      ...settings,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'tenant_id' })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Update specific fields of store footer settings
+export async function updateStoreFooterSettings({ tenantId, updates }) {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('store_footer_settings')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('tenant_id', tenantId)
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Fetch public store footer for storefront (no auth required)
+export async function fetchPublicStoreFooter(tenantId) {
+  // This function is for anonymous access
+  if (!isSupabaseConfigured) {
+    return null
+  }
+  
+  const { data, error } = await supabase
+    .from('store_footer_settings')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('fetchPublicStoreFooter error:', error.message)
+    return null
+  }
+  
+  return data
+}
+

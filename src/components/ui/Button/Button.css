@@ -101,3 +101,41 @@
 .btn--whatsapp:active:not(:disabled) {
   transform: translateY(0);
 }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .btn:hover:not(:disabled) {
+    transform: none;
+  }
+  
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  
+  .btn--sm {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+  
+  .btn--lg {
+    padding: 14px 24px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    padding: 12px 14px;
+    min-height: 44px; /* Tamaño mínimo táctil */
+  }
+  
+  .btn--sm {
+    padding: 10px 12px;
+    min-height: 40px;
+  }
+}

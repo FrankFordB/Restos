@@ -716,3 +716,53 @@
     border-radius: 14px;
   }
 }
+
+@media (max-width: 380px) {
+  .welcomeModal__overlay {
+    padding: 8px;
+  }
+  
+  .welcomeModal {
+    border-radius: 20px;
+  }
+  
+  .welcomeModal__hero {
+    height: 160px;
+  }
+  
+  .welcomeModal__logoWrapper,
+  .welcomeModal__logoPlaceholder {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+  
+  .welcomeModal__storeName {
+    font-size: 1.25rem;
+  }
+  
+  .welcomeModal__body {
+    padding: 20px 16px 16px;
+  }
+  
+  .welcomeModal__title {
+    font-size: 1.1rem;
+  }
+  
+  .welcomeModal__feature {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+  }
+  
+  .welcomeModal__ctaBtn {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+  }
+  
+  .welcomeModal__close {
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+  }
+}

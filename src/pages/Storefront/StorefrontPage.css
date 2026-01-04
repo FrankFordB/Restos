@@ -448,12 +448,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 16px;
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   border: 1px solid #f59e0b;
   border-radius: var(--radius);
   margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.store__adminActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Hide admin bar in preview mode */
@@ -465,6 +473,59 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Responsive Admin Bar */
+@media (max-width: 768px) {
+  .store__adminBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  
+  .store__adminLabel {
+    justify-content: center;
+    font-size: 0.8rem;
+  }
+  
+  .store__adminActions {
+    justify-content: center;
+    gap: 6px;
+  }
+  
+  .store__adminActions .btn {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+  
+  .store__adminActions .btn svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .store__adminBar {
+    padding: 8px 10px;
+  }
+  
+  .store__adminActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+  
+  .store__adminActions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 8px;
+  }
 }
 
 /* Category Navigation Tabs */

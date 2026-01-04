@@ -10,6 +10,7 @@ import HomePage from './pages/Home/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import StorefrontPage from './pages/Storefront/StorefrontPage'
+import StoreTermsPage from './pages/Storefront/StoreTermsPage'
 import TenantHomePage from './pages/TenantHome/TenantHomePage'
 import DirectoryPage from './pages/Directory/DirectoryPage'
 import UserDashboardPage from './pages/Dashboard/UserDashboardPage'
@@ -17,7 +18,7 @@ import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
 import NotFoundPage from './pages/System/NotFoundPage'
 import PaymentResult from './pages/Payment/PaymentResult'
-import { TermsPage, PrivacyPage, CookiesPage, ReturnsPage } from './pages/Legal'
+import { TermsPage, PrivacyPage, CookiesPage, ReturnsPage, FaqPage } from './pages/Legal'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/register" element={<RedirectIfAuth><RegisterPage /></RedirectIfAuth>} />
           
           {/* Páginas legales */}
+          <Route path="/faq" element={<FaqPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/cookies" element={<CookiesPage />} />
@@ -38,6 +40,7 @@ export default function App() {
           <Route path="/r/:slug" element={<TenantHomePage />} />
           <Route path="/store/:slug" element={<StorefrontPage />} />
           <Route path="/tienda/:slug" element={<StorefrontPage />} />
+          <Route path="/tienda/:slug/terminos" element={<StoreTermsPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
           {/* Páginas de resultado de pago de MercadoPago */}

@@ -712,6 +712,31 @@
   }
 }
 
+@media (max-width: 380px) {
+  .productModal__title {
+    font-size: 1.1rem;
+  }
+  
+  .productModal__price {
+    font-size: 1.25rem;
+  }
+  
+  .productModal__qtyBtn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .productModal__qtyValue {
+    min-width: 40px;
+    font-size: 1rem;
+  }
+  
+  .productModal__addBtn {
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
 /* Stock warnings */
 .productModal__stockWarning {
   font-size: 0.8rem;

@@ -35,3 +35,38 @@
 .card__body {
   padding: 18px 20px;
 }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .card:hover {
+    transform: none;
+  }
+  
+  .card__header {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  
+  .card__title {
+    font-size: 0.95rem;
+  }
+  
+  .card__body {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card__header {
+    padding: 12px 14px;
+  }
+  
+  .card__title {
+    font-size: 0.9rem;
+  }
+  
+  .card__body {
+    padding: 12px 14px;
+  }
+}

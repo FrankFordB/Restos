@@ -631,3 +631,34 @@
   color: var(--muted);
   margin: 0 0 16px 0;
 }
+
+/* ========== RESPONSIVE ADICIONAL ========== */
+@media (max-width: 480px) {
+  .mobileEditor__tabs {
+    flex-wrap: wrap;
+  }
+  
+  .mobileEditor__tab {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    justify-content: center;
+  }
+  
+  .mobileEditor__phoneFrame {
+    max-width: 240px;
+  }
+  
+  .mobileEditor__toggle {
+    padding: 10px;
+  }
+  
+  .mobileEditor__toggleLabel {
+    font-size: 0.85rem;
+  }
+  
+  .mobileEditor__sectionDesc {
+    font-size: 0.8rem;
+  }
+}

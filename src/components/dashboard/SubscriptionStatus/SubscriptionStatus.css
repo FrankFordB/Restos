@@ -252,6 +252,18 @@
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .subscriptionStatus__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .subscriptionStatus__badge {
+    align-self: flex-start;
+  }
+}
+
 @media (max-width: 600px) {
   .subscriptionStatus__alert {
     flex-direction: column;
