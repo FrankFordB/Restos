@@ -12,6 +12,7 @@ import {
   supabaseResetPasswordForEmail,
   generateUniqueSlug,
 } from '../../lib/supabaseApi'
+import { getMFAFactors, getCurrentUser } from '../../lib/supabaseAuth'
 import { ROLES } from '../../shared/constants'
 
 const PERSIST_KEY = 'state.auth'
@@ -25,6 +26,9 @@ const initialState = loadJson(PERSIST_KEY, {
   adminManagedTenantId: null,
   bannedInfo: null,
   welcomeInfo: null,
+  mfaRequired: false,
+  mfaFactors: [],
+  pendingAuthData: null,
 })
 
 function persist(state) {
@@ -36,12 +40,30 @@ export const signInWithEmail = createAsyncThunk(
   async (payload, thunkAPI) => {
     if (!isSupabaseConfigured) {
       const user = mockSignIn(payload)
-      return user
+      return { user, mfaRequired: false }
     }
 
     const data = await supabaseSignIn(payload)
     const authed = data.user
     if (!authed) throw new Error('No se pudo iniciar sesión')
+
+    // Check if MFA is required
+    try {
+      const { totp } = await getMFAFactors()
+      if (totp && totp.length > 0) {
+        // MFA is enabled, return pending state
+        return thunkAPI.fulfillWithValue({
+          mfaRequired: true,
+          mfaFactors: totp,
+          pendingUser: {
+            id: authed.id,
+            email: authed.email,
+          },
+        })
+      }
+    } catch {
+      // No MFA configured, continue normal login
+    }
 
     const profile = await fetchProfile(authed.id)
     if (!profile) {
@@ -52,10 +74,13 @@ export const signInWithEmail = createAsyncThunk(
         // ignore (policies/triggers not installed)
       }
       return {
-        id: authed.id,
-        email: authed.email,
-        role: ROLES.TENANT_ADMIN,
-        tenantId: null,
+        user: {
+          id: authed.id,
+          email: authed.email,
+          role: ROLES.TENANT_ADMIN,
+          tenantId: null,
+        },
+        mfaRequired: false,
       }
     }
 
@@ -67,10 +92,13 @@ export const signInWithEmail = createAsyncThunk(
         if (owned?.id) {
           const updated = await upsertProfile({ userId: authed.id, role: profile.role, tenantId: owned.id })
           return {
-            id: updated.user_id,
-            email: authed.email,
-            role: updated.role,
-            tenantId: updated.tenant_id,
+            user: {
+              id: updated.user_id,
+              email: authed.email,
+              role: updated.role,
+              tenantId: updated.tenant_id,
+            },
+            mfaRequired: false,
           }
         }
       } catch {
@@ -87,13 +115,16 @@ export const signInWithEmail = createAsyncThunk(
     }
 
     return {
-      id: profile.user_id,
-      email: authed.email,
-      role: profile.role,
-      tenantId: profile.tenant_id,
-      accountStatus: profile.account_status,
-      premiumUntil: profile.premium_until,
-      premiumSource: profile.premium_source,
+      user: {
+        id: profile.user_id,
+        email: authed.email,
+        role: profile.role,
+        tenantId: profile.tenant_id,
+        accountStatus: profile.account_status,
+        premiumUntil: profile.premium_until,
+        premiumSource: profile.premium_source,
+      },
+      mfaRequired: false,
     }
   },
 )
@@ -198,6 +229,9 @@ const authSlice = createSlice({
       state.adminManagedTenantId = null
       state.bannedInfo = null
       state.welcomeInfo = null
+      state.mfaRequired = false
+      state.mfaFactors = []
+      state.pendingAuthData = null
       persist(state)
     },
     setMode(state, action) {
@@ -230,6 +264,50 @@ const authSlice = createSlice({
       state.welcomeInfo = null
       persist(state)
     },
+    // MFA actions
+    setMFARequired(state, action) {
+      state.mfaRequired = action.payload.required
+      state.mfaFactors = action.payload.factors || []
+      state.pendingAuthData = action.payload.pendingData || null
+      persist(state)
+    },
+    completeMFAVerification(state, action) {
+      state.status = 'authenticated'
+      state.user = action.payload
+      state.mfaRequired = false
+      state.mfaFactors = []
+      state.pendingAuthData = null
+      state.welcomeInfo = {
+        message: '¡Bienvenido! Verificación de dos factores completada.',
+      }
+      persist(state)
+    },
+    cancelMFA(state) {
+      state.status = 'anonymous'
+      state.mfaRequired = false
+      state.mfaFactors = []
+      state.pendingAuthData = null
+      persist(state)
+    },
+    // OAuth action
+    setUserFromOAuth(state, action) {
+      const session = action.payload
+      if (session?.user) {
+        state.status = 'authenticated'
+        state.user = {
+          id: session.user.id,
+          email: session.user.email,
+          role: session.user.user_metadata?.role || ROLES.USER,
+          tenantId: session.user.user_metadata?.tenant_id || null,
+          provider: session.user.app_metadata?.provider || 'email',
+        }
+        state.error = null
+        state.welcomeInfo = {
+          message: '¡Bienvenido! Has iniciado sesión con Google.',
+        }
+        persist(state)
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -238,12 +316,28 @@ const authSlice = createSlice({
         state.error = null
         state.bannedInfo = null
         state.welcomeInfo = null
+        state.mfaRequired = false
+        state.mfaFactors = []
       })
       .addCase(signInWithEmail.fulfilled, (state, action) => {
+        // Check if MFA is required
+        if (action.payload.mfaRequired) {
+          state.status = 'mfa_required'
+          state.mfaRequired = true
+          state.mfaFactors = action.payload.mfaFactors
+          state.pendingAuthData = action.payload.pendingUser
+          state.error = null
+          persist(state)
+          return
+        }
+        
         state.status = 'authenticated'
-        state.user = action.payload
+        state.user = action.payload.user
         state.error = null
         state.bannedInfo = null
+        state.mfaRequired = false
+        state.mfaFactors = []
+        state.pendingAuthData = null
         state.welcomeInfo = {
           message:
             '¡Bienvenido! Ahora puedes crear y administrar tu restaurante, personalizar su estilo, cargar productos y gestionar tus pedidos desde el panel.',
@@ -309,11 +403,17 @@ export const {
   setAdminManagedTenantId,
   clearBannedInfo,
   clearWelcomeInfo,
+  setMFARequired,
+  completeMFAVerification,
+  cancelMFA,
+  setUserFromOAuth,
 } = authSlice.actions
 
 export const selectAuth = (state) => state.auth
 export const selectUser = (state) => state.auth.user
 export const selectAdminManagedTenantId = (state) => state.auth.adminManagedTenantId
+export const selectMFARequired = (state) => state.auth.mfaRequired
+export const selectMFAFactors = (state) => state.auth.mfaFactors
 export const selectIsAuthed = (state) => state.auth.status === 'authenticated'
 
 export default authSlice.reducer

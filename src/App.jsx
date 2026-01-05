@@ -9,6 +9,9 @@ import { ROLES } from './shared/constants'
 import HomePage from './pages/Home/HomePage'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
+import VerifyEmailPage from './pages/Auth/VerifyEmailPage'
+import AuthCallbackPage from './pages/Auth/AuthCallbackPage'
+import TwoFactorSetup from './pages/Auth/TwoFactorSetup'
 import StorefrontPage from './pages/Storefront/StorefrontPage'
 import StoreTermsPage from './pages/Storefront/StoreTermsPage'
 import TenantHomePage from './pages/TenantHome/TenantHomePage'
@@ -29,6 +32,13 @@ export default function App() {
           <Route path="/restaurantes" element={<DirectoryPage />} />
           <Route path="/login" element={<RedirectIfAuth><LoginPage /></RedirectIfAuth>} />
           <Route path="/register" element={<RedirectIfAuth><RegisterPage /></RedirectIfAuth>} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/auth/verify" element={<VerifyEmailPage />} />
+          
+          {/* 2FA Setup - requiere autenticación */}
+          <Route element={<RequireAuth />}>
+            <Route path="/security/2fa" element={<TwoFactorSetup />} />
+          </Route>
           
           {/* Páginas legales */}
           <Route path="/faq" element={<FaqPage />} />

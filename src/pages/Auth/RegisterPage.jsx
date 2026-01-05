@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import './AuthPages.css'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { addTenant } from '../../features/tenants/tenantsSlice'
-import { clearAuthError, registerWithEmail, selectAuth } from '../../features/auth/authSlice'
+import { clearAuthError, registerWithEmail, selectAuth, setUserFromOAuth } from '../../features/auth/authSlice'
+import { signUpWithEmailOTP } from '../../lib/supabaseAuth'
 import { 
   Store, 
   User, 
@@ -19,7 +20,8 @@ import {
   Check,
   Sparkles,
   ShieldCheck,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react'
 
 function slugify(value) {
@@ -59,9 +61,14 @@ export default function RegisterPage() {
   const dispatch = useAppDispatch()
   const auth = useAppSelector(selectAuth)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Check if returning from email verification (step=2)
+  const urlStep = searchParams.get('step')
+  const isStep2 = urlStep === '2'
 
   // Step tracking
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(isStep2 ? 2 : 1)
   
   // Step 1: User data
   const [fullName, setFullName] = useState('')
@@ -143,9 +150,46 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step === 1 && validateStep1()) {
-      setStep(2)
+      dispatch(clearAuthError())
+      setIsSubmitting(true)
+      
+      try {
+        // Send OTP to email for verification
+        const result = await signUpWithEmailOTP(email, {
+          fullName,
+          country,
+          city,
+          phoneNumber: phoneNumber ? `${phoneCode}${phoneNumber}` : null
+        })
+        
+        if (result.error) {
+          throw new Error(result.error.message || 'Error al enviar código de verificación')
+        }
+        
+        // Store registration data in sessionStorage for step 2
+        sessionStorage.setItem('pendingRegistration', JSON.stringify({
+          email,
+          password,
+          fullName,
+          country,
+          city,
+          phoneNumber: phoneNumber ? `${phoneCode}${phoneNumber}` : null
+        }))
+        
+        // Navigate to verify page
+        navigate('/auth/verify', { 
+          state: { 
+            email,
+            returnTo: '/register?step=2'
+          }
+        })
+      } catch (err) {
+        setErrors({ submit: err.message || 'Error al enviar código de verificación' })
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -162,23 +206,40 @@ export default function RegisterPage() {
     setIsSubmitting(true)
     
     try {
+      // Get stored registration data if coming from verification
+      const storedData = sessionStorage.getItem('pendingRegistration')
+      const pendingData = storedData ? JSON.parse(storedData) : null
+      
+      // Use stored data or current form data
+      const registrationEmail = pendingData?.email || email
+      const registrationPassword = pendingData?.password || password
+      const registrationFullName = pendingData?.fullName || fullName
+      const registrationCountry = pendingData?.country || country
+      const registrationCity = pendingData?.city || city
+      const registrationPhone = pendingData?.phoneNumber || (phoneNumber ? `${phoneCode}${phoneNumber}` : null)
+      
       const result = await dispatch(
         registerWithEmail({ 
-          email, 
-          password, 
+          email: registrationEmail, 
+          password: registrationPassword, 
           tenantName, 
           tenantSlug,
           isPublic,
           // Additional data
-          fullName,
-          country,
-          city,
-          phoneNumber: phoneNumber ? `${phoneCode}${phoneNumber}` : null,
+          fullName: registrationFullName,
+          country: registrationCountry,
+          city: registrationCity,
+          phoneNumber: registrationPhone,
           businessType,
           storePhone,
-          storeAddress
+          storeAddress,
+          // Flag to indicate email is already verified
+          emailVerified: isStep2
         }),
       ).unwrap()
+      
+      // Clear pending registration data
+      sessionStorage.removeItem('pendingRegistration')
       
       if (result?.createdTenant) {
         dispatch(addTenant(result.createdTenant))
@@ -186,7 +247,6 @@ export default function RegisterPage() {
       navigate('/dashboard')
     } catch (err) {
       // Error handled in slice
-      console.error('Registration error:', err)
     } finally {
       setIsSubmitting(false)
     }
@@ -280,6 +340,10 @@ export default function RegisterPage() {
 
           {auth.error && (
             <div className="authPage__error">{auth.error}</div>
+          )}
+
+          {errors.submit && (
+            <div className="authPage__error">{errors.submit}</div>
           )}
 
           {step === 1 && (
@@ -387,10 +451,20 @@ export default function RegisterPage() {
 
               <Button 
                 onClick={handleNextStep}
+                disabled={isSubmitting}
                 className="authPage__submitBtn"
               >
-                Continuar
-                <ArrowRight size={18} />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="authPage__spinner" />
+                    Enviando código...
+                  </>
+                ) : (
+                  <>
+                    Continuar
+                    <ArrowRight size={18} />
+                  </>
+                )}
               </Button>
             </div>
           )}

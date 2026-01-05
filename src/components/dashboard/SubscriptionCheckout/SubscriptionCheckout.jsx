@@ -46,18 +46,13 @@ export default function SubscriptionCheckout({
   const [downgradeLoading, setDowngradeLoading] = useState(false)
 
   const mpConfigured = isPlatformMPConfigured()
-  
-  // Debug: mostrar estado de MP
-  console.log('🔶 SubscriptionCheckout - mpConfigured:', mpConfigured)
 
   const handleUpgrade = (tier, period) => {
-    console.log('🔵 handleUpgrade llamado:', { tier, period })
     setSelectedPlan(tier)
     setBillingPeriod(period)
     setShowCheckout(true)
     setError(null)
     setTermsAccepted(false)
-    console.log('🔵 showCheckout seteado a TRUE')
   }
 
   const handleDowngradeRequest = (tier) => {
@@ -109,30 +104,22 @@ export default function SubscriptionCheckout({
   }
 
   const handlePayment = async () => {
-    console.log('🟢 handlePayment INICIADO - Verificando términos...')
-    
     if (!termsAccepted) {
       setError('Debes aceptar los términos y condiciones')
       return
     }
 
-    console.log('🟢 Términos aceptados. mpConfigured =', mpConfigured)
-
     if (!mpConfigured) {
       // Modo demo: simular pago exitoso
-      console.log('🟡 MP NO configurado, ejecutando simulateDemoPayment()')
       simulateDemoPayment()
       return
     }
-
-    console.log('🟢 MP Configurado, intentando crear preferencia...')
 
     try {
       setLoading(true)
       setError(null)
 
       const amount = getPrice()
-      console.log('🟢 Amount:', amount, 'Plan:', selectedPlan, 'Period:', billingPeriod)
 
       // Crear preferencia de pago en MP
       const preference = await createSubscriptionPreference({
@@ -144,8 +131,6 @@ export default function SubscriptionCheckout({
         payerEmail: userEmail,
       })
 
-      console.log('🟢 Preferencia creada:', preference)
-
       // Guardar suscripción pendiente
       await createPlatformSubscription({
         tenantId,
@@ -155,7 +140,6 @@ export default function SubscriptionCheckout({
         amount,
       })
 
-      console.log('🟢 Redirigiendo a MercadoPago:', preference.initPoint)
       // Redirigir a MercadoPago
       window.location.href = preference.initPoint
 
@@ -169,8 +153,6 @@ export default function SubscriptionCheckout({
 
   // Modo demo sin MercadoPago - para desarrollo local
   const simulateDemoPayment = async () => {
-    console.log('🔵 DEMO PAGO - INICIO')
-    
     setLoading(true)
     
     // Simular delay de procesamiento
@@ -186,7 +168,6 @@ export default function SubscriptionCheckout({
 
     // Actualizar tier del tenant
     await updateTenantSubscriptionTier(tenantId, selectedPlan, expiresAt)
-    console.log('🔵 DEMO PAGO - Tier actualizado:', selectedPlan, 'hasta:', expiresAt)
 
     setPaymentData({
       amount: getPrice(),

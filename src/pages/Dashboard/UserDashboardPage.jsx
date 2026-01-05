@@ -214,15 +214,11 @@ export default function UserDashboardPage() {
   // Función para reproducir sonido
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) {
-      console.log('🔇 Sonido deshabilitado por el usuario')
       return
     }
     if (!audioRef.current) {
-      console.log('🔇 No hay elemento de audio')
       return
     }
-    
-    console.log('🔔 ¡NUEVO PEDIDO! Reproduciendo sonido...')
     
     let played = 0
     const playOnce = () => {
@@ -230,11 +226,8 @@ export default function UserDashboardPage() {
       
       audioRef.current.currentTime = 0
       audioRef.current.play()
-        .then(() => {
-          console.log(`🔔 Sonido ${played + 1}/${soundConfig.repeatCount}`)
-        })
         .catch((err) => {
-          console.warn('⚠️ No se pudo reproducir sonido:', err.message)
+          // Silently handle autoplay restrictions
         })
       played++
       
@@ -250,8 +243,6 @@ export default function UserDashboardPage() {
   const playAlertSound = useCallback(() => {
     if (!alertAudioRef.current) return
     
-    console.log('🚨 ¡ALERTA! Límite de pedidos alcanzado')
-    
     // Reproducir sonido de alerta 3 veces con más urgencia
     let played = 0
     const playOnce = () => {
@@ -259,11 +250,8 @@ export default function UserDashboardPage() {
       
       alertAudioRef.current.currentTime = 0
       alertAudioRef.current.play()
-        .then(() => {
-          console.log(`🚨 Alerta ${played + 1}/3`)
-        })
         .catch((err) => {
-          console.warn('⚠️ No se pudo reproducir alerta:', err.message)
+          // Silently handle autoplay restrictions
         })
       played++
       
@@ -278,22 +266,16 @@ export default function UserDashboardPage() {
   // Cargar y suscribirse a límites de pedidos
   useEffect(() => {
     if (!user?.tenantId) {
-      console.log('📊 Order limits: No tenantId available')
       return
     }
     
     const loadOrderLimits = async () => {
       try {
-        console.log('📊 Loading order limits for tenant:', user.tenantId)
-        console.log('📊 isSupabaseConfigured:', isSupabaseConfigured)
-        
         const status = await fetchOrderLimitsStatus(user.tenantId)
-        console.log('📊 Order limits status loaded:', JSON.stringify(status, null, 2))
-        console.log('📊 isUnlimited:', status.isUnlimited, '| remaining:', status.remaining, '| limit:', status.limit)
         setOrderLimitsStatus(status)
         prevOrdersRemainingRef.current = status.remaining
       } catch (err) {
-        console.error('Error loading order limits:', err)
+        // Silently handle error
       }
     }
     
@@ -302,14 +284,11 @@ export default function UserDashboardPage() {
     // Suscribirse a cambios en tiempo real
     if (isSupabaseConfigured) {
       const unsubscribe = subscribeToOrderLimits(user.tenantId, (newStatus) => {
-        console.log('📊 Order limits updated:', newStatus)
-        
         // Detectar si acaba de llegar a 0
         const wasNotZero = prevOrdersRemainingRef.current > 0
         const isNowZero = !newStatus.isUnlimited && newStatus.remaining <= 0
         
         if (wasNotZero && isNowZero) {
-          console.log('🚨 ¡Límite de pedidos alcanzado!')
           playAlertSound()
           setShowOrderLimitModal(true)
         }
@@ -326,8 +305,6 @@ export default function UserDashboardPage() {
   useEffect(() => {
     if (!user?.tenantId || !isSupabaseConfigured) return
     
-    console.log('📡 Iniciando suscripción global a pedidos...')
-    
     const channel = supabase
       .channel(`global-orders-${user.tenantId}`)
       .on(
@@ -339,7 +316,6 @@ export default function UserDashboardPage() {
           filter: `tenant_id=eq.${user.tenantId}`,
         },
         (payload) => {
-          console.log('🔔 ¡NUEVO PEDIDO RECIBIDO!', payload.new)
           dispatch(fetchOrdersForTenant(user.tenantId))
           setGlobalNewOrdersCount((prev) => prev + 1)
           playNotificationSound()
@@ -369,12 +345,9 @@ export default function UserDashboardPage() {
           dispatch(fetchOrdersForTenant(user.tenantId))
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Estado suscripción global:', status)
-      })
+      .subscribe()
 
     return () => {
-      console.log('🔌 Desconectando suscripción global')
       supabase.removeChannel(channel)
     }
   }, [user?.tenantId, dispatch, playNotificationSound])
@@ -439,9 +412,6 @@ export default function UserDashboardPage() {
       try {
         // Primero verificar si la suscripción expiró y corregir
         const subscriptionCheck = await checkAndFixSubscriptionExpiration(user.tenantId)
-        if (subscriptionCheck?.wasExpired) {
-          console.log('⚠️ Subscription was expired, downgraded to free')
-        }
         
         // Luego cargar el tenant actualizado
         const tenant = await fetchTenantById(user.tenantId)

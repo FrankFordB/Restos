@@ -149,7 +149,7 @@ create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   name text not null,
-  price numeric(10,2) not null,
+  price numeric(14,2) not null,
   description text null,
   image_url text null,
   category text null,
@@ -240,7 +240,7 @@ create table if not exists public.orders (
   customer_phone text null,
   status text not null default 'paid' check (status in ('pending','paid','cancelled','fulfilled')),
   currency text not null default 'USD',
-  total numeric(10,2) not null,
+  total numeric(14,2) not null,
   created_at timestamptz not null default now()
 );
 
@@ -251,9 +251,9 @@ create table if not exists public.order_items (
   order_id uuid not null references public.orders(id) on delete cascade,
   product_id uuid null references public.products(id) on delete set null,
   name text not null,
-  unit_price numeric(10,2) not null,
+  unit_price numeric(14,2) not null,
   qty integer not null check (qty > 0),
-  line_total numeric(10,2) not null,
+  line_total numeric(14,2) not null,
   created_at timestamptz not null default now()
 );
 

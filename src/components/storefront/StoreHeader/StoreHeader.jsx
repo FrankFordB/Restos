@@ -23,8 +23,6 @@ export default function StoreHeader({
   // Order limits props
   orderLimitsStatus = null,
 }) {
-  // Debug: ver qué valores recibe el componente
-  console.log('[StoreHeader] Props recibidas:', { showTitle, showSubtitle, showCta })
   const [currentSlide, setCurrentSlide] = useState(0)
   const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true })
 
@@ -155,6 +153,13 @@ export default function StoreHeader({
             backgroundSize: currentSlideData.focalPoint?.zoom 
               ? `${currentSlideData.focalPoint.zoom * 100}%` 
               : 'cover',
+            '--mobile-focus-x': `${currentSlideData.mobileFocalPoint?.x ?? 50}%`,
+            '--mobile-focus-y': `${currentSlideData.mobileFocalPoint?.y ?? 50}%`,
+            '--mobile-focus-zoom': (() => {
+              const zoom = currentSlideData.mobileFocalPoint?.zoom ?? 100;
+              if (zoom <= 100) return 'cover';
+              return `${zoom}%`;
+            })(),
           }}
         />
         

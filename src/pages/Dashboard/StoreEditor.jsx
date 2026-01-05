@@ -348,17 +348,15 @@ export default function StoreEditor() {
         openingHours: hours,
       }
       saveJson(MOCK_TENANT_KEY, mockTenant)
-      console.log('[Opening Hours] Saved to localStorage (MOCK mode):', hours)
       setSavingHours(false)
       return true
     }
     
     try {
-      const result = await updateTenantOpeningHours({
+      await updateTenantOpeningHours({
         tenantId: user.tenantId,
         openingHours: hours,
       })
-      console.log('[Opening Hours] Saved to Supabase:', result)
       setSavingHours(false)
       return true
     } catch (e) {

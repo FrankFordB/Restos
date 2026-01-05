@@ -203,17 +203,11 @@ export default function AdminDashboardPage() {
     setTierLoading(true)
     setTenantsError(null)
     try {
-      console.log('Asignando tier:', { 
+      await adminSetTenantTier({ 
         tenantId: tierModal.tenantId, 
         tier: tierModal.tier, 
         days: Number(tierDays) 
       })
-      const result = await adminSetTenantTier({ 
-        tenantId: tierModal.tenantId, 
-        tier: tierModal.tier, 
-        days: Number(tierDays) 
-      })
-      console.log('Resultado:', result)
       await refreshTenants()
       setTierModal(null)
       setTierDays(30)

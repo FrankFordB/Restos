@@ -1422,8 +1422,6 @@ export async function fetchOrderLimitsStatusBySlug(slug) {
 export function subscribeToOrderLimits(tenantId, callback) {
   if (!isSupabaseConfigured) return () => {}
   
-  console.log('🔔 Subscribing to order limits for tenant:', tenantId)
-  
   const channel = supabase
     .channel(`tenant-orders-${tenantId}`)
     .on(
@@ -1435,7 +1433,6 @@ export function subscribeToOrderLimits(tenantId, callback) {
         filter: `id=eq.${tenantId}`,
       },
       (payload) => {
-        console.log('🔔 Order limits REALTIME update received:', payload.new)
         const newData = payload.new
         callback({
           tenantId: newData.id,
@@ -1448,13 +1445,10 @@ export function subscribeToOrderLimits(tenantId, callback) {
         })
       }
     )
-    .subscribe((status) => {
-      console.log('🔔 Order limits subscription status:', status)
-    })
+    .subscribe()
 
   // Return unsubscribe function
   return () => {
-    console.log('🔔 Unsubscribing from order limits')
     supabase.removeChannel(channel)
   }
 }
@@ -1484,9 +1478,6 @@ export async function checkAndFixSubscriptionExpiration(tenantId) {
                       new Date(tenant.premium_until) < new Date()
 
     if (isExpired) {
-      console.log('⚠️ Subscription expired for tenant:', tenant.name)
-      console.log('⚠️ premium_until:', tenant.premium_until, '< now')
-      
       // Downgrade to free
       const { data: updated, error: updateError } = await supabase
         .from('tenants')
@@ -1500,7 +1491,6 @@ export async function checkAndFixSubscriptionExpiration(tenantId) {
         .single()
 
       if (updateError) {
-        console.error('Error downgrading subscription:', updateError)
         // If update fails (e.g., RLS), just return the original with a flag
         return {
           ...tenant,
@@ -1509,7 +1499,6 @@ export async function checkAndFixSubscriptionExpiration(tenantId) {
         }
       }
 
-      console.log('✅ Tenant downgraded to free:', updated)
       return {
         ...updated,
         wasExpired: true
@@ -1537,9 +1526,6 @@ export async function fetchTenantWithSubscriptionCheck(tenantId) {
 
     if (!error && data && data.length > 0) {
       const tenant = data[0]
-      if (tenant.is_expired) {
-        console.log('⚠️ Subscription was expired and auto-corrected by database')
-      }
       return tenant
     }
 

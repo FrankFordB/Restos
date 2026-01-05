@@ -547,7 +547,6 @@ export default function OrdersManager({ tenantId }) {
     setIsBulkActionLoading(true)
     try {
       const orderIdsToDelete = Array.from(selectedOrderIds)
-      console.log('🗑️ Intentando eliminar pedidos:', orderIdsToDelete)
       
       const results = await Promise.allSettled(
         orderIdsToDelete.map((orderId) =>
@@ -555,20 +554,11 @@ export default function OrdersManager({ tenantId }) {
         )
       )
       
-      // Log resultados
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          console.log(`✅ Pedido ${orderIdsToDelete[index]} eliminado`)
-        } else {
-          console.error(`❌ Error eliminando pedido ${orderIdsToDelete[index]}:`, result.reason)
-        }
-      })
-      
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = results.filter(r => r.status === 'rejected').length
       
       if (failCount > 0) {
-        alert(`Se eliminaron ${successCount} pedido(s). ${failCount} fallaron. Revisa la consola para más detalles.`)
+        alert(`Se eliminaron ${successCount} pedido(s). ${failCount} fallaron.`)
       }
       
       clearSelection()
@@ -1561,7 +1551,6 @@ function PaymentModal({ order, onClose, onSuccess }) {
     setSaving(true)
     try {
       // Aquí se enviaría a la API para registrar el pago
-      console.log({ orderId: order.id, paymentMethod })
       alert('Pago registrado exitosamente')
       onSuccess()
     } catch (e) {

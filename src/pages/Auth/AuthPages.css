@@ -818,3 +818,457 @@
   height: 1px;
   background: var(--border);
 }
+
+/* Google OAuth Button */
+.authPage__googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 24px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 200ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.authPage__googleBtn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.authPage__googleBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner Animation */
+.authPage__spinner {
+  animation: authSpinner 1s linear infinite;
+}
+
+@keyframes authSpinner {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Banned Message */
+.authPage__banned {
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+/* Form Panel Centered (for 2FA) */
+.authPage__formPanel--centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ============================================
+   TWO FACTOR CHALLENGE STYLES
+   ============================================ */
+
+.twoFactorChallenge {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  text-align: center;
+}
+
+.twoFactorChallenge__header h2 {
+  margin: 12px 0 8px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.twoFactorChallenge__header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.twoFactorChallenge__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 16px;
+  color: white;
+}
+
+.twoFactorChallenge__codeInputs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.twoFactorChallenge__codeInput {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  transition: all 200ms ease;
+}
+
+.twoFactorChallenge__codeInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.twoFactorChallenge__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+.twoFactorChallenge__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.twoFactorChallenge__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.twoFactorChallenge__actions button {
+  width: 100%;
+  justify-content: center;
+}
+
+.twoFactorChallenge__backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.twoFactorChallenge__backBtn:hover {
+  color: var(--text);
+}
+
+/* ============================================
+   VERIFY EMAIL PAGE STYLES
+   ============================================ */
+
+.verifyEmail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  text-align: center;
+}
+
+.verifyEmail__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.verifyEmail__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 16px;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.verifyEmail__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.verifyEmail__subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.verifyEmail__email {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.verifyEmail__codeInputs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.verifyEmail__codeInput {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  transition: all 200ms ease;
+}
+
+.verifyEmail__codeInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.verifyEmail__codeInput--error {
+  border-color: #ef4444;
+  animation: shake 0.4s ease;
+}
+
+.verifyEmail__codeInput--success {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.verifyEmail__success {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  color: #10b981;
+  font-size: 0.9rem;
+}
+
+.verifyEmail__errorMsg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+.verifyEmail__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.verifyEmail__spinner {
+  animation: authSpinner 1s linear infinite;
+}
+
+.verifyEmail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.verifyEmail__submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.verifyEmail__resend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.verifyEmail__resendBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.verifyEmail__resendBtn:hover:not(:disabled) {
+  color: #4f46e5;
+}
+
+.verifyEmail__resendBtn:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.verifyEmail__resendIcon--spinning {
+  animation: authSpinner 1s linear infinite;
+}
+
+.verifyEmail__backBtn {
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.verifyEmail__backBtn:hover {
+  color: var(--text);
+}
+
+.verifyEmail__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  color: #ef4444;
+}
+
+.verifyEmail__error h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.verifyEmail__error p {
+  color: var(--text-muted);
+}
+
+/* ============================================
+   AUTH CALLBACK PAGE STYLES
+   ============================================ */
+
+.authCallback {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.authCallback__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.authCallback__loading h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.authCallback__loading p {
+  color: var(--text-muted);
+}
+
+.authCallback__spinner {
+  animation: authSpinner 1s linear infinite;
+  color: #6366f1;
+}
+
+.authCallback__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #10b981;
+}
+
+.authCallback__success h2 {
+  margin: 0;
+  color: #10b981;
+}
+
+.authCallback__success p {
+  color: var(--text-muted);
+}
+
+.authCallback__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #ef4444;
+}
+
+.authCallback__error h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.authCallback__error p {
+  color: #ef4444;
+}
+
+.authCallback__retryBtn {
+  padding: 12px 24px;
+  background: #6366f1;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.authCallback__retryBtn:hover {
+  background: #4f46e5;
+}

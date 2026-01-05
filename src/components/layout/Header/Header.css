@@ -517,6 +517,8 @@
   transition: all 200ms ease;
   margin-left: auto;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1001;
 }
 
 .header__mobileToggle svg {

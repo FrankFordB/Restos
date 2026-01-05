@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './WelcomeModal.css'
-import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle, Store, Utensils, ShoppingBag, ChefHat } from 'lucide-react'
+import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle, Store, Utensils, ShoppingBag, ChefHat, AlertCircle } from 'lucide-react'
 import Button from '../../ui/Button/Button'
 
 // Iconos disponibles para features
@@ -40,9 +40,16 @@ export default function WelcomeModal({
   isPreviewMode = false,
   storeStatus = { isOpen: true, noSchedule: true },
   isPaused = false,
-  pauseMessage = ''
+  pauseMessage = '',
+  // Order limits props
+  orderLimitsStatus = null
 }) {
   const [visible, setVisible] = useState(false)
+
+  // Check if order limit is reached (0 remaining)
+  const isOrderLimitReached = orderLimitsStatus && 
+    !orderLimitsStatus.isUnlimited && 
+    orderLimitsStatus.remaining === 0
 
   // Calcular el estado de la tienda
   const getStoreStatusInfo = () => {
@@ -190,29 +197,52 @@ export default function WelcomeModal({
 
         {/* Content Section - Modern Card Style */}
         <div className="welcomeModal__body">
-          <div className="welcomeModal__welcome">
-            <div className="welcomeModal__titleWrapper">
-              <Sparkles className="welcomeModal__titleIcon" size={20} />
-              <h2 className="welcomeModal__title">{title}</h2>
+          {/* Order Limit Warning - Only when remaining = 0 */}
+          {isOrderLimitReached && (
+            <div className="welcomeModal__orderLimitWarning">
+              <div className="welcomeModal__orderLimitIcon">
+                <AlertCircle size={24} />
+              </div>
+              <div className="welcomeModal__orderLimitContent">
+                <h3 className="welcomeModal__orderLimitTitle">
+                  Límite de pedidos alcanzado
+                </h3>
+                <p className="welcomeModal__orderLimitText">
+                  Lo sentimos, esta tienda ha alcanzado el límite de pedidos de hoy.
+                </p>
+                <p className="welcomeModal__orderLimitApology">
+                  ¡Disculpa las molestias! Te invitamos a volver mañana para realizar tu pedido.
+                </p>
+              </div>
             </div>
-            <p className="welcomeModal__message">{message}</p>
-          </div>
+          )}
+
+          {/* Welcome section - Only when orders are available */}
+          {!isOrderLimitReached && (
+            <div className="welcomeModal__welcome">
+              <div className="welcomeModal__titleWrapper">
+                <Sparkles className="welcomeModal__titleIcon" size={20} />
+                <h2 className="welcomeModal__title">{title}</h2>
+              </div>
+              <p className="welcomeModal__message">{message}</p>
+            </div>
+          )}
 
           {/* Features/Highlights - Dynamic */}
           {renderFeatures()}
 
           {/* CTA Button - Modern Gradient */}
           <div className="welcomeModal__actions">
-            <button onClick={handleClose} className="welcomeModal__ctaBtn">
-              <span>Explorar menú</span>
-              <ArrowRight size={18} />
+            <button onClick={handleClose} className={isOrderLimitReached ? "welcomeModal__understoodBtn" : "welcomeModal__ctaBtn"}>
+              <span>{isOrderLimitReached ? 'Entendido' : 'Explorar menú'}</span>
+              {!isOrderLimitReached && <ArrowRight size={18} />}
             </button>
           </div>
 
           {/* Footer Note */}
           <p className="welcomeModal__footerNote">
             <ShoppingBag size={14} />
-            Haz tu pedido en minutos
+            {isOrderLimitReached ? '¡Vuelve mañana para hacer tu pedido!' : 'Haz tu pedido en minutos'}
           </p>
         </div>
       </div>

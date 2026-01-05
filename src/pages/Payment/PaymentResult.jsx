@@ -88,10 +88,8 @@ export default function PaymentResult() {
 
       // Si no tenemos los datos del tenant en external_reference, buscar la suscripción pendiente
       if ((!subscriptionData.tenantId || !subscriptionData.planTier) && preferenceId) {
-        console.log('🔍 Buscando suscripción pendiente por preferenceId:', preferenceId)
         const pendingSubscription = await getPendingSubscriptionByPreference(preferenceId)
         if (pendingSubscription) {
-          console.log('✅ Suscripción pendiente encontrada:', pendingSubscription)
           subscriptionData = {
             tenantId: pendingSubscription.tenant_id,
             planTier: pendingSubscription.plan_tier,
@@ -121,9 +119,7 @@ export default function PaymentResult() {
 
       // Actualizar tier del tenant
       if (subscriptionData.tenantId && subscriptionData.planTier) {
-        console.log('🚀 Actualizando tier del tenant:', subscriptionData.tenantId, '→', subscriptionData.planTier)
         await updateTenantSubscriptionTier(subscriptionData.tenantId, subscriptionData.planTier, expiresAt)
-        console.log('✅ Tier actualizado correctamente')
       } else {
         console.warn('⚠️ No se pudo actualizar tier: faltan tenantId o planTier', subscriptionData)
       }

@@ -24,6 +24,7 @@ import WelcomeModal from '../../components/storefront/WelcomeModal/WelcomeModal'
 import SuccessModal from '../../components/storefront/SuccessModal/SuccessModal'
 import StoreClosedModal from '../../components/storefront/StoreClosedModal/StoreClosedModal'
 import FloatingCart from '../../components/storefront/FloatingCart/FloatingCart'
+import CartToast, { useCartToast } from '../../components/storefront/CartToast/CartToast'
 import { loadJson, saveJson } from '../../shared/storage'
 import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug, fetchOrderLimitsStatusBySlug, subscribeToOrderLimits } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
@@ -77,6 +78,14 @@ import {
   Clock,
   Focus,
   Link2,
+  ChevronDown,
+  Menu,
+  Smartphone,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  Minus,
+  RotateCcw,
 } from 'lucide-react'
 import StoreFooter from '../../components/storefront/StoreFooter/StoreFooter'
 import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
@@ -273,7 +282,6 @@ export default function StorefrontPage() {
     })
     
     if (needsUpdate) {
-      console.log('🔄 Ajustando carrito por cambio de stock global')
       setCart(adjustedCart)
     }
   }, [globalStockStatus.stockByCategory, globalStockStatus.hasGlobalStock])
@@ -295,7 +303,9 @@ export default function StorefrontPage() {
     return visible.filter((p) => p.category === effectiveSelectedCategory)
   }, [visible, effectiveSelectedCategory])
 
-  const [cart, setCart] = useState({}) // { cartItemId: { product, quantity, extras, extrasTotal, comment } }
+  // Cart state with localStorage persistence
+  const cartStorageKey = `cart.${slug}`
+  const [cart, setCart] = useState(() => loadJson(cartStorageKey, {}))
   const [paid, setPaid] = useState(false)
   const [lastOrderId, setLastOrderId] = useState(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false) // Modal de compra exitosa
@@ -365,9 +375,11 @@ export default function StorefrontPage() {
   const [localHeroTheme, setLocalHeroTheme] = useState(null)
   const [heroPreviewMode, setHeroPreviewMode] = useState(false)
   const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
+  const [showAdminMenu, setShowAdminMenu] = useState(false) // Mobile admin dropdown
   const heroFileInputRef = useRef(null)
   const heroPanelRef = useRef(null)
   const cardPanelRef = useRef(null)
+  const adminMenuRef = useRef(null)
 
   // Store open/closed status based on opening hours
   const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true, nextOpen: null })
@@ -381,6 +393,19 @@ export default function StorefrontPage() {
   
   // Store footer data
   const [storeFooterData, setStoreFooterData] = useState(null)
+  
+  // Cart toast notifications
+  const { toast: cartToast, dismissToast: dismissCartToast, showAddToast, showRemoveToast, showDeleteToast, showClearToast } = useCartToast()
+  
+  // Persist cart to localStorage
+  useEffect(() => {
+    if (Object.keys(cart).length > 0) {
+      saveJson(cartStorageKey, cart)
+    } else {
+      // Clear cart from storage when empty
+      saveJson(cartStorageKey, {})
+    }
+  }, [cart, cartStorageKey])
   
   // Out of stock modal state - now tracks which categories ran out
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false)
@@ -396,7 +421,6 @@ export default function StorefrontPage() {
     resetDate: null,
     tier: 'free',
   })
-  const [showOrderLimitModal, setShowOrderLimitModal] = useState(false)
   const wasOrderLimitReachedRef = useRef(false) // Track previous order limit state
   
   // Calculate if store is closed for blocking cart (paused state only - NOT out of stock)
@@ -424,6 +448,18 @@ export default function StorefrontPage() {
       setShowOutOfStockModal(true)
     }
   }, [globalStockStatus.emptyCategories])
+  
+  // Close admin menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showAdminMenu && adminMenuRef.current && !adminMenuRef.current.contains(event.target)) {
+        setShowAdminMenu(false)
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showAdminMenu])
   
   // Poll pause status every 10 seconds (lightweight check for realtime pause detection)
   useEffect(() => {
@@ -494,9 +530,9 @@ export default function StorefrontPage() {
           setOrderLimitsStatus(status)
           wasOrderLimitReachedRef.current = !status.canAcceptOrders
           
-          // If limit was already reached on load, show modal
+          // If limit was already reached on load, show welcome modal (which now includes limit warning)
           if (!status.canAcceptOrders && !status.isUnlimited) {
-            setShowOrderLimitModal(true)
+            setShowWelcomeModal(true)
           }
         } else {
           // Mock mode: use localStorage
@@ -520,12 +556,11 @@ export default function StorefrontPage() {
     // Subscribe to real-time updates
     if (isSupabaseConfigured && tenantId) {
       const unsubscribe = subscribeToOrderLimits(tenantId, (newStatus) => {
-        console.log('📊 Order limits updated:', newStatus)
         setOrderLimitsStatus(newStatus)
         
-        // If limit was just reached (wasn't reached before, now it is)
+        // If limit was just reached (wasn't reached before, now it is), show welcome modal
         if (!newStatus.canAcceptOrders && !wasOrderLimitReachedRef.current && !newStatus.isUnlimited) {
-          setShowOrderLimitModal(true)
+          setShowWelcomeModal(true)
         }
         
         wasOrderLimitReachedRef.current = !newStatus.canAcceptOrders
@@ -540,12 +575,6 @@ export default function StorefrontPage() {
     const checkStatus = () => {
       const openingHours = tenantFullData?.opening_hours || []
       const status = checkIsStoreOpen(openingHours)
-      console.log('[Store Status]', { 
-        openingHours, 
-        isOpen: status.isOpen, 
-        noSchedule: status.noSchedule,
-        nextOpen: status.nextOpen 
-      })
       setStoreStatus(status)
     }
     checkStatus()
@@ -692,18 +721,6 @@ export default function StorefrontPage() {
   const heroShowCta = heroTheme?.heroShowCta !== false
   const heroCarouselButtonStyle = heroTheme?.heroCarouselButtonStyle || 'arrows_classic'
 
-  // Debug: ver valores del theme
-  console.log('[StorefrontPage] Hero visibility:', {
-    'heroTheme.heroShowTitle': heroTheme?.heroShowTitle,
-    'heroShowTitle (computed)': heroShowTitle,
-    'heroTheme.heroShowSubtitle': heroTheme?.heroShowSubtitle,
-    'heroShowSubtitle (computed)': heroShowSubtitle,
-    'heroTheme.heroShowCta': heroTheme?.heroShowCta,
-    'heroShowCta (computed)': heroShowCta,
-    'localHeroTheme': localHeroTheme,
-    'theme': theme,
-  })
-
   // Get subscription tier from tenant (super_admin bypasses tier restrictions)
   // Check if premium is still active (not expired)
   const subscriptionTier = (() => {
@@ -772,13 +789,11 @@ export default function StorefrontPage() {
 
   // Update local hero theme (for live preview)
   const updateHeroTheme = (patch) => {
-    console.log('[StorefrontPage] updateHeroTheme llamado con:', patch)
     setLocalHeroTheme(prev => {
       const newValue = {
         ...(prev || theme || {}),
         ...patch
       }
-      console.log('[StorefrontPage] Nuevo localHeroTheme:', newValue)
       return newValue
     })
   }
@@ -799,6 +814,7 @@ export default function StorefrontPage() {
         imageUrl: '',
         ctaText: 'Ver más',
         ctaLink: '#productos',
+        mobileFocalPoint: 'center', // top, center, bottom
       }]
     })
   }
@@ -828,11 +844,9 @@ export default function StorefrontPage() {
   // Save hero theme
   const saveHeroTheme = async () => {
     if (!localHeroTheme) return
-    console.log('[StorefrontPage] saveHeroTheme - guardando:', localHeroTheme)
     setSavingTheme(true)
     try {
-      const result = await dispatch(saveTenantTheme({ tenantId, theme: localHeroTheme }))
-      console.log('[StorefrontPage] saveHeroTheme - resultado del dispatch:', result)
+      await dispatch(saveTenantTheme({ tenantId, theme: localHeroTheme }))
       setLocalHeroTheme(null)
       setShowHeroPanel(false) // Cerrar panel al guardar
       setHeroPreviewMode(false)
@@ -985,6 +999,7 @@ export default function StorefrontPage() {
       },
     }))
     setPaid(false)
+    showAddToast(product.name, quantity)
   }
 
   // Simple add (no extras, for quick add or when no extras configured)
@@ -1080,16 +1095,20 @@ export default function StorefrontPage() {
       }
     })
     setPaid(false)
+    showAddToast(product.name)
   }
 
-  const removeOne = (cartItemId) =>
+  const removeOne = (cartItemId) => {
+    const item = cart[cartItemId]
+    const productName = item?.product?.name || ''
+    
     setCart((c) => {
       setPaid(false)
-      const item = c[cartItemId]
-      if (!item) return c
+      const currentItem = c[cartItemId]
+      if (!currentItem) return c
       
-      if (typeof item === 'object') {
-        const newQty = Math.max(0, item.quantity - 1)
+      if (typeof currentItem === 'object') {
+        const newQty = Math.max(0, currentItem.quantity - 1)
         if (newQty === 0) {
           const { [cartItemId]: _removed, ...rest } = c
           return rest
@@ -1097,21 +1116,115 @@ export default function StorefrontPage() {
         return {
           ...c,
           [cartItemId]: {
-            ...item,
+            ...currentItem,
             quantity: newQty,
-            totalPrice: item.unitPrice * newQty,
+            totalPrice: currentItem.unitPrice * newQty,
           },
         }
       }
       
       // Old format
-      const next = Math.max(0, (item || 0) - 1)
+      const next = Math.max(0, (currentItem || 0) - 1)
       if (next === 0) {
         const { [cartItemId]: _removed, ...rest } = c
         return rest
       }
       return { ...c, [cartItemId]: next }
     })
+    
+    // Show toast after removing
+    if (item) {
+      const newQty = (item.quantity || 1) - 1
+      if (newQty === 0) {
+        showDeleteToast(productName)
+      } else {
+        showRemoveToast(productName)
+      }
+    }
+  }
+
+  // Increment quantity of an existing cart item (by cartItemId)
+  const incrementCartItem = (cartItemId) => {
+    // Block if store is closed
+    if (isStoreClosed) {
+      setShowClosedModal(true)
+      return
+    }
+    
+    const item = cart[cartItemId]
+    if (!item || typeof item !== 'object') return
+    
+    const product = item.product
+    const productId = item.productId
+    
+    // Calculate current quantity in cart for this product
+    const currentInCart = Object.values(cart).reduce((sum, cartItem) => {
+      if (typeof cartItem === 'object' && cartItem.productId === productId) {
+        return sum + cartItem.quantity
+      }
+      return sum
+    }, 0)
+    
+    // Calculate effective stock limit
+    const productStock = product?.stock !== null && product?.stock !== undefined ? product.stock : null
+    const categoryStockInfo = getCategoryStockInfo(product?.category)
+    const categoryStock = categoryStockInfo ? categoryStockInfo.currentStock : null
+    
+    let effectiveStockLimit = null
+    
+    if (productStock !== null && categoryStock !== null) {
+      effectiveStockLimit = Math.min(productStock, categoryStock)
+    } else if (productStock !== null) {
+      effectiveStockLimit = productStock
+    } else if (categoryStock !== null) {
+      effectiveStockLimit = categoryStock
+    }
+    
+    // Check if we can add more
+    if (effectiveStockLimit !== null && currentInCart >= effectiveStockLimit) {
+      return // Can't add more
+    }
+    
+    setCart((c) => {
+      const existing = c[cartItemId]
+      if (!existing || typeof existing !== 'object') return c
+      
+      const newQty = existing.quantity + 1
+      
+      // Verify limit before incrementing
+      if (effectiveStockLimit !== null && newQty > effectiveStockLimit) {
+        return c
+      }
+      
+      return {
+        ...c,
+        [cartItemId]: {
+          ...existing,
+          quantity: newQty,
+          totalPrice: existing.unitPrice * newQty,
+        },
+      }
+    })
+    setPaid(false)
+    showAddToast(product?.name || '')
+  }
+
+  // Edit cart item - opens product detail modal to change extras/quantity
+  const handleEditCartItem = (cartItem) => {
+    if (!cartItem || !cartItem.product) return
+    
+    // Remove the item being edited from cart
+    const cartItemId = cartItem.cartItemId
+    setCart((c) => {
+      const newCart = { ...c }
+      delete newCart[cartItemId]
+      return newCart
+    })
+    
+    // Open product detail modal with the product
+    setSelectedProductForDetail(cartItem.product)
+    setShowProductDetailModal(true)
+  }
 
   // Product management functions
   const openAddProduct = () => {
@@ -1277,14 +1390,11 @@ export default function StorefrontPage() {
           filter: `tenant_id=eq.${tenantId}`,
         },
         (payload) => {
-          console.log('📦 Stock de categoría actualizado:', payload.new)
           // Refrescar categorías para obtener el nuevo stock
           dispatch(fetchCategoriesForTenant(tenantId))
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Suscripción categorías:', status)
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
@@ -1306,14 +1416,11 @@ export default function StorefrontPage() {
           filter: `tenant_id=eq.${tenantId}`,
         },
         (payload) => {
-          console.log('📦 Stock de producto actualizado:', payload.new)
           // Refrescar productos para obtener el nuevo stock
           dispatch(fetchProductsForTenant(tenantId))
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Suscripción productos:', status)
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
@@ -1418,19 +1525,30 @@ export default function StorefrontPage() {
       <div className={`store__layout ${showHeroPanel ? 'store__layout--heroEditing' : ''}`} id="productos">
         <section className="store__products" aria-label="Productos">
           {isAdmin && (
-            <div className="store__adminBar">
-              <span className="store__adminLabel"><Wrench size={14} /> Modo administrador</span>
-              <div className="store__adminActions">
+            <div className="store__adminBar" ref={adminMenuRef}>
+              <div className="store__adminHeader">
+                <span className="store__adminLabel"><Wrench size={14} /> Modo administrador</span>
+                <button 
+                  className="store__adminToggle"
+                  onClick={() => setShowAdminMenu(!showAdminMenu)}
+                  aria-expanded={showAdminMenu}
+                >
+                  <Menu size={18} />
+                  <ChevronDown size={14} className={`store__adminToggleIcon ${showAdminMenu ? 'store__adminToggleIcon--open' : ''}`} />
+                </button>
+              </div>
+              <div className={`store__adminActions ${showAdminMenu ? 'store__adminActions--open' : ''}`}>
                 <Button 
                   size="sm" 
                   variant={heroPreviewMode ? 'primary' : 'secondary'}
-                  onClick={() => setHeroPreviewMode(!heroPreviewMode)}
+                  onClick={() => { setHeroPreviewMode(!heroPreviewMode); setShowAdminMenu(false); }}
                 >
                   {heroPreviewMode ? <><Pencil size={14} /> Salir de vista previa</> : <><Eye size={14} /> Ver como cliente</>}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => {
                   const willShow = !showHeroPanel
                   setShowHeroPanel(willShow)
+                  setShowAdminMenu(false)
                   if (willShow) {
                     setShowCardPanel(false)
                     setTimeout(() => heroPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
@@ -1441,6 +1559,7 @@ export default function StorefrontPage() {
                 <Button size="sm" variant="secondary" onClick={() => {
                   const willShow = !showCardPanel
                   setShowCardPanel(willShow)
+                  setShowAdminMenu(false)
                   if (willShow) {
                     setShowHeroPanel(false)
                     setTimeout(() => cardPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
@@ -1448,10 +1567,10 @@ export default function StorefrontPage() {
                 }}>
                   <LayoutGrid size={14} /> Personalizar Cards
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setShowExtrasManagerModal(true)}>
+                <Button size="sm" variant="secondary" onClick={() => { setShowExtrasManagerModal(true); setShowAdminMenu(false); }}>
                   <Layers size={14} /> Extras / Toppings
                 </Button>
-                <Button size="sm" onClick={openAddProduct}>
+                <Button size="sm" onClick={() => { openAddProduct(); setShowAdminMenu(false); }}>
                   <Plus size={14} /> Agregar producto
                 </Button>
               </div>
@@ -1861,6 +1980,245 @@ export default function StorefrontPage() {
                               <Lock size={14} /> Imagen de fondo disponible con <Star size={12} /> Premium
                             </div>
                           )}
+                          {/* Mobile Focal Point Selector - Draggable with Controls */}
+                          {slide.imageUrl && (
+                            <div className="store__heroMobileFocus">
+                              <span className="store__heroMobileFocusLabel">
+                                <Smartphone size={14} /> Ajuste móvil:
+                              </span>
+                              <div className="store__heroMobileFocusContainer">
+                                {/* Arrow Controls - Left */}
+                                <button
+                                  type="button"
+                                  className="store__heroMobileFocusArrow store__heroMobileFocusArrow--left"
+                                  onClick={() => {
+                                    const currentX = slide.mobileFocalPoint?.x ?? 50;
+                                    updateHeroSlide(index, 'mobileFocalPoint', { 
+                                      ...slide.mobileFocalPoint, 
+                                      x: Math.max(0, currentX - 5),
+                                      y: slide.mobileFocalPoint?.y ?? 50
+                                    });
+                                  }}
+                                  title="Mover izquierda"
+                                >
+                                  <ArrowLeft size={16} />
+                                </button>
+                                
+                                <div className="store__heroMobileFocusMiddle">
+                                  {/* Arrow Up */}
+                                  <button
+                                    type="button"
+                                    className="store__heroMobileFocusArrow store__heroMobileFocusArrow--up"
+                                    onClick={() => {
+                                      const currentY = slide.mobileFocalPoint?.y ?? 50;
+                                      updateHeroSlide(index, 'mobileFocalPoint', { 
+                                        ...slide.mobileFocalPoint,
+                                        x: slide.mobileFocalPoint?.x ?? 50,
+                                        y: Math.max(0, currentY - 5)
+                                      });
+                                    }}
+                                    title="Mover arriba"
+                                  >
+                                    <ArrowUp size={16} />
+                                  </button>
+                                  
+                                  {/* Phone Preview */}
+                                  <div 
+                                    className="store__heroMobileFocusPreview"
+                                    onMouseDown={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const updatePosition = (clientX, clientY) => {
+                                        const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+                                        const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+                                        updateHeroSlide(index, 'mobileFocalPoint', { 
+                                          x: Math.round(x), 
+                                          y: Math.round(y),
+                                          zoom: slide.mobileFocalPoint?.zoom ?? 100
+                                        });
+                                      };
+                                      updatePosition(e.clientX, e.clientY);
+                                      
+                                      const handleMouseMove = (moveEvent) => {
+                                        updatePosition(moveEvent.clientX, moveEvent.clientY);
+                                      };
+                                      const handleMouseUp = () => {
+                                        document.removeEventListener('mousemove', handleMouseMove);
+                                        document.removeEventListener('mouseup', handleMouseUp);
+                                      };
+                                      document.addEventListener('mousemove', handleMouseMove);
+                                      document.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                    onTouchStart={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const touch = e.touches[0];
+                                      const updatePosition = (clientX, clientY) => {
+                                        const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+                                        const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+                                        updateHeroSlide(index, 'mobileFocalPoint', { 
+                                          x: Math.round(x), 
+                                          y: Math.round(y),
+                                          zoom: slide.mobileFocalPoint?.zoom ?? 100
+                                        });
+                                      };
+                                      updatePosition(touch.clientX, touch.clientY);
+                                      
+                                      const handleTouchMove = (moveEvent) => {
+                                        const moveTouch = moveEvent.touches[0];
+                                        updatePosition(moveTouch.clientX, moveTouch.clientY);
+                                      };
+                                      const handleTouchEnd = () => {
+                                        document.removeEventListener('touchmove', handleTouchMove);
+                                        document.removeEventListener('touchend', handleTouchEnd);
+                                      };
+                                      document.addEventListener('touchmove', handleTouchMove);
+                                      document.addEventListener('touchend', handleTouchEnd);
+                                    }}
+                                  >
+                                    <div 
+                                      className="store__heroMobileFocusImage"
+                                      style={{ 
+                                        backgroundImage: `url(${slide.imageUrl})`,
+                                        backgroundPosition: `${slide.mobileFocalPoint?.x ?? 50}% ${slide.mobileFocalPoint?.y ?? 50}%`,
+                                        backgroundSize: (() => {
+                                          const zoom = slide.mobileFocalPoint?.zoom ?? 100;
+                                          if (zoom <= 100) return 'cover';
+                                          return `${zoom}%`;
+                                        })()
+                                      }}
+                                    />
+                                    <div className="store__heroMobileFocusMarker" style={{
+                                      left: `${slide.mobileFocalPoint?.x ?? 50}%`,
+                                      top: `${slide.mobileFocalPoint?.y ?? 50}%`,
+                                    }} />
+                                  </div>
+                                  
+                                  {/* Arrow Down */}
+                                  <button
+                                    type="button"
+                                    className="store__heroMobileFocusArrow store__heroMobileFocusArrow--down"
+                                    onClick={() => {
+                                      const currentY = slide.mobileFocalPoint?.y ?? 50;
+                                      updateHeroSlide(index, 'mobileFocalPoint', { 
+                                        ...slide.mobileFocalPoint,
+                                        x: slide.mobileFocalPoint?.x ?? 50,
+                                        y: Math.min(100, currentY + 5)
+                                      });
+                                    }}
+                                    title="Mover abajo"
+                                  >
+                                    <ArrowDown size={16} />
+                                  </button>
+                                </div>
+                                
+                                {/* Arrow Controls - Right */}
+                                <button
+                                  type="button"
+                                  className="store__heroMobileFocusArrow store__heroMobileFocusArrow--right"
+                                  onClick={() => {
+                                    const currentX = slide.mobileFocalPoint?.x ?? 50;
+                                    updateHeroSlide(index, 'mobileFocalPoint', { 
+                                      ...slide.mobileFocalPoint, 
+                                      x: Math.min(100, currentX + 5),
+                                      y: slide.mobileFocalPoint?.y ?? 50
+                                    });
+                                  }}
+                                  title="Mover derecha"
+                                >
+                                  <ArrowRight size={16} />
+                                </button>
+                              </div>
+                              
+                              {/* Zoom Controls */}
+                              <div className="store__heroMobileFocusZoom">
+                                <button
+                                  type="button"
+                                  className="store__heroMobileFocusZoomBtn"
+                                  onClick={() => {
+                                    const currentZoom = slide.mobileFocalPoint?.zoom ?? 100;
+                                    updateHeroSlide(index, 'mobileFocalPoint', { 
+                                      ...slide.mobileFocalPoint,
+                                      x: slide.mobileFocalPoint?.x ?? 50,
+                                      y: slide.mobileFocalPoint?.y ?? 50,
+                                      zoom: Math.max(50, currentZoom - 10)
+                                    });
+                                  }}
+                                  title="Alejar"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <input
+                                  type="range"
+                                  min="50"
+                                  max="400"
+                                  step="5"
+                                  value={slide.mobileFocalPoint?.zoom ?? 100}
+                                  onChange={(e) => {
+                                    updateHeroSlide(index, 'mobileFocalPoint', { 
+                                      ...slide.mobileFocalPoint,
+                                      x: slide.mobileFocalPoint?.x ?? 50,
+                                      y: slide.mobileFocalPoint?.y ?? 50,
+                                      zoom: parseInt(e.target.value)
+                                    });
+                                  }}
+                                  className="store__heroMobileFocusZoomSlider"
+                                />
+                                <button
+                                  type="button"
+                                  className="store__heroMobileFocusZoomBtn"
+                                  onClick={() => {
+                                    const currentZoom = slide.mobileFocalPoint?.zoom ?? 100;
+                                    updateHeroSlide(index, 'mobileFocalPoint', { 
+                                      ...slide.mobileFocalPoint,
+                                      x: slide.mobileFocalPoint?.x ?? 50,
+                                      y: slide.mobileFocalPoint?.y ?? 50,
+                                      zoom: Math.min(400, currentZoom + 10)
+                                    });
+                                  }}
+                                  title="Acercar"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                                <span className="store__heroMobileFocusZoomValue">
+                                  {slide.mobileFocalPoint?.zoom ?? 100}%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="store__heroMobileFocusResetBtn"
+                                  onClick={() => {
+                                    updateHeroSlide(index, 'mobileFocalPoint', { x: 50, y: 50, zoom: 100 });
+                                  }}
+                                  title="Restablecer"
+                                >
+                                  <RotateCcw size={14} />
+                                </button>
+                              </div>
+                              
+                              {/* Preset Zoom Buttons */}
+                              <div className="store__heroMobileFocusPresets">
+                                {[50, 100, 150, 200, 300].map(preset => (
+                                  <button
+                                    key={preset}
+                                    type="button"
+                                    className={`store__heroMobileFocusPresetBtn ${(slide.mobileFocalPoint?.zoom ?? 100) === preset ? 'store__heroMobileFocusPresetBtn--active' : ''}`}
+                                    onClick={() => {
+                                      updateHeroSlide(index, 'mobileFocalPoint', { 
+                                        ...slide.mobileFocalPoint,
+                                        x: slide.mobileFocalPoint?.x ?? 50,
+                                        y: slide.mobileFocalPoint?.y ?? 50,
+                                        zoom: preset
+                                      });
+                                    }}
+                                  >
+                                    {preset}%
+                                  </button>
+                                ))}
+                              </div>
+                              
+                              <span className="store__heroMobileFocusHint">
+                                Pos: {slide.mobileFocalPoint?.x ?? 50}%, {slide.mobileFocalPoint?.y ?? 50}% | Zoom: {slide.mobileFocalPoint?.zoom ?? 100}%
+                              </span>
+                            </div>
+                          )}
                           <div className="store__heroSlideRow">
                             <input
                               type="text"
@@ -2167,12 +2525,14 @@ export default function StorefrontPage() {
           <CartPanel
             items={cartItems}
             total={cartTotal}
-            onAdd={addOne}
+            onAdd={incrementCartItem}
             onRemove={removeOne}
+            onEdit={handleEditCartItem}
             storeStatus={storeStatus}
             onClear={() => {
               setPaid(false)
               setCart({})
+              showClearToast()
             }}
             onCheckout={() => {
               setIsCheckingOut(true)
@@ -2243,40 +2603,6 @@ export default function StorefrontPage() {
           setCheckoutLoading={setCheckoutLoading}
           setCheckoutError={setCheckoutError}
         />
-      )}
-
-      {/* Cart Checkout View - Only when NOT checking out */}
-      {!isCheckingOut && (
-        <section className="checkout" ref={checkoutRef} aria-label="Checkout">
-          <h2 className="checkout__title">Pagar</h2>
-          <p className="muted">Ingresa tus datos para procesar el pedido.</p>
-
-          <div className="checkout__box">
-            <div className="checkout__row">
-              <span>Items</span>
-              <strong>{cartCount}</strong>
-            </div>
-            <div className="checkout__row">
-              <span>Total</span>
-              <strong>${cartTotal.toFixed(2)}</strong>
-            </div>
-
-            <button
-              className="checkout__payBtn"
-              type="button"
-              disabled={cartCount === 0}
-              onClick={() => setIsCheckingOut(true)}
-            >
-              Procesar Pedido
-            </button>
-
-            {paid ? (
-              <div className="checkout__success">
-                ✓ Pedido creado exitosamente{lastOrderId ? `: ${lastOrderId}` : ''}.
-              </div>
-            ) : null}
-          </div>
-        </section>
       )}
 
       {/* Product Modal */}
@@ -2522,6 +2848,7 @@ export default function StorefrontPage() {
         storeStatus={storeStatus}
         isPaused={isPaused}
         pauseMessage={pauseMessage}
+        orderLimitsStatus={orderLimitsStatus}
       />
 
       {/* Floating Cart for Mobile */}
@@ -2529,11 +2856,12 @@ export default function StorefrontPage() {
         <FloatingCart
           items={cartItems}
           total={cartTotal}
-          onAdd={addOne}
+          onAdd={incrementCartItem}
           onRemove={removeOne}
           onClear={() => {
             setPaid(false)
             setCart({})
+            showClearToast()
           }}
           onCheckout={() => {
             setIsCheckingOut(true)
@@ -2564,18 +2892,8 @@ export default function StorefrontPage() {
         pauseMessage={pauseMessage}
       />
 
-      {/* Order Limit Reached Modal */}
-      <StoreClosedModal
-        isOpen={showOrderLimitModal}
-        onClose={() => setShowOrderLimitModal(false)}
-        theme={theme}
-        tenantName={tenant?.name}
-        isOrderLimitReached={true}
-        ordersRemaining={orderLimitsStatus.remaining}
-        ordersLimit={orderLimitsStatus.limit}
-        subscriptionTier={orderLimitsStatus.tier}
-        resetDate={orderLimitsStatus.resetDate}
-      />
+      {/* Cart Toast Notifications */}
+      <CartToast toast={cartToast} onDismiss={dismissCartToast} />
 
       {/* Realtime Pause Modal - Shows when store is paused while customer is browsing */}
       {showPausedRealtimeModal && (

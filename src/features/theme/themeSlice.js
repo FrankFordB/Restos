@@ -30,13 +30,10 @@ export const fetchTenantTheme = createAsyncThunk('theme/fetchTenantTheme', async
 })
 
 export const saveTenantTheme = createAsyncThunk('theme/saveTenantTheme', async ({ tenantId, theme }) => {
-  console.log('[themeSlice] saveTenantTheme llamado con:', { tenantId, theme })
   if (!isSupabaseConfigured) {
-    console.log('[themeSlice] Modo MOCK - sin Supabase')
     return { tenantId, row: null, theme }
   }
   const row = await upsertTheme({ tenantId, theme })
-  console.log('[themeSlice] Respuesta de Supabase:', row)
   return { tenantId, row }
 })
 
@@ -89,12 +86,10 @@ const themeSlice = createSlice({
       })
       .addCase(saveTenantTheme.fulfilled, (state, action) => {
         const payload = action.payload
-        console.log('[themeSlice] saveTenantTheme.fulfilled payload:', payload)
         if (!payload) return
         const { tenantId, row, theme } = payload
         if (!tenantId) return
         if (row) {
-          console.log('[themeSlice] Usando row de Supabase')
           state.themeByTenantId[tenantId] = {
             primary: row.primary_color,
             accent: row.accent_color,
@@ -121,13 +116,11 @@ const themeSlice = createSlice({
             heroCarouselButtonStyle: row.hero_carousel_button_style,
           }
         } else if (theme) {
-          console.log('[themeSlice] Usando theme local (modo MOCK)')
           state.themeByTenantId[tenantId] = {
             ...(state.themeByTenantId[tenantId] || defaultTheme),
             ...theme,
           }
         }
-        console.log('[themeSlice] Nuevo state para', tenantId, ':', state.themeByTenantId[tenantId])
         persist(state)
       })
   },

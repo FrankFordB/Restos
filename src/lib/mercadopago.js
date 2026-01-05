@@ -16,16 +16,6 @@ const MP_CONFIG = {
   appUrl: import.meta.env.VITE_APP_URL || 'http://localhost:5173',
 }
 
-// Debug: Log de configuración MP al cargar
-console.log('🔷 MercadoPago Config:', {
-  mode: MP_CONFIG.mode,
-  hasSandboxPublicKey: Boolean(MP_CONFIG.sandboxPublicKey),
-  hasSandboxAccessToken: Boolean(MP_CONFIG.sandboxAccessToken),
-  hasProductionPublicKey: Boolean(MP_CONFIG.publicKey),
-  hasProductionAccessToken: Boolean(MP_CONFIG.accessToken),
-  appUrl: MP_CONFIG.appUrl,
-})
-
 /**
  * Verifica si las credenciales de plataforma están configuradas
  */
@@ -33,12 +23,6 @@ export const isPlatformMPConfigured = () => {
   const isConfigured = MP_CONFIG.mode === 'sandbox'
     ? Boolean(MP_CONFIG.sandboxPublicKey && MP_CONFIG.sandboxAccessToken)
     : Boolean(MP_CONFIG.publicKey && MP_CONFIG.accessToken)
-  
-  console.log('🔷 isPlatformMPConfigured:', isConfigured, {
-    mode: MP_CONFIG.mode,
-    sandboxPK: MP_CONFIG.sandboxPublicKey?.substring(0, 20) + '...',
-    sandboxAT: MP_CONFIG.sandboxAccessToken?.substring(0, 20) + '...',
-  })
   
   return isConfigured
 }
@@ -137,8 +121,6 @@ export const createSubscriptionPreference = async ({
     preference.auto_return = 'approved'
     preference.notification_url = `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`
   }
-
-  console.log('🔷 Creando preferencia MP:', { isLocalhost, isSandbox, preference })
 
   const apiUrl = 'https://api.mercadopago.com/checkout/preferences'
 
