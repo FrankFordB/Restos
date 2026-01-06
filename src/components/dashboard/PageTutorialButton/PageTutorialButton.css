@@ -1,0 +1,45 @@
+.pageTutorialBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary, #334155);
+  border: 1px solid var(--border-color, #475569);
+  border-radius: 8px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pageTutorialBtn:hover {
+  background: var(--primary, #3b82f6);
+  border-color: var(--primary, #3b82f6);
+  color: white;
+}
+
+.pageTutorialBtn--hasVideo {
+  background: linear-gradient(135deg, var(--bg-tertiary, #334155) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+}
+
+.pageTutorialBtn--hasVideo:hover {
+  background: var(--primary, #3b82f6);
+  color: white;
+}
+
+.pageTutorialBtn__badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--primary, #3b82f6);
+  color: white;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.pageTutorialBtn--hasVideo:hover .pageTutorialBtn__badge {
+  background: white;
+  color: var(--primary, #3b82f6);
+}

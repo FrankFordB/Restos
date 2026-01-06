@@ -1,11 +1,11 @@
 .header {
-  position: relative;
+  position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 9000;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Overlay pattern moderno */
@@ -180,6 +180,27 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Register Button - Destacado */
+.header__registerBtn {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white !important;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 10px 20px;
+  box-shadow: 0 2px 10px rgba(249, 115, 22, 0.3);
+  transition: all 250ms var(--ease-out);
+}
+
+.header__registerBtn:hover {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4);
+}
+
+.header__registerBtn::after {
+  display: none;
+}
+
 .header__user {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.8);
@@ -340,7 +361,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  z-index: 1100;
+  z-index: 9100;
   animation: menuSlideDown 200ms ease;
   overflow: hidden;
 }
@@ -518,7 +539,7 @@
   margin-left: auto;
   flex-shrink: 0;
   position: relative;
-  z-index: 1001;
+  z-index: 9100;
 }
 
 .header__mobileToggle svg {
@@ -554,7 +575,7 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 998;
+  z-index: 9050;
   animation: fadeIn 200ms ease;
 }
 
@@ -589,7 +610,7 @@
     align-items: stretch;
     padding: 70px 20px 24px;
     gap: 8px;
-    z-index: 999;
+    z-index: 9060;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
     transition: right 300ms cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
@@ -618,6 +639,14 @@
   
   .navlink::after {
     display: none;
+  }
+  
+  /* Register button en móvil */
+  .header__registerBtn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    margin-top: 8px;
   }
   
   .header__upgradeCta {

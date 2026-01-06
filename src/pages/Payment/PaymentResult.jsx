@@ -7,6 +7,7 @@ import {
   updateTenantSubscriptionTier,
   getPendingSubscriptionByPreference,
 } from '../../lib/supabaseMercadopagoApi'
+import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
 import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper } from 'lucide-react'
 
 /**
@@ -54,6 +55,29 @@ export default function PaymentResult() {
         await handleSubscriptionSuccess(refData, paymentId, preferenceId)
       }
 
+      // Si es un pago de tienda (store_order), actualizar la orden
+      if ((paymentType === 'order' || refData.type === 'store_order') && refData.orderId) {
+        await handleStoreOrderPayment(refData.orderId, status, paymentId)
+      }
+
+      // También verificar si hay una orden pendiente en localStorage
+      const pendingOrderStr = localStorage.getItem('mp_pending_order')
+      if (pendingOrderStr && !refData.orderId) {
+        try {
+          const pendingOrder = JSON.parse(pendingOrderStr)
+          // Verificar que sea reciente (menos de 2 horas)
+          if (pendingOrder.orderId && Date.now() - pendingOrder.timestamp < 2 * 60 * 60 * 1000) {
+            await handleStoreOrderPayment(pendingOrder.orderId, status, paymentId)
+            refData.orderId = pendingOrder.orderId
+            refData.tenantSlug = pendingOrder.tenantSlug
+          }
+          // Limpiar orden pendiente
+          localStorage.removeItem('mp_pending_order')
+        } catch {
+          // Ignorar errores de parsing
+        }
+      }
+
       setResult({
         status,
         isSuccess,
@@ -79,6 +103,29 @@ export default function PaymentResult() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Manejar pago de orden de tienda
+  const handleStoreOrderPayment = async (orderId, status, paymentId) => {
+    try {
+      const isApproved = status === 'approved'
+      const isPending = status === 'pending' || status === 'in_process'
+      
+      let orderStatus = 'pending_payment'
+      if (isApproved) {
+        orderStatus = 'pending' // Pago aprobado, orden lista para preparar
+      } else if (!isPending) {
+        orderStatus = 'cancelled' // Pago rechazado
+      }
+
+      await updateOrderPaymentStatus(orderId, {
+        status: orderStatus,
+        payment_status: status,
+        mp_payment_id: paymentId,
+      })
+    } catch (error) {
+      console.error('Error actualizando orden:', error)
     }
   }
 

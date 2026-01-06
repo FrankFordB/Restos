@@ -3,10 +3,15 @@ import './ProductsManager.css'
 import Card from '../../ui/Card/Card'
 import Input from '../../ui/Input/Input'
 import Button from '../../ui/Button/Button'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
+import { selectUser } from '../../../features/auth/authSlice'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { uploadProductImage } from '../../../lib/supabaseStorage'
+import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import {
   createProduct,
   deleteProduct,
@@ -66,15 +71,45 @@ function extractDominantColor(imgSrc) {
 
 export default function ProductsManager({ tenantId }) {
   const dispatch = useAppDispatch()
+  const user = useAppSelector(selectUser)
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
 
   const createFileInputRef = useRef(null)
+  
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
 
   useEffect(() => {
     dispatch(fetchProductsForTenant(tenantId))
     dispatch(fetchCategoriesForTenant(tenantId))
   }, [dispatch, tenantId])
+  
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('products')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+
+  // Save tutorial video
+  const handleSaveTutorial = async (sectionId, videoUrl, videoType) => {
+    try {
+      await upsertTutorialVideo({ sectionId, videoUrl, videoType })
+      setTutorialVideo({ url: videoUrl, type: videoType })
+    } catch (e) {
+      console.error('Error saving tutorial:', e)
+      throw e
+    }
+  }
 
   // Estado para filtrar por categoría - null = "Todas"
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null)
@@ -509,6 +544,26 @@ export default function ProductsManager({ tenantId }) {
 
   return (
     <div className="products">
+      {/* Header con título y botón de tutorial */}
+      <div className="products__header">
+        <div className="products__headerTop">
+          <h3 className="products__title">
+            <Package size={20} />
+            Gestión de Productos
+            <InfoTooltip 
+              text="Aquí puedes crear, editar y eliminar productos de tu menú. Agrega fotos, precios, descripciones y organiza por categorías."
+              position="right"
+              size={16}
+            />
+          </h3>
+          <PageTutorialButton 
+            sectionId="tutorial-products" 
+            label="Tutorial"
+            hasVideo={Boolean(tutorialVideo.url)}
+          />
+        </div>
+      </div>
+      
       <Card
         title="Crear producto"
         actions={
@@ -590,30 +645,65 @@ export default function ProductsManager({ tenantId }) {
         }
       >
         <div className="products__form">
-          <Input label="Nombre" value={name} onChange={setName} placeholder="Hamburguesa doble" />
-          <Input
-            label="Precio"
-            value={price}
-            onChange={setPrice}
-            placeholder="9,99"
-            inputMode="decimal"
-            autoComplete="off"
-          />
-          <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
-          <Input label="Categoría" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
+          <div className="products__formField">
+            <Input label="Nombre" value={name} onChange={setName} placeholder="Hamburguesa doble" />
+            <InfoTooltip 
+              text="El nombre del producto como aparecerá en tu menú. Usa un nombre claro y atractivo."
+              position="right"
+              size={14}
+            />
+          </div>
+          <div className="products__formField">
+            <Input
+              label="Precio"
+              value={price}
+              onChange={setPrice}
+              placeholder="9,99"
+              inputMode="decimal"
+              autoComplete="off"
+            />
+            <InfoTooltip 
+              text="El precio en pesos. Puedes usar coma o punto como separador decimal."
+              position="right"
+              size={14}
+            />
+          </div>
+          <div className="products__formField">
+            <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
+            <InfoTooltip 
+              text="Describe los ingredientes o detalles del producto. Ayuda a los clientes a decidir."
+              position="right"
+              size={14}
+            />
+          </div>
+          <div className="products__formField">
+            <Input label="Categoría" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
+            <InfoTooltip 
+              text="Agrupa tus productos por categorías para que los clientes encuentren fácilmente lo que buscan."
+              position="right"
+              size={14}
+            />
+          </div>
           
           <div className="products__stockSection">
-            <label className="products__toggle products__toggle--stock">
-              <input
-                type="checkbox"
-                checked={stockUnlimited}
-                onChange={(e) => {
-                  setStockUnlimited(e.target.checked)
-                  if (e.target.checked) setStock('')
-                }}
+            <div className="products__formField">
+              <label className="products__toggle products__toggle--stock">
+                <input
+                  type="checkbox"
+                  checked={stockUnlimited}
+                  onChange={(e) => {
+                    setStockUnlimited(e.target.checked)
+                    if (e.target.checked) setStock('')
+                  }}
+                />
+                <span>Stock ilimitado</span>
+              </label>
+              <InfoTooltip 
+                text="Activa stock ilimitado si siempre tienes disponibilidad. Si no, define la cantidad exacta."
+                position="right"
+                size={14}
               />
-              <span>Stock ilimitado</span>
-            </label>
+            </div>
             {!stockUnlimited && (
               <Input
                 label="Cantidad disponible"
@@ -626,22 +716,29 @@ export default function ProductsManager({ tenantId }) {
             )}
           </div>
           
-          <label className="products__file">
-            <span className="products__fileLabel">Foto</span>
-            <input
-              ref={createFileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null
-                if (!file) return
-                setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
-                openFocalPointEditor({ file, mode: 'create' })
-                // permite re-seleccionar el mismo archivo luego
-                e.target.value = ''
-              }}
+          <div className="products__formField">
+            <label className="products__file">
+              <span className="products__fileLabel">Foto</span>
+              <input
+                ref={createFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  if (!file) return
+                  setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
+                  openFocalPointEditor({ file, mode: 'create' })
+                  // permite re-seleccionar el mismo archivo luego
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <InfoTooltip 
+              text="Sube una foto atractiva de tu producto. Se te pedirá definir el punto focal para un mejor recorte."
+              position="right"
+              size={14}
             />
-          </label>
+          </div>
 
           {imageFile ? (
             <div className="products__imageRow">
@@ -1090,6 +1187,18 @@ export default function ProductsManager({ tenantId }) {
           </div>
         </div>
       )}
+
+      {/* Sección de Tutorial */}
+      <div id="tutorial-products">
+        <TutorialSection
+          sectionId="products"
+          title="Tutorial: Gestión de Productos"
+          user={user}
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          onSaveVideo={handleSaveTutorial}
+        />
+      </div>
     </div>
   )
 }

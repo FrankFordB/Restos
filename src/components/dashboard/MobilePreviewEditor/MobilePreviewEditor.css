@@ -7,6 +7,14 @@
   margin-bottom: 24px;
 }
 
+.mobileEditor__headerTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .mobileEditor__header h2 {
   display: flex;
   align-items: center;

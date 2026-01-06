@@ -667,7 +667,19 @@ export default function AdminDashboardPage() {
       </Card>
 
       {/* Subscriptions Admin Section */}
-      <Card title="Suscripciones Activas" style={{ marginTop: '1.5rem' }}>
+      <Card 
+        title="Suscripciones Activas" 
+        style={{ marginTop: '1.5rem' }}
+        action={
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => window.location.href = '/admin/subscriptions'}
+          >
+            <CreditCard size={14} /> Ver Panel Completo
+          </Button>
+        }
+      >
         <SubscriptionsAdmin />
       </Card>
 

@@ -137,25 +137,36 @@ export const registerWithEmail = createAsyncThunk(
       return { user, createdTenant }
     }
 
-  const { email, password, tenantName } = payload
-    if (!email || !password) throw new Error('Email y password son requeridos')
+    const { email, password, tenantName, fromOAuth, userId } = payload
+    
+    let authed
+    
+    // Handle OAuth users (already authenticated, just need to create tenant)
+    if (fromOAuth && userId) {
+      authed = { id: userId, email }
+    } else {
+      // Regular email/password registration
+      if (!email || !password) throw new Error('Email y password son requeridos')
+      if (!tenantName || !tenantName.trim()) throw new Error('Nombre del restaurante es requerido')
+      const data = await supabaseSignUp({ email, password })
+
+      // Si Auth requiere confirmación de email, Supabase crea el usuario pero NO entrega sesión.
+      // Sin sesión, no podrás insertar tenant/profile/product por RLS.
+      if (data?.user && !data?.session) {
+        throw new Error(
+          'Se creó el usuario, pero Supabase no devolvió sesión (probable email confirmation activado). Confirma el email y luego inicia sesión, o desactiva Email Confirmation en Supabase Auth para desarrollo.',
+        )
+      }
+
+      // Si Supabase tiene email confirmation activo, puede no devolver sesión inmediata.
+      // Para desarrollo, se recomienda desactivar confirmación; si no, el usuario debe confirmar email.
+      authed = data.user
+      if (!authed) {
+        throw new Error('No se pudo crear el usuario en Supabase')
+      }
+    }
+    
     if (!tenantName || !tenantName.trim()) throw new Error('Nombre del restaurante es requerido')
-    const data = await supabaseSignUp({ email, password })
-
-    // Si Auth requiere confirmación de email, Supabase crea el usuario pero NO entrega sesión.
-    // Sin sesión, no podrás insertar tenant/profile/product por RLS.
-    if (data?.user && !data?.session) {
-      throw new Error(
-        'Se creó el usuario, pero Supabase no devolvió sesión (probable email confirmation activado). Confirma el email y luego inicia sesión, o desactiva Email Confirmation en Supabase Auth para desarrollo.',
-      )
-    }
-
-    // Si Supabase tiene email confirmation activo, puede no devolver sesión inmediata.
-    // Para desarrollo, se recomienda desactivar confirmación; si no, el usuario debe confirmar email.
-    const authed = data.user
-    if (!authed) {
-      throw new Error('No se pudo crear el usuario en Supabase')
-    }
 
     // Nuevo comportamiento: al registrarse, SIEMPRE queda como rol "user".
     // Puede crear su restaurante, pero no tiene permisos admin hasta que el super_admin lo promueva.
@@ -181,10 +192,13 @@ export const registerWithEmail = createAsyncThunk(
       createdTenant = null
     }
 
-    // Perfil por defecto como user (sin tenant asignado).
-    // El super_admin luego puede asignar tenant_id y/o cambiar a tenant_admin.
+    // Update profile with tenant_id if tenant was created
+    // For OAuth users, they already exist, so we update; for new users, we upsert
+    const finalRole = createdTenant ? ROLES.TENANT_ADMIN : ROLES.USER
+    const finalTenantId = createdTenant?.id || null
+    
     try {
-      await upsertProfile({ userId: authed.id, role: ROLES.USER, tenantId: null })
+      await upsertProfile({ userId: authed.id, role: finalRole, tenantId: finalTenantId })
     } catch {
       // ignore (policies/triggers not installed)
     }
@@ -193,8 +207,8 @@ export const registerWithEmail = createAsyncThunk(
       user: {
         id: authed.id,
         email,
-        role: ROLES.USER,
-        tenantId: null,
+        role: finalRole,
+        tenantId: finalTenantId,
       },
       createdTenant,
     }

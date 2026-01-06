@@ -5,6 +5,7 @@ import './DashboardPages.css'
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
+import InfoTooltip from '../../components/ui/InfoTooltip/InfoTooltip'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { setTenantId, setUserRole } from '../../features/auth/authSlice'
@@ -17,13 +18,14 @@ import MercadoPagoConfig from '../../components/dashboard/MercadoPagoConfig/Merc
 import SubscriptionCheckout from '../../components/dashboard/SubscriptionCheckout/SubscriptionCheckout'
 import SubscriptionStatus from '../../components/dashboard/SubscriptionStatus/SubscriptionStatus'
 import OrderLimitWarningModal from '../../components/dashboard/OrderLimitWarningModal/OrderLimitWarningModal'
+import DashboardWelcomeModal from '../../components/dashboard/DashboardWelcomeModal/DashboardWelcomeModal'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
 import { createTenant } from '../../features/tenants/tenantsSlice'
 import { selectOrdersForTenant, updateOrder, deleteOrder, fetchOrdersForTenant } from '../../features/orders/ordersSlice'
 import { selectProductsForTenant, fetchProductsForTenant } from '../../features/products/productsSlice'
-import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig, fetchOrderLimitsStatus, subscribeToOrderLimits, checkAndFixSubscriptionExpiration } from '../../lib/supabaseApi'
+import { fetchTenantById, updateTenantVisibility, upsertProfile, generateUniqueSlug, fetchTenantSoundConfig, fetchOrderLimitsStatus, subscribeToOrderLimits, checkAndFixSubscriptionExpiration, checkFirstLogin, markWelcomeTutorialSeen } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { loadJson } from '../../shared/storage'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_ICONS, getSubscriptionStatus, ORDER_LIMITS } from '../../shared/subscriptions'
@@ -50,6 +52,7 @@ import {
   Home,
   Bell,
   Volume2,
+  ExternalLink,
 } from 'lucide-react'
 
 function slugify(value) {
@@ -145,6 +148,9 @@ export default function UserDashboardPage() {
   
   // Modal de pedidos pendientes
   const [showPendingModal, setShowPendingModal] = useState(false)
+  
+  // Modal de bienvenida para primer inicio de sesión
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
 
   // Obtener pedidos para contar los pendientes
   const orders = useAppSelector(selectOrdersForTenant(user?.tenantId))
@@ -262,6 +268,40 @@ export default function UserDashboardPage() {
     
     playOnce()
   }, [])
+
+  // Verificar si es el primer inicio de sesión para mostrar tutorial de bienvenida
+  useEffect(() => {
+    async function checkWelcome() {
+      if (!user?.id) return
+      
+      // Primero verificar localStorage para evitar llamadas innecesarias
+      const localKey = `dashboard.welcomeTutorial.seen.${user.id}`
+      if (localStorage.getItem(localKey) === 'true') return
+      
+      try {
+        const isFirstLogin = await checkFirstLogin(user.id)
+        if (isFirstLogin) {
+          // Pequeño delay para que el dashboard cargue primero
+          setTimeout(() => setShowWelcomeModal(true), 500)
+        }
+      } catch (err) {
+        console.warn('Error checking first login:', err)
+      }
+    }
+    checkWelcome()
+  }, [user?.id])
+
+  // Cerrar modal de bienvenida y marcar como visto
+  const handleCloseWelcome = async () => {
+    setShowWelcomeModal(false)
+    if (user?.id) {
+      try {
+        await markWelcomeTutorialSeen(user.id)
+      } catch (err) {
+        console.warn('Error marking welcome as seen:', err)
+      }
+    }
+  }
 
   // Cargar y suscribirse a límites de pedidos
   useEffect(() => {
@@ -582,13 +622,32 @@ export default function UserDashboardPage() {
         }}
       />
 
+      {/* Modal de bienvenida para primer inicio de sesión */}
+      <DashboardWelcomeModal
+        open={showWelcomeModal}
+        onClose={handleCloseWelcome}
+        userName={user?.email}
+        onNavigateToTab={setActiveTab}
+      />
+
       <main className="dash__main">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <>
             <header className="dash__header">
-              <h1>Dashboard</h1>
-              <p className="muted">Bienvenido de vuelta. Aquí está el resumen de tu restaurante.</p>
+              <div className="dash__headerTop">
+                <div>
+                  <h1>
+                    Dashboard
+                    <InfoTooltip 
+                      text="Panel principal con resumen de ventas, pedidos del día y accesos rápidos a todas las funciones de tu tienda."
+                      position="right"
+                      size={18}
+                    />
+                  </h1>
+                  <p className="muted">Bienvenido de vuelta. Aquí está el resumen de tu restaurante.</p>
+                </div>
+              </div>
             </header>
 
             {/* Stats Cards */}
@@ -875,6 +934,7 @@ export default function UserDashboardPage() {
             tenantLogo={currentTenant?.logo || ''}
             tenantSlug={currentTenant?.slug || ''}
             currentTier={subscriptionTier}
+            user={user}
           />
         )}
 

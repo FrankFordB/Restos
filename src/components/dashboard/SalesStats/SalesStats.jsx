@@ -1,10 +1,15 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import './SalesStats.css'
 import Card from '../../ui/Card/Card'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
 import { useAppSelector } from '../../../app/hooks'
+import { selectUser } from '../../../features/auth/authSlice'
 import { selectOrdersForTenant } from '../../../features/orders/ordersSlice'
 import { selectProductsForTenant } from '../../../features/products/productsSlice'
 import { selectCategoriesForTenant } from '../../../features/categories/categoriesSlice'
+import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import {
   TrendingUp,
   TrendingDown,
@@ -61,10 +66,40 @@ const startOfMonth = (date) => {
 export default function SalesStats({ tenantId }) {
   const [selectedPeriod, setSelectedPeriod] = useState('month')
   const [activeSection, setActiveSection] = useState('overview')
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
 
+  const user = useAppSelector(selectUser)
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
+  
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('sales-stats')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+  
+  // Tutorial handlers
+  const handleTutorialChange = (field, value) => {
+    setTutorialVideo(prev => ({ ...prev, [field]: value }))
+  }
+  
+  const handleSaveTutorial = async () => {
+    try {
+      await upsertTutorialVideo('sales-stats', tutorialVideo.url, tutorialVideo.type)
+    } catch (e) {
+      console.warn('Error saving tutorial:', e)
+    }
+  }
 
   // Filtrar pedidos por período seleccionado
   const filteredOrders = useMemo(() => {
@@ -439,6 +474,15 @@ export default function SalesStats({ tenantId }) {
 
   return (
     <div className="salesStats">
+      {/* Header con botón de tutorial */}
+      <div className="salesStats__header">
+        <h2 className="salesStats__title">
+          <BarChart3 size={22} />
+          Estadísticas de Ventas
+        </h2>
+        <PageTutorialButton sectionId="tutorial-sales-stats" hasVideo={!!tutorialVideo.url} />
+      </div>
+
       {/* Filtros de período */}
       <div className="salesStats__filters">
         <div className="salesStats__periodSelector">
@@ -452,6 +496,11 @@ export default function SalesStats({ tenantId }) {
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
+          <InfoTooltip 
+            text="Filtra las estadísticas por período de tiempo. Compara tu rendimiento actual con períodos anteriores."
+            position="right"
+            size={14}
+          />
         </div>
 
         <div className="salesStats__sectionTabs">
@@ -965,6 +1014,18 @@ export default function SalesStats({ tenantId }) {
           </div>
         </>
       )}
+
+      {/* Tutorial Section */}
+      <div id="tutorial-sales-stats">
+        <TutorialSection
+          title="Tutorial: Estadísticas de Ventas"
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          canEdit={user?.role === 'super_admin'}
+          onVideoChange={handleTutorialChange}
+          onSave={handleSaveTutorial}
+        />
+      </div>
     </div>
   )
 }

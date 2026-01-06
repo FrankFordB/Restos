@@ -2576,6 +2576,8 @@ export default function StorefrontPage() {
           cartItems={cartItems}
           cartTotal={cartTotal}
           tenantId={tenantId}
+          tenant={tenant}
+          tenantSlug={slug}
           orderItemsPayload={orderItemsPayload}
           checkoutData={checkoutData}
           setCheckoutData={setCheckoutData}
@@ -2976,7 +2978,9 @@ export default function StorefrontPage() {
 function CheckoutPage({ 
   cartItems, 
   cartTotal, 
-  tenantId, 
+  tenantId,
+  tenant,
+  tenantSlug,
   orderItemsPayload, 
   checkoutData, 
   setCheckoutData,
@@ -2991,6 +2995,26 @@ function CheckoutPage({
   setCheckoutLoading,
   setCheckoutError,
 }) {
+  const [mpConfigured, setMpConfigured] = useState(false)
+  const [mpLoading, setMpLoading] = useState(true)
+
+  // Verificar si el tenant tiene MercadoPago configurado
+  useEffect(() => {
+    const checkMPConfig = async () => {
+      try {
+        const { checkTenantMPConfiguredPublic } = await import('../../lib/supabaseMercadopagoApi')
+        const isConfigured = await checkTenantMPConfiguredPublic(tenantId)
+        setMpConfigured(isConfigured)
+      } catch (e) {
+        console.warn('Error checking MP config:', e)
+        setMpConfigured(false)
+      } finally {
+        setMpLoading(false)
+      }
+    }
+    checkMPConfig()
+  }, [tenantId])
+
   // Validación de datos completados
   const isNameValid = checkoutData.customerName.trim().length > 0
   const isPhoneValid = checkoutData.customerPhone.trim().length > 0
@@ -3070,6 +3094,9 @@ function CheckoutPage({
     setCheckoutError(null)
 
     try {
+      // Crear orden primero (en estado pendiente para MP)
+      const orderStatus = checkoutData.paymentMethod === 'qr' ? 'pending_payment' : 'pending'
+      
       const res = await dispatch(
         createPaidOrder({
           tenantId,
@@ -3083,10 +3110,69 @@ function CheckoutPage({
           deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
           deliveryNotes: checkoutData.deliveryNotes,
           paymentMethod: checkoutData.paymentMethod,
+          status: orderStatus,
         }),
       ).unwrap()
 
-      onSuccess(res?.order?.id || null)
+      const orderId = res?.order?.id || res?.id
+
+      // Si es pago con MercadoPago, crear preferencia y redirigir
+      if (checkoutData.paymentMethod === 'qr' && mpConfigured) {
+        try {
+          const { getTenantActiveCredentials } = await import('../../lib/supabaseMercadopagoApi')
+          const { createStoreOrderPreference } = await import('../../lib/mercadopago')
+          
+          const credentials = await getTenantActiveCredentials(tenantId)
+          
+          if (!credentials) {
+            throw new Error('El local no tiene configurado MercadoPago')
+          }
+
+          // Preparar items para MP
+          const mpItems = cartItems.map(item => ({
+            id: item.productId || item.product?.id,
+            name: item.product?.name || item.name,
+            description: item.product?.description || '',
+            quantity: item.quantity || 1,
+            unitPrice: item.product?.price || item.price,
+          }))
+
+          const preferenceData = await createStoreOrderPreference({
+            credentials,
+            order: {
+              id: orderId,
+              customerName: checkoutData.customerName,
+              customerPhone: checkoutData.customerPhone,
+            },
+            items: mpItems,
+            tenant: {
+              id: tenantId,
+              slug: tenantSlug,
+              name: tenant?.name || 'Tienda',
+            },
+          })
+
+          // Guardar datos en localStorage para recuperar después del pago
+          localStorage.setItem('mp_pending_order', JSON.stringify({
+            orderId,
+            tenantSlug,
+            preferenceId: preferenceData.preferenceId,
+            timestamp: Date.now(),
+          }))
+
+          // Redirigir a MercadoPago
+          window.location.href = preferenceData.initPoint
+          return // No hacer onSuccess aquí, se hará cuando vuelva de MP
+        } catch (mpError) {
+          console.error('Error creando pago MP:', mpError)
+          setCheckoutError(`Error al procesar pago: ${mpError.message}`)
+          setCheckoutLoading(false)
+          return
+        }
+      }
+
+      // Para otros métodos de pago, completar normalmente
+      onSuccess(orderId)
     } catch (e) {
       setCheckoutError(e?.message || 'Error al procesar el pedido')
     } finally {
@@ -3100,11 +3186,20 @@ function CheckoutPage({
     { key: 'mesa', label: 'Comer Aquí', icon: '🪑', desc: 'Para consumir en el lugar' },
   ]
 
-  const paymentMethods = [
-    { key: 'efectivo', label: 'Efectivo', icon: '💵' },
-    { key: 'tarjeta', label: 'Tarjeta', icon: '💳' },
-    { key: 'qr', label: 'Mercado Pago', icon: '📱' },
-  ]
+  // Filtrar métodos de pago - solo mostrar MP si está configurado
+  const paymentMethods = useMemo(() => {
+    const methods = [
+      { key: 'efectivo', label: 'Efectivo', icon: '💵' },
+      { key: 'tarjeta', label: 'Tarjeta (en local)', icon: '💳' },
+    ]
+    
+    // Solo agregar MercadoPago si está configurado
+    if (mpConfigured && !mpLoading) {
+      methods.push({ key: 'qr', label: 'Mercado Pago', icon: '📱', highlight: true })
+    }
+    
+    return methods
+  }, [mpConfigured, mpLoading])
 
   // Format price helper
   const formatPrice = (price) => {

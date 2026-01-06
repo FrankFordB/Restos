@@ -3,15 +3,18 @@ import './AccountSection.css' // Reutilizamos los estilos
 import Card from '../../components/ui/Card/Card'
 import Input from '../../components/ui/Input/Input'
 import Button from '../../components/ui/Button/Button'
+import InfoTooltip from '../../components/ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../../components/dashboard/PageTutorialButton/PageTutorialButton'
 import WelcomeModalEditor from '../../components/dashboard/WelcomeModalEditor/WelcomeModalEditor'
 import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
 import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import StoreFooterEditor from '../../components/dashboard/StoreFooterEditor/StoreFooterEditor'
+import TutorialSection from '../../components/dashboard/TutorialSection/TutorialSection'
 import { useAppSelector } from '../../app/hooks'
 import { selectUser } from '../../features/auth/authSlice'
 import { selectTenants } from '../../features/tenants/tenantsSlice'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTenantOpeningHours, updateTenantSoundConfig } from '../../lib/supabaseApi'
+import { fetchTenantFull, updateTenantInfo, updateTenantWelcomeModal, updateTenantOpeningHours, updateTenantSoundConfig, fetchTutorialVideo, upsertTutorialVideo } from '../../lib/supabaseApi'
 import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
@@ -25,6 +28,9 @@ export default function StoreEditor() {
   const tenants = useAppSelector(selectTenants)
   
   const currentTenant = user?.tenantId ? tenants.find((t) => t.id === user.tenantId) : null
+  
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
   
   // Form state
   const [loading, setLoading] = useState(true)
@@ -144,6 +150,32 @@ export default function StoreEditor() {
     loadTenant()
     return () => { cancelled = true }
   }, [user?.tenantId, currentTenant])
+
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('store-editor')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+
+  // Save tutorial video
+  const handleSaveTutorial = async (sectionId, videoUrl, videoType) => {
+    try {
+      await upsertTutorialVideo({ sectionId, videoUrl, videoType })
+      setTutorialVideo({ url: videoUrl, type: videoType })
+    } catch (e) {
+      console.error('Error saving tutorial:', e)
+      throw e
+    }
+  }
 
   // Abre el cropper con el archivo seleccionado
   const handleLogoFileSelect = (e) => {
@@ -493,8 +525,17 @@ export default function StoreEditor() {
   return (
     <div className="account">
       <header className="dash__header">
-        <h1>Editar mi tienda</h1>
-        <p className="muted">Personaliza la información y apariencia de tu Tienda</p>
+        <div className="dash__headerTop">
+          <div>
+            <h1>Editar mi tienda</h1>
+            <p className="muted">Personaliza la información y apariencia de tu Tienda</p>
+          </div>
+          <PageTutorialButton 
+            sectionId="tutorial-store-editor" 
+            label="Ver Tutorial"
+            hasVideo={Boolean(tutorialVideo.url)}
+          />
+        </div>
       </header>
 
       {error && (
@@ -511,6 +552,11 @@ export default function StoreEditor() {
             <label className="account__label">
               <Store size={16} />
               Nombre de la Tienda
+              <InfoTooltip 
+                text="El nombre que verán tus clientes al entrar a tu tienda. Usa el nombre oficial de tu negocio."
+                position="right"
+                size={14}
+              />
             </label>
             <Input
               value={tenantName}
@@ -523,6 +569,11 @@ export default function StoreEditor() {
             <label className="account__label">
               <Image size={16} />
               Logo de la Tienda
+              <InfoTooltip 
+                text="Tu logo aparecerá en el header de tu tienda. Recomendamos una imagen cuadrada de al menos 200x200 píxeles."
+                position="right"
+                size={14}
+              />
             </label>
             <div className="account__logoUpload">
               {tenantLogo ? (
@@ -605,6 +656,11 @@ export default function StoreEditor() {
             <label className="account__label">
               <MessageSquare size={16} />
               Slogan / Frase corta
+              <InfoTooltip 
+                text="Una frase breve que describe tu negocio. Aparece en el modal de bienvenida y ayuda a los clientes a conocer tu estilo."
+                position="right"
+                size={14}
+              />
             </label>
             <Input
               value={tenantSlogan}
@@ -619,7 +675,16 @@ export default function StoreEditor() {
       </Card>
 
       {/* Welcome Modal */}
-      <Card title="Modal de Bienvenida">
+      <Card title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Modal de Bienvenida
+          <InfoTooltip 
+            text="Este modal aparece la primera vez que un cliente visita tu tienda. Puedes personalizarlo con tu logo, mensaje y características destacadas."
+            position="right"
+            size={14}
+          />
+        </span>
+      }>
         <div className="account__infoBox" style={{ marginBottom: '16px', marginLeft: '16px', marginRight: '16px' }}>
           <Eye size={18} />
           <p>El Saludo de bienvenida se lo muestra a los visitantes que no han iniciado sesión y en el modo de vista previa. Es una excelente forma de dar la bienvenida a tus clientes.</p>
@@ -647,7 +712,16 @@ export default function StoreEditor() {
       </Card>
 
       {/* Opening Hours */}
-      <Card title="Horarios de Apertura">
+      <Card title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Horarios de Apertura
+          <InfoTooltip 
+            text="Define los días y horarios en que tu tienda está abierta. Los clientes verán estos horarios en tu tienda."
+            position="right"
+            size={14}
+          />
+        </span>
+      }>
         <div className="account__section">
           <div className="account__openingHoursHeader">
             <p className="account__hint">
@@ -755,7 +829,16 @@ export default function StoreEditor() {
       </Card>
 
       {/* Configuración de Notificaciones de Sonido */}
-      <Card title="Notificaciones de Sonido">
+      <Card title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Notificaciones de Sonido
+          <InfoTooltip 
+            text="Configura el sonido que escucharás cuando llegue un nuevo pedido. Puedes ajustar cuántas veces suena y el intervalo."
+            position="right"
+            size={14}
+          />
+        </span>
+      }>
         <div className="account__section">
           <p className="account__hint" style={{ marginBottom: '20px' }}>
             Configura cómo suena la notificación cuando llega un nuevo pedido.
@@ -883,6 +966,18 @@ export default function StoreEditor() {
 
       {/* Footer de la tienda */}
       <StoreFooterEditor tenantId={user?.tenantId} tenantName={tenantName} openingHours={openingHours} />
+
+      {/* Sección de Tutorial */}
+      <div id="tutorial-store-editor">
+        <TutorialSection
+          sectionId="store-editor"
+          title="Tutorial: Editar mi tienda"
+          user={user}
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          onSaveVideo={handleSaveTutorial}
+        />
+      </div>
 
       {/* Modal de Recorte de Logo */}
       <ImageCropperModal

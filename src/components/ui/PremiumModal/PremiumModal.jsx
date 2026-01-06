@@ -12,6 +12,12 @@ import {
   createPlatformSubscription,
   updateTenantSubscriptionTier,
 } from '../../../lib/supabaseMercadopagoApi'
+import {
+  createPendingSubscription,
+  activateSubscription as activateSubscriptionApi,
+  logAuditEvent,
+  AUDIT_ACTIONS,
+} from '../../../lib/supabaseSubscriptionApi'
 
 const PLAN_FEATURES = {
   [SUBSCRIPTION_TIERS.PREMIUM]: {
@@ -112,6 +118,9 @@ export default function PremiumModal({
     const prices = TIER_PRICES[selectedPlan]
     const amount = billingCycle === 'yearly' ? prices.yearly : prices.monthly
 
+    // Generar clave de idempotencia única
+    const idempotencyKey = `${tenantId}_${selectedPlan}_${billingCycle}_${Date.now()}`
+
     if (!mpConfigured) {
       // Modo demo: simular pago y actualizar tier
       setLoading(true)
@@ -128,8 +137,35 @@ export default function PremiumModal({
           expiresAt.setMonth(expiresAt.getMonth() + 1)
         }
 
-        // Actualizar tier
+        // Crear suscripción pendiente
+        const pendingSubscription = await createPendingSubscription({
+          tenantId,
+          planTier: selectedPlan,
+          billingPeriod: billingCycle,
+          amount,
+          idempotencyKey,
+        })
+
+        // En modo demo, activar inmediatamente
+        if (pendingSubscription) {
+          await activateSubscriptionApi(pendingSubscription.id, `demo_${Date.now()}`)
+        }
+
+        // También actualizar tier en tenants para compatibilidad
         await updateTenantSubscriptionTier(tenantId, selectedPlan, expiresAt)
+
+        // Log del evento
+        await logAuditEvent({
+          tenantId,
+          action: AUDIT_ACTIONS.PAYMENT_RECEIVED,
+          actorType: 'system',
+          details: {
+            mode: 'demo',
+            plan: selectedPlan,
+            billing_period: billingCycle,
+            amount,
+          },
+        })
 
         // Recargar página para reflejar cambios
         onClose()
@@ -147,6 +183,16 @@ export default function PremiumModal({
       setLoading(true)
       setError(null)
 
+      // 1. Crear suscripción pendiente primero (para tener el ID)
+      const pendingSubscription = await createPendingSubscription({
+        tenantId,
+        planTier: selectedPlan,
+        billingPeriod: billingCycle,
+        amount,
+        idempotencyKey,
+      })
+
+      // 2. Crear preferencia de pago con referencia a la suscripción
       const preference = await createSubscriptionPreference({
         tenantId,
         tenantName: tenantName || 'Mi Tienda',
@@ -154,9 +200,10 @@ export default function PremiumModal({
         billingPeriod: billingCycle,
         amount,
         payerEmail: userEmail,
+        subscriptionId: pendingSubscription?.id, // Para correlación con webhook
       })
 
-      // Guardar suscripción pendiente
+      // Guardar también en platform_subscriptions para compatibilidad
       await createPlatformSubscription({
         tenantId,
         preferenceId: preference.preferenceId,

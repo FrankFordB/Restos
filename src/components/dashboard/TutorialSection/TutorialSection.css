@@ -1,0 +1,253 @@
+.tutorialSection {
+  margin-top: 32px;
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-secondary, #1e293b);
+}
+
+.tutorialSection__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.tutorialSection__header:hover {
+  background: var(--bg-tertiary, #334155);
+}
+
+.tutorialSection__header--expanded {
+  border-bottom: 1px solid var(--border-color, #334155);
+}
+
+.tutorialSection__headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tutorialSection__icon {
+  color: var(--primary, #3b82f6);
+}
+
+.tutorialSection__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.tutorialSection__badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--primary, #3b82f6);
+  color: white;
+  border-radius: 12px;
+}
+
+.tutorialSection__headerRight {
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Content */
+.tutorialSection__content {
+  padding: 20px;
+}
+
+/* Editor */
+.tutorialSection__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tutorialSection__tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--bg-tertiary, #334155);
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.tutorialSection__tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorialSection__tab:hover {
+  color: var(--text-primary, #f1f5f9);
+}
+
+.tutorialSection__tab--active {
+  background: var(--bg-primary, #0f172a);
+  color: var(--primary, #3b82f6);
+}
+
+.tutorialSection__inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tutorialSection__hint {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Upload */
+.tutorialSection__uploadArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.tutorialSection__fileInput {
+  display: none;
+}
+
+.tutorialSection__uploadBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 48px;
+  background: var(--bg-tertiary, #334155);
+  border: 2px dashed var(--border-color, #475569);
+  border-radius: 12px;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorialSection__uploadBtn:hover {
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+}
+
+.tutorialSection__uploadHint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.tutorialSection__fileName {
+  font-size: 13px;
+  color: var(--text-secondary, #cbd5e1);
+}
+
+/* Preview & Viewer */
+.tutorialSection__preview,
+.tutorialSection__viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tutorialSection__previewLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+}
+
+.tutorialSection__videoWrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tutorialSection__videoWrapper iframe,
+.tutorialSection__videoWrapper video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Actions */
+.tutorialSection__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #334155);
+}
+
+.tutorialSection__editBar {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+/* Empty State */
+.tutorialSection__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.tutorialSection__emptyIcon {
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.5;
+}
+
+.tutorialSection__emptyText {
+  font-size: 14px;
+  color: var(--text-muted, #94a3b8);
+  max-width: 400px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tutorialSection__header {
+    padding: 14px 16px;
+  }
+  
+  .tutorialSection__content {
+    padding: 16px;
+  }
+  
+  .tutorialSection__tabs {
+    width: 100%;
+  }
+  
+  .tutorialSection__tab {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  .tutorialSection__uploadBtn {
+    width: 100%;
+    padding: 24px;
+  }
+  
+  .tutorialSection__actions {
+    flex-direction: column;
+  }
+  
+  .tutorialSection__actions button {
+    width: 100%;
+  }
+}

@@ -443,3 +443,59 @@ export async function decrementCategoryStockByProducts(tenantId, items) {
   
   return Promise.all(updates)
 }
+/**
+ * Actualiza el estado de pago de una orden (usado por MercadoPago callback)
+ * @param {string} orderId - ID de la orden
+ * @param {Object} paymentData - Datos del pago
+ * @param {string} paymentData.status - Nuevo estado de la orden
+ * @param {string} paymentData.payment_status - Estado del pago MP (approved, pending, rejected)
+ * @param {string} paymentData.mp_payment_id - ID del pago en MercadoPago
+ * @returns {Promise<Object>}
+ */
+export async function updateOrderPaymentStatus(orderId, { status, payment_status, mp_payment_id }) {
+  if (!isSupabaseConfigured) {
+    // Mock mode - update localStorage
+    const key = `mock_orders`
+    try {
+      const orders = JSON.parse(localStorage.getItem(key) || '[]')
+      const idx = orders.findIndex(o => o.id === orderId)
+      if (idx !== -1) {
+        orders[idx].status = status
+        orders[idx].payment_status = payment_status
+        orders[idx].mp_payment_id = mp_payment_id
+        orders[idx].updated_at = new Date().toISOString()
+        localStorage.setItem(key, JSON.stringify(orders))
+      }
+      return orders[idx] || null
+    } catch {
+      return null
+    }
+  }
+
+  const updateData = {
+    status,
+    updated_at: new Date().toISOString(),
+  }
+
+  // Solo agregar campos MP si no son undefined
+  if (payment_status) {
+    updateData.payment_status = payment_status
+  }
+  if (mp_payment_id) {
+    updateData.mp_payment_id = mp_payment_id
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update(updateData)
+    .eq('id', orderId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating order payment status:', error)
+    throw error
+  }
+
+  return data
+}

@@ -18,6 +18,7 @@ import TenantHomePage from './pages/TenantHome/TenantHomePage'
 import DirectoryPage from './pages/Directory/DirectoryPage'
 import UserDashboardPage from './pages/Dashboard/UserDashboardPage'
 import AdminDashboardPage from './pages/Dashboard/AdminDashboardPage'
+import AdminSubscriptionsPage from './pages/System/AdminSubscriptionsPage'
 import UnauthorizedPage from './pages/System/UnauthorizedPage'
 import NotFoundPage from './pages/System/NotFoundPage'
 import PaymentResult from './pages/Payment/PaymentResult'
@@ -66,6 +67,7 @@ export default function App() {
 
             <Route element={<RequireRole allow={[ROLES.SUPER_ADMIN]} />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/subscriptions" element={<AdminSubscriptionsPage />} />
             </Route>
           </Route>
 

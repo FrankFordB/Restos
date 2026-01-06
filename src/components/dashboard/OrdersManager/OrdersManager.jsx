@@ -4,11 +4,15 @@ import './OrdersManager.css'
 import Card from '../../ui/Card/Card'
 import Button from '../../ui/Button/Button'
 import Input from '../../ui/Input/Input'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
+import { selectUser } from '../../../features/auth/authSlice'
 import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
 import { fetchCategoriesForTenant, selectCategoriesForTenant, patchCategory } from '../../../features/categories/categoriesSlice'
-import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus } from '../../../lib/supabaseApi'
+import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus, fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
@@ -71,6 +75,7 @@ const ORDER_STATUSES = {
 
 export default function OrdersManager({ tenantId }) {
   const dispatch = useAppDispatch()
+  const user = useAppSelector(selectUser)
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
@@ -84,6 +89,9 @@ export default function OrdersManager({ tenantId }) {
   const [showStockGlobalModal, setShowStockGlobalModal] = useState(false) // Modal de stock global
   const [showPaymentModal, setShowPaymentModal] = useState(null) // order ID
   const [selectedOrder, setSelectedOrder] = useState(null) // order object for detail modal
+  
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
   
   // Modo tienda embebida para crear pedido
   const [showCreateStore, setShowCreateStore] = useState(false)
@@ -158,6 +166,32 @@ export default function OrdersManager({ tenantId }) {
     }
     loadConfig()
   }, [tenantId, deliveryConfigKey])
+
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('orders')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+
+  // Save tutorial video
+  const handleSaveTutorial = async (sectionId, videoUrl, videoType) => {
+    try {
+      await upsertTutorialVideo({ sectionId, videoUrl, videoType })
+      setTutorialVideo({ url: videoUrl, type: videoType })
+    } catch (e) {
+      console.error('Error saving tutorial:', e)
+      throw e
+    }
+  }
 
   // Refrescar pedidos
   const handleRefresh = useCallback(() => {
@@ -604,12 +638,27 @@ export default function OrdersManager({ tenantId }) {
       
       <div className="ordersManager__header">
         <div className="ordersManager__titleRow">
-          <h3 className="ordersManager__title">Gestión de Pedidos</h3>
+          <h3 className="ordersManager__title">
+            Gestión de Pedidos
+            <InfoTooltip 
+              text="Aquí gestionas todos los pedidos de tu tienda. Puedes cambiar estados, ver detalles, imprimir tickets y configurar envíos."
+              position="right"
+              size={16}
+            />
+          </h3>
+          <PageTutorialButton 
+            sectionId="tutorial-orders" 
+            label="Tutorial"
+            hasVideo={Boolean(tutorialVideo.url)}
+          />
         </div>
 
         <div className="ordersManager__actions">
-         
-          
+          <InfoTooltip 
+            text="Pausa la tienda temporalmente. Los clientes no podrán hacer pedidos mientras esté pausada."
+            position="bottom"
+            size={14}
+          />
           <Button
             variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
@@ -620,6 +669,11 @@ export default function OrdersManager({ tenantId }) {
             {isPaused ? <Play size={16} /> : <Pause size={16} />}
             {isPaused ? 'Reanudar' : 'Pausar'}
           </Button>
+          <InfoTooltip 
+            text="Configura los tipos de entrega disponibles: mostrador, delivery o mesa."
+            position="bottom"
+            size={14}
+          />
           <Button
             variant="secondary"
             size="sm"
@@ -1196,6 +1250,18 @@ export default function OrdersManager({ tenantId }) {
           products={[]}
         />
       )}
+
+      {/* Sección de Tutorial */}
+      <div id="tutorial-orders">
+        <TutorialSection
+          sectionId="orders"
+          title="Tutorial: Gestión de Pedidos"
+          user={user}
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          onSaveVideo={handleSaveTutorial}
+        />
+      </div>
     </div>
   )
 }

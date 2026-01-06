@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import './ExtrasManager.css'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
+import { selectUser } from '../../../features/auth/authSlice'
 import {
   fetchExtrasForTenant,
   fetchExtraGroupsForTenant,
@@ -13,8 +14,12 @@ import {
   patchExtra,
   deleteExtra,
 } from '../../../features/extras/extrasSlice'
+import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import { createId } from '../../../shared/ids'
 import Button from '../../ui/Button/Button'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
 import {
   Plus,
   Pencil,
@@ -28,6 +33,7 @@ import {
 
 export default function ExtrasManager({ tenantId }) {
   const dispatch = useAppDispatch()
+  const user = useAppSelector(selectUser)
   const extras = useAppSelector(selectExtrasForTenant(tenantId))
   const groups = useAppSelector(selectExtraGroupsForTenant(tenantId))
 
@@ -38,6 +44,9 @@ export default function ExtrasManager({ tenantId }) {
   const [editingGroup, setEditingGroup] = useState(null)
   const [editingExtra, setEditingExtra] = useState(null)
   const [targetGroupId, setTargetGroupId] = useState(null)
+
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
 
   // Form State - Group
   const [groupForm, setGroupForm] = useState({
@@ -64,6 +73,32 @@ export default function ExtrasManager({ tenantId }) {
       dispatch(fetchExtrasForTenant(tenantId))
     }
   }, [dispatch, tenantId])
+
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('extras')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+
+  // Save tutorial video
+  const handleSaveTutorial = async (sectionId, videoUrl, videoType) => {
+    try {
+      await upsertTutorialVideo({ sectionId, videoUrl, videoType })
+      setTutorialVideo({ url: videoUrl, type: videoType })
+    } catch (e) {
+      console.error('Error saving tutorial:', e)
+      throw e
+    }
+  }
 
   // Sort groups by sortOrder
   const sortedGroups = useMemo(() => {
@@ -275,9 +310,21 @@ export default function ExtrasManager({ tenantId }) {
     <div className="extrasManager">
       {/* Header */}
       <div className="extrasManager__header">
-        <h3 className="extrasManager__title">
-          <Layers size={20} /> Gestión de Extras y Toppings
-        </h3>
+        <div className="extrasManager__headerTop">
+          <h3 className="extrasManager__title">
+            <Layers size={20} /> Gestión de Extras y Toppings
+            <InfoTooltip 
+              text="Crea grupos de extras como Salsas, Toppings o Bebidas. Luego asígnalos a productos específicos para que los clientes puedan personalizar su pedido."
+              position="right"
+              size={16}
+            />
+          </h3>
+          <PageTutorialButton 
+            sectionId="tutorial-extras" 
+            label="Tutorial"
+            hasVideo={Boolean(tutorialVideo.url)}
+          />
+        </div>
         <div className="extrasManager__headerActions">
           <Button size="sm" onClick={openCreateGroup}>
             <Plus size={16} /> Nuevo Grupo
@@ -453,7 +500,14 @@ export default function ExtrasManager({ tenantId }) {
             </div>
             <div className="extrasManager__modalBody">
               <div className="extrasManager__field">
-                <label className="extrasManager__fieldLabel">Nombre del grupo *</label>
+                <label className="extrasManager__fieldLabel">
+                  Nombre del grupo *
+                  <InfoTooltip 
+                    text="El nombre que verán los clientes, como 'Salsas', 'Toppings', 'Tipo de pan', etc."
+                    position="right"
+                    size={14}
+                  />
+                </label>
                 <input
                   type="text"
                   className="extrasManager__fieldInput"
@@ -464,7 +518,14 @@ export default function ExtrasManager({ tenantId }) {
                 />
               </div>
               <div className="extrasManager__field">
-                <label className="extrasManager__fieldLabel">Descripción (visible al cliente)</label>
+                <label className="extrasManager__fieldLabel">
+                  Descripción (visible al cliente)
+                  <InfoTooltip 
+                    text="Instrucciones para el cliente, como 'Seleccione hasta 3 opciones' o 'Obligatorio elegir 1'."
+                    position="right"
+                    size={14}
+                  />
+                </label>
                 <input
                   type="text"
                   className="extrasManager__fieldInput"
@@ -475,7 +536,14 @@ export default function ExtrasManager({ tenantId }) {
               </div>
               <div className="extrasManager__fieldRow">
                 <div className="extrasManager__field">
-                  <label className="extrasManager__fieldLabel">Mínimo selecciones</label>
+                  <label className="extrasManager__fieldLabel">
+                    Mínimo selecciones
+                    <InfoTooltip 
+                      text="Cantidad mínima de extras que el cliente debe elegir. Pon 0 si es opcional."
+                      position="top"
+                      size={14}
+                    />
+                  </label>
                   <input
                     type="number"
                     min="0"
@@ -485,7 +553,14 @@ export default function ExtrasManager({ tenantId }) {
                   />
                 </div>
                 <div className="extrasManager__field">
-                  <label className="extrasManager__fieldLabel">Máximo selecciones</label>
+                  <label className="extrasManager__fieldLabel">
+                    Máximo selecciones
+                    <InfoTooltip 
+                      text="Cantidad máxima de extras que el cliente puede elegir de este grupo."
+                      position="top"
+                      size={14}
+                    />
+                  </label>
                   <input
                     type="number"
                     min="1"
@@ -503,6 +578,11 @@ export default function ExtrasManager({ tenantId }) {
                     onChange={(e) => setGroupForm({ ...groupForm, isRequired: e.target.checked })}
                   />
                   <span>Es obligatorio (el cliente debe elegir al menos {groupForm.minSelections || 1})</span>
+                  <InfoTooltip 
+                    text="Si está marcado, el cliente no podrá agregar el producto sin seleccionar extras de este grupo."
+                    position="right"
+                    size={14}
+                  />
                 </label>
               </div>
             </div>
@@ -657,6 +737,18 @@ export default function ExtrasManager({ tenantId }) {
           </div>
         </div>
       )}
+
+      {/* Sección de Tutorial */}
+      <div id="tutorial-extras">
+        <TutorialSection
+          sectionId="extras"
+          title="Tutorial: Extras y Toppings"
+          user={user}
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          onSaveVideo={handleSaveTutorial}
+        />
+      </div>
     </div>
   )
 }

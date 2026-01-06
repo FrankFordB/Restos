@@ -438,7 +438,8 @@
   padding: 8px 0;
 }
 
-.dash__header-top {
+.dash__header-top,
+.dash__headerTop {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;

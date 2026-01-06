@@ -5,13 +5,23 @@ import {
   saveTenantMPCredentials,
   deleteTenantMPCredentials,
 } from '../../../lib/supabaseMercadopagoApi'
+import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
+import { useAppSelector } from '../../../app/hooks'
+import { selectUser } from '../../../features/auth/authSlice'
 
 export default function MercadoPagoConfig({ tenantId }) {
+  const user = useAppSelector(selectUser)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [mode, setMode] = useState('sandbox') // 'sandbox' | 'production'
   const [showTokens, setShowTokens] = useState({})
+  
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
   
   const [credentials, setCredentials] = useState({
     // Producción
@@ -25,6 +35,21 @@ export default function MercadoPagoConfig({ tenantId }) {
   useEffect(() => {
     loadCredentials()
   }, [tenantId])
+  
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('mercadopago')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
 
   const loadCredentials = async () => {
     try {
@@ -102,6 +127,19 @@ export default function MercadoPagoConfig({ tenantId }) {
   const isConfigured = mode === 'sandbox'
     ? Boolean(credentials.sandboxAccessToken && credentials.sandboxPublicKey)
     : Boolean(credentials.accessToken && credentials.publicKey)
+    
+  // Tutorial handlers
+  const handleTutorialChange = (field, value) => {
+    setTutorialVideo(prev => ({ ...prev, [field]: value }))
+  }
+  
+  const handleSaveTutorial = async () => {
+    try {
+      await upsertTutorialVideo('mercadopago', tutorialVideo.url, tutorialVideo.type)
+    } catch (e) {
+      console.warn('Error saving tutorial:', e)
+    }
+  }
 
   if (loading) {
     return (
@@ -114,10 +152,13 @@ export default function MercadoPagoConfig({ tenantId }) {
   return (
     <div className="mpConfig">
       <div className="mpConfig__header">
-        <h2 className="mpConfig__title">
-          <span className="mpConfig__titleIcon">💳</span>
-          Configuración de MercadoPago
-        </h2>
+        <div className="mpConfig__headerTop">
+          <h2 className="mpConfig__title">
+            <span className="mpConfig__titleIcon">💳</span>
+            Configuración de MercadoPago
+          </h2>
+          <PageTutorialButton sectionId="tutorial-mercadopago" hasVideo={!!tutorialVideo.url} />
+        </div>
         <p className="mpConfig__subtitle">
           Configura tus credenciales para recibir pagos de tus clientes
         </p>
@@ -167,9 +208,16 @@ export default function MercadoPagoConfig({ tenantId }) {
           
           <div className="mpConfig__fields">
             <div className="mpConfig__field">
-              <label className="mpConfig__label">
-                Public Key
-              </label>
+              <div className="mpConfig__labelRow">
+                <label className="mpConfig__label">
+                  Public Key
+                </label>
+                <InfoTooltip 
+                  text="La clave pública se usa en el frontend para mostrar el botón de pago a tus clientes."
+                  position="right"
+                  size={14}
+                />
+              </div>
               <div className="mpConfig__inputWrapper">
                 <input
                   type={showTokens.publicKey ? 'text' : 'password'}
@@ -195,9 +243,16 @@ export default function MercadoPagoConfig({ tenantId }) {
             </div>
 
             <div className="mpConfig__field">
-              <label className="mpConfig__label">
-                Access Token
-              </label>
+              <div className="mpConfig__labelRow">
+                <label className="mpConfig__label">
+                  Access Token
+                </label>
+                <InfoTooltip 
+                  text="⚠️ Token secreto. Nunca lo compartas. Se usa para procesar pagos de forma segura."
+                  position="right"
+                  size={14}
+                />
+              </div>
               <div className="mpConfig__inputWrapper">
                 <input
                   type={showTokens.accessToken ? 'text' : 'password'}
@@ -273,6 +328,18 @@ export default function MercadoPagoConfig({ tenantId }) {
           <li>Copia la &quot;Public Key&quot; y &quot;Access Token&quot;</li>
           <li>Para pruebas, usa las credenciales de &quot;Credenciales de prueba&quot;</li>
         </ol>
+      </div>
+      
+      {/* Tutorial Section */}
+      <div id="tutorial-mercadopago">
+        <TutorialSection
+          title="Tutorial: Configuración de MercadoPago"
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          canEdit={user?.role === 'super_admin'}
+          onVideoChange={handleTutorialChange}
+          onSave={handleSaveTutorial}
+        />
       </div>
 
       {/* Toast */}

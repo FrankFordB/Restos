@@ -199,6 +199,27 @@
   position: relative;
 }
 
+/* Info Tooltip en items del menú */
+.sidebar__menuTooltip {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar__menuItem:hover .sidebar__menuTooltip {
+  opacity: 1;
+}
+
+.sidebar__menuTooltip .infoTooltip__icon {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar__menuTooltip:hover .infoTooltip__icon {
+  color: #f59e0b;
+}
+
 /* Badge de pedidos pendientes en el icono */
 .sidebar__ordersBadge {
   position: absolute;

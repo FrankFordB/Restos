@@ -63,6 +63,7 @@ export const getAppUrl = () => MP_CONFIG.appUrl
  * @param {string} params.billingPeriod - 'monthly' o 'yearly'
  * @param {number} params.amount - Monto a cobrar
  * @param {string} params.payerEmail - Email del que paga
+ * @param {string} params.subscriptionId - ID de la suscripción pendiente (para correlación webhook)
  * @returns {Promise<Object>} - Datos de la preferencia creada
  */
 export const createSubscriptionPreference = async ({
@@ -72,6 +73,7 @@ export const createSubscriptionPreference = async ({
   billingPeriod,
   amount,
   payerEmail,
+  subscriptionId,
 }) => {
   const { accessToken, isSandbox } = getPlatformCredentials()
   
@@ -105,6 +107,7 @@ export const createSubscriptionPreference = async ({
       planTier,
       billingPeriod,
       amount,
+      subscriptionId, // ID para correlación con webhook
     }),
     statement_descriptor: 'RESTOS',
     // SIEMPRE enviar back_urls - MercadoPago las usa para el botón "Volver al sitio"
@@ -113,12 +116,12 @@ export const createSubscriptionPreference = async ({
       failure: `${MP_CONFIG.appUrl}/payment/failure?type=subscription&tenant=${tenantId}`,
       pending: `${MP_CONFIG.appUrl}/payment/pending?type=subscription&tenant=${tenantId}`,
     },
+    // auto_return 'all' redirige automáticamente en todos los casos (approved, pending, rejected)
+    auto_return: 'all',
   }
 
-  // auto_return solo funciona con URLs públicas (no localhost)
-  // En localhost, el usuario verá un botón "Volver al sitio" que debe clickear manualmente
+  // notification_url solo funciona con URLs públicas (no localhost)
   if (!isLocalhost) {
-    preference.auto_return = 'approved'
     preference.notification_url = `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`
   }
 
@@ -173,6 +176,9 @@ export const createStoreOrderPreference = async ({
     throw new Error('El local no tiene configurado MercadoPago')
   }
 
+  // Detectar si estamos en localhost
+  const isLocalhost = MP_CONFIG.appUrl.includes('localhost') || MP_CONFIG.appUrl.includes('127.0.0.1')
+
   const mpItems = items.map((item) => ({
     id: item.productId || item.id,
     title: item.name,
@@ -193,7 +199,8 @@ export const createStoreOrderPreference = async ({
       failure: `${MP_CONFIG.appUrl}/tienda/${tenant.slug}/payment/failure?order=${order.id}`,
       pending: `${MP_CONFIG.appUrl}/tienda/${tenant.slug}/payment/pending?order=${order.id}`,
     },
-    auto_return: 'approved',
+    // auto_return 'all' redirige automáticamente en todos los casos
+    auto_return: 'all',
     external_reference: JSON.stringify({
       type: 'store_order',
       orderId: order.id,

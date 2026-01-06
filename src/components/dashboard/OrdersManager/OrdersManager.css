@@ -143,7 +143,16 @@
 .ordersManager__titleRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.ordersManager__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ordersManager__notificationBadge {

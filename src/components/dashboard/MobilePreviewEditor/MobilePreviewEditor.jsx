@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import './MobilePreviewEditor.css'
 import Card from '../../ui/Card/Card'
 import Button from '../../ui/Button/Button'
+import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
+import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
+import TutorialSection from '../TutorialSection/TutorialSection'
 import { 
   Smartphone, Monitor, Tablet, Eye, EyeOff, Save, RotateCcw,
   Crown, Lock, Star, ChevronDown, ChevronUp,
@@ -12,7 +15,7 @@ import {
 } from 'lucide-react'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, isFeatureAvailable } from '../../../shared/subscriptions'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
-import { fetchMobilePreviewSettings, updateMobilePreviewSettings } from '../../../lib/supabaseApi'
+import { fetchMobilePreviewSettings, updateMobilePreviewSettings, fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import { loadJson, saveJson } from '../../../shared/storage'
 
 // ============================================
@@ -279,6 +282,7 @@ export default function MobilePreviewEditor({
   tenantLogo = '',
   tenantSlug = '',
   currentTier = SUBSCRIPTION_TIERS.FREE,
+  user,
 }) {
   // Estado de configuración
   const [headerDesign, setHeaderDesign] = useState('centered')
@@ -287,6 +291,9 @@ export default function MobilePreviewEditor({
   const [typographyOption, setTypographyOption] = useState('standard')
   const [carouselOptions, setCarouselOptions] = useState({ showTitle: true, showSubtitle: true, showCta: true })
   
+  // Tutorial video state
+  const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
+  
   // Estado de secciones expandidas
   const [expandedSection, setExpandedSection] = useState('header')
   
@@ -294,6 +301,32 @@ export default function MobilePreviewEditor({
   const [hasChanges, setHasChanges] = useState(false)
   const [saving, setSaving] = useState(false)
   const [originalSettings, setOriginalSettings] = useState(null)
+
+  // Load tutorial video
+  useEffect(() => {
+    async function loadTutorial() {
+      try {
+        const tutorial = await fetchTutorialVideo('mobile-preview')
+        if (tutorial) {
+          setTutorialVideo({ url: tutorial.video_url || '', type: tutorial.video_type || 'youtube' })
+        }
+      } catch (e) {
+        console.warn('Error loading tutorial:', e)
+      }
+    }
+    loadTutorial()
+  }, [])
+
+  // Save tutorial video
+  const handleSaveTutorial = async (sectionId, videoUrl, videoType) => {
+    try {
+      await upsertTutorialVideo({ sectionId, videoUrl, videoType })
+      setTutorialVideo({ url: videoUrl, type: videoType })
+    } catch (e) {
+      console.error('Error saving tutorial:', e)
+      throw e
+    }
+  }
 
   // Cargar configuración guardada
   useEffect(() => {
@@ -484,13 +517,27 @@ export default function MobilePreviewEditor({
   return (
     <div className="mobileEditor">
       <div className="mobileEditor__header">
-        <h2>
-          <Smartphone size={24} />
-          Vista Móvil
-        </h2>
-        <p className="mobileEditor__subtitle">
-          Personaliza cómo se ve tu tienda en dispositivos móviles
-        </p>
+        <div className="mobileEditor__headerTop">
+          <div>
+            <h2>
+              <Smartphone size={24} />
+              Vista Móvil
+              <InfoTooltip 
+                text="Configura cómo ven tus clientes la tienda desde sus celulares. Elige diseños de header, cards y espaciados."
+                position="right"
+                size={16}
+              />
+            </h2>
+            <p className="mobileEditor__subtitle">
+              Personaliza cómo se ve tu tienda en dispositivos móviles
+            </p>
+          </div>
+          <PageTutorialButton 
+            sectionId="tutorial-mobile-preview" 
+            label="Tutorial"
+            hasVideo={Boolean(tutorialVideo.url)}
+          />
+        </div>
       </div>
 
       <div className="mobileEditor__content">
@@ -506,6 +553,11 @@ export default function MobilePreviewEditor({
               <div className="mobileEditor__sectionTitle">
                 <Image size={18} />
                 <span>Diseño del Header</span>
+                <InfoTooltip 
+                  text="Elige cómo se muestra el encabezado de tu tienda en móviles: compacto, centrado, minimalista, etc."
+                  position="right"
+                  size={14}
+                />
               </div>
               {expandedSection === 'header' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -529,6 +581,11 @@ export default function MobilePreviewEditor({
               <div className="mobileEditor__sectionTitle">
                 <Grid3X3 size={18} />
                 <span>Diseño de Productos</span>
+                <InfoTooltip 
+                  text="Configura cómo se muestran las tarjetas de productos: apilado, grid, lista horizontal, carrusel, etc."
+                  position="right"
+                  size={14}
+                />
               </div>
               {expandedSection === 'cards' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -552,6 +609,11 @@ export default function MobilePreviewEditor({
               <div className="mobileEditor__sectionTitle">
                 <Maximize2 size={18} />
                 <span>Espaciado</span>
+                <InfoTooltip 
+                  text="Ajusta el espacio entre elementos: cómodo, compacto, equilibrado o personalizado."
+                  position="right"
+                  size={14}
+                />
               </div>
               {expandedSection === 'spacing' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -575,6 +637,11 @@ export default function MobilePreviewEditor({
               <div className="mobileEditor__sectionTitle">
                 <Type size={18} />
                 <span>Tipografía</span>
+                <InfoTooltip 
+                  text="Selecciona el estilo de fuente para tu tienda móvil: estándar, moderna, elegante, etc."
+                  position="right"
+                  size={14}
+                />
               </div>
               {expandedSection === 'typography' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -598,6 +665,11 @@ export default function MobilePreviewEditor({
               <div className="mobileEditor__sectionTitle">
                 <LayoutList size={18} />
                 <span>Elementos del Carrusel</span>
+                <InfoTooltip 
+                  text="Configura qué elementos aparecen en el carrusel del header: título, subtítulo, botón de acción."
+                  position="right"
+                  size={14}
+                />
               </div>
               {expandedSection === 'carousel' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -702,6 +774,18 @@ export default function MobilePreviewEditor({
             </a>
           )}
         </div>
+      </div>
+
+      {/* Sección de Tutorial */}
+      <div id="tutorial-mobile-preview">
+        <TutorialSection
+          sectionId="mobile-preview"
+          title="Tutorial: Vista Móvil"
+          user={user}
+          videoUrl={tutorialVideo.url}
+          videoType={tutorialVideo.type}
+          onSaveVideo={handleSaveTutorial}
+        />
       </div>
     </div>
   )

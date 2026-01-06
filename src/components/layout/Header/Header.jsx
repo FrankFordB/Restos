@@ -338,7 +338,14 @@ FrankFood
                   to="/login"
                   onClick={() => setShowMobileMenu(false)}
                 >
-                  Login
+                  Iniciar sesión
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => (isActive ? 'navlink navlink--active header__registerBtn' : 'navlink header__registerBtn')}
+                  to="/register"
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  Crear cuenta
                 </NavLink>
               </>
             )}

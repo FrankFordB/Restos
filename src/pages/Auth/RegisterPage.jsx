@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button/Button'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { addTenant } from '../../features/tenants/tenantsSlice'
 import { clearAuthError, registerWithEmail, selectAuth, setUserFromOAuth } from '../../features/auth/authSlice'
-import { signUpWithEmailOTP } from '../../lib/supabaseAuth'
+import { signUpWithEmailOTP, signInWithGoogle } from '../../lib/supabaseAuth'
 import { 
   Store, 
   User, 
@@ -23,6 +23,16 @@ import {
   Zap,
   Loader2
 } from 'lucide-react'
+
+// Google icon component
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+)
 
 function slugify(value) {
   return String(value || '')
@@ -63,9 +73,15 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  // Check if returning from email verification (step=2)
+  // Check if returning from email verification (step=2) or OAuth
   const urlStep = searchParams.get('step')
+  const isOAuth = searchParams.get('oauth') === 'true'
   const isStep2 = urlStep === '2'
+
+  // Check for OAuth registration data
+  const oauthDataRaw = sessionStorage.getItem('pendingOAuthRegistration')
+  const oauthData = oauthDataRaw ? JSON.parse(oauthDataRaw) : null
+  const isOAuthRegistration = isOAuth && oauthData
 
   // Step tracking
   const [step, setStep] = useState(isStep2 ? 2 : 1)
@@ -90,6 +106,7 @@ export default function RegisterPage() {
   // Validation errors
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const selectedCountry = COUNTRIES.find(c => c.value === country)
   const phoneCode = selectedCountry?.code || ''
@@ -157,11 +174,9 @@ export default function RegisterPage() {
       
       try {
         // Send OTP to email for verification
-        const result = await signUpWithEmailOTP(email, {
-          fullName,
-          country,
-          city,
-          phoneNumber: phoneNumber ? `${phoneCode}${phoneNumber}` : null
+        const result = await signUpWithEmailOTP({ 
+          email, 
+          password 
         })
         
         if (result.error) {
@@ -199,6 +214,18 @@ export default function RegisterPage() {
     }
   }
 
+  const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true)
+    dispatch(clearAuthError())
+    
+    try {
+      await signInWithGoogle()
+      // Redirect is handled by OAuth callback
+    } catch {
+      setIsGoogleLoading(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!validateStep2()) return
     
@@ -206,11 +233,46 @@ export default function RegisterPage() {
     setIsSubmitting(true)
     
     try {
-      // Get stored registration data if coming from verification
+      // Get stored registration data if coming from verification or OAuth
       const storedData = sessionStorage.getItem('pendingRegistration')
       const pendingData = storedData ? JSON.parse(storedData) : null
       
-      // Use stored data or current form data
+      // Check if this is an OAuth registration
+      if (isOAuthRegistration && oauthData) {
+        // For OAuth users, we need to create the tenant for the existing user
+        const result = await dispatch(
+          registerWithEmail({ 
+            email: oauthData.email, 
+            password: null, // No password for OAuth users
+            tenantName, 
+            tenantSlug,
+            isPublic,
+            // Additional data from OAuth
+            fullName: oauthData.fullName || fullName,
+            country,
+            city,
+            phoneNumber: phoneNumber ? `${phoneCode}${phoneNumber}` : null,
+            businessType,
+            storePhone,
+            storeAddress,
+            // Flags for OAuth
+            emailVerified: true,
+            fromOAuth: true,
+            userId: oauthData.userId
+          }),
+        ).unwrap()
+        
+        // Clear OAuth registration data
+        sessionStorage.removeItem('pendingOAuthRegistration')
+        
+        if (result?.createdTenant) {
+          dispatch(addTenant(result.createdTenant))
+        }
+        navigate('/dashboard')
+        return
+      }
+      
+      // Use stored data or current form data (email/password flow)
       const registrationEmail = pendingData?.email || email
       const registrationPassword = pendingData?.password || password
       const registrationFullName = pendingData?.fullName || fullName
@@ -319,14 +381,16 @@ export default function RegisterPage() {
             <p className="authPage__formSubtitle">
               {step === 1 
                 ? 'Ingresa tus datos personales' 
-                : 'Datos básicos de tu negocio'}
+                : isOAuthRegistration 
+                  ? `¡Hola${oauthData?.fullName ? ` ${oauthData.fullName.split(' ')[0]}` : ''}! Ahora configura tu negocio`
+                  : 'Datos básicos de tu negocio'}
             </p>
             
-            {/* Step indicator */}
+            {/* Step indicator - hide step 1 for OAuth users */}
             <div className="authPage__steps">
-              <div className={`authPage__step ${step >= 1 ? 'authPage__step--active' : ''} ${step > 1 ? 'authPage__step--completed' : ''}`}>
+              <div className={`authPage__step ${step >= 1 ? 'authPage__step--active' : ''} ${step > 1 || isOAuthRegistration ? 'authPage__step--completed' : ''}`}>
                 <div className="authPage__stepCircle">
-                  {step > 1 ? <Check size={14} /> : '1'}
+                  {step > 1 || isOAuthRegistration ? <Check size={14} /> : '1'}
                 </div>
                 <span>Tu cuenta</span>
               </div>
@@ -466,6 +530,26 @@ export default function RegisterPage() {
                   </>
                 )}
               </Button>
+
+              {/* Divider */}
+              <div className="authPage__divider">
+                <span>o continúa con</span>
+              </div>
+
+              {/* Google Sign Up Button */}
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={isGoogleLoading}
+                className="authPage__googleBtn"
+              >
+                {isGoogleLoading ? (
+                  <Loader2 size={18} className="authPage__spinner" />
+                ) : (
+                  <GoogleIcon />
+                )}
+                Registrarse con Google
+              </button>
             </div>
           )}
 
@@ -549,18 +633,22 @@ export default function RegisterPage() {
               </label>
 
               <div className="authPage__formActions">
-                <button 
-                  type="button"
-                  onClick={handlePrevStep}
-                  className="authPage__backBtn"
-                >
-                  <ArrowLeft size={18} />
-                  Volver
-                </button>
+                {/* Hide back button for OAuth users - they can't go back to step 1 */}
+                {!isOAuthRegistration && (
+                  <button 
+                    type="button"
+                    onClick={handlePrevStep}
+                    className="authPage__backBtn"
+                  >
+                    <ArrowLeft size={18} />
+                    Volver
+                  </button>
+                )}
                 <Button 
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                   className="authPage__submitBtn"
+                  style={isOAuthRegistration ? { width: '100%' } : {}}
                 >
                   {isSubmitting ? 'Creando...' : 'Crear mi tienda'}
                   <ArrowRight size={18} />

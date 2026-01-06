@@ -215,12 +215,12 @@ export async function adminSetTenantPremiumDays({ tenantId, days }) {
   const now = new Date()
   const until = new Date(now.getTime() + safeDays * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data, error } = await supabase
-    .from('tenants')
-    .update({ premium_until: until })
-    .eq('id', tenantId)
-    .select('id, name, slug, is_public, premium_until')
-    .single()
+  // Usar RPC seguro en lugar de UPDATE directo
+  const { data, error } = await supabase.rpc('update_tenant_subscription', {
+    p_tenant_id: tenantId,
+    p_tier: 'premium',
+    p_expires_at: until
+  })
 
   if (error) throw error
   return data
@@ -230,12 +230,12 @@ export async function adminRemoveTenantPremium({ tenantId }) {
   ensureSupabase()
   if (!tenantId) throw new Error('tenantId requerido')
 
-  const { data, error } = await supabase
-    .from('tenants')
-    .update({ premium_until: null, subscription_tier: 'free' })
-    .eq('id', tenantId)
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
-    .single()
+  // Usar RPC seguro en lugar de UPDATE directo
+  const { data, error } = await supabase.rpc('update_tenant_subscription', {
+    p_tenant_id: tenantId,
+    p_tier: 'free',
+    p_expires_at: null
+  })
 
   if (error) throw error
   return data
@@ -257,15 +257,12 @@ export async function adminSetTenantTier({ tenantId, tier, days = null }) {
     premiumUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
   }
 
-  const { data, error } = await supabase
-    .from('tenants')
-    .update({ 
-      subscription_tier: tier,
-      premium_until: premiumUntil 
-    })
-    .eq('id', tenantId)
-    .select('id, name, slug, is_public, premium_until, subscription_tier')
-    .single()
+  // Usar RPC seguro en lugar de UPDATE directo
+  const { data, error } = await supabase.rpc('update_tenant_subscription', {
+    p_tenant_id: tenantId,
+    p_tier: tier,
+    p_expires_at: premiumUntil
+  })
 
   if (error) throw error
   return data
@@ -1617,3 +1614,183 @@ export async function fetchPublicStoreFooter(tenantId) {
   return data
 }
 
+
+// ============================================
+// TUTORIAL VIDEOS API
+// Uses localStorage as fallback when DB table doesn't exist
+// ============================================
+
+const TUTORIAL_STORAGE_KEY = 'dashboard.tutorialVideos'
+
+// Get tutorial videos from localStorage
+function getLocalTutorials() {
+  try {
+    const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+// Save tutorial videos to localStorage
+function saveLocalTutorials(tutorials) {
+  try {
+    localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify(tutorials))
+  } catch (e) {
+    console.warn('Error saving tutorials to localStorage:', e)
+  }
+}
+
+// Fetch all tutorial videos
+export async function fetchTutorialVideos() {
+  if (!isSupabaseConfigured) {
+    // Use localStorage for local development
+    const local = getLocalTutorials()
+    return Object.entries(local).map(([section_id, data]) => ({ section_id, ...data }))
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('tutorial_videos')
+      .select('*')
+
+    if (error) {
+      // Table doesn't exist, use localStorage
+      console.warn('fetchTutorialVideos: Using localStorage fallback')
+      const local = getLocalTutorials()
+      return Object.entries(local).map(([section_id, data]) => ({ section_id, ...data }))
+    }
+    
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+// Fetch tutorial video for a specific section
+export async function fetchTutorialVideo(sectionId) {
+  if (!isSupabaseConfigured) {
+    // Use localStorage for local development
+    const local = getLocalTutorials()
+    return local[sectionId] ? { section_id: sectionId, ...local[sectionId] } : null
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('tutorial_videos')
+      .select('*')
+      .eq('section_id', sectionId)
+      .maybeSingle()
+
+    if (error) {
+      // Table doesn't exist, use localStorage
+      console.warn('fetchTutorialVideo: Using localStorage fallback')
+      const local = getLocalTutorials()
+      return local[sectionId] ? { section_id: sectionId, ...local[sectionId] } : null
+    }
+    
+    return data
+  } catch {
+    return null
+  }
+}
+
+// Update or create tutorial video (super_admin only)
+// Accepts both formats: upsertTutorialVideo(sectionId, url, type) or upsertTutorialVideo({ sectionId, videoUrl, videoType })
+export async function upsertTutorialVideo(sectionIdOrObj, videoUrl, videoType = 'youtube') {
+  // Handle both call formats
+  let sectionId, url, type
+  if (typeof sectionIdOrObj === 'object') {
+    sectionId = sectionIdOrObj.sectionId
+    url = sectionIdOrObj.videoUrl
+    type = sectionIdOrObj.videoType || 'youtube'
+  } else {
+    sectionId = sectionIdOrObj
+    url = videoUrl
+    type = videoType
+  }
+  
+  // Always save to localStorage as backup
+  const local = getLocalTutorials()
+  local[sectionId] = {
+    video_url: url,
+    video_type: type,
+    updated_at: new Date().toISOString()
+  }
+  saveLocalTutorials(local)
+  
+  if (!isSupabaseConfigured) {
+    return { section_id: sectionId, ...local[sectionId] }
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('tutorial_videos')
+      .upsert({
+        section_id: sectionId,
+        video_url: url,
+        video_type: type || 'youtube',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'section_id' })
+      .select('*')
+      .single()
+
+    if (error) {
+      // Table doesn't exist, localStorage already saved
+      console.warn('upsertTutorialVideo: Using localStorage fallback')
+      return { section_id: sectionId, ...local[sectionId] }
+    }
+    
+    return data
+  } catch (e) {
+    console.warn('upsertTutorialVideo error:', e)
+    return { section_id: sectionId, ...local[sectionId] }
+  }
+}
+
+// Delete tutorial video (super_admin only)
+export async function deleteTutorialVideo(sectionId) {
+  // Remove from localStorage
+  const local = getLocalTutorials()
+  delete local[sectionId]
+  saveLocalTutorials(local)
+  
+  if (!isSupabaseConfigured) {
+    return true
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('tutorial_videos')
+      .delete()
+      .eq('section_id', sectionId)
+
+    if (error) {
+      console.warn('deleteTutorialVideo: Using localStorage fallback')
+    }
+    
+    return true
+  } catch {
+    return true
+  }
+}
+
+// ============================================
+// FIRST LOGIN / WELCOME TUTORIAL
+// ============================================
+
+// Check if user has seen the welcome tutorial
+// Uses localStorage as primary storage to avoid DB column dependency
+export async function checkFirstLogin(userId) {
+  // Always use localStorage to track welcome tutorial
+  const localKey = `dashboard.welcomeTutorial.seen.${userId}`
+  return localStorage.getItem(localKey) !== 'true'
+}
+
+// Mark welcome tutorial as seen
+export async function markWelcomeTutorialSeen(userId) {
+  // Always use localStorage to track welcome tutorial
+  const localKey = `dashboard.welcomeTutorial.seen.${userId}`
+  localStorage.setItem(localKey, 'true')
+  return true
+}

@@ -39,7 +39,6 @@ const MENU_ITEMS = [
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },  
   { id: 'qr', label: 'QR y Enlaces', icon: QrCode },
-  
 ]
 
 export default function Sidebar({ 

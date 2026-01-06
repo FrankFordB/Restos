@@ -135,6 +135,36 @@ export const isTenantMPConfigured = async (tenantId) => {
 }
 
 /**
+ * Verifica si un tenant tiene MP configurado (versión pública para storefront)
+ * Usa una consulta más simple que no requiere autenticación
+ * @param {string} tenantId 
+ * @returns {Promise<boolean>}
+ */
+export const checkTenantMPConfiguredPublic = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    const data = loadMockData()
+    return data[tenantId]?.is_configured === true
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('tenant_mercadopago')
+      .select('is_configured, is_sandbox')
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (error) {
+      console.warn('checkTenantMPConfiguredPublic error:', error.message)
+      return false
+    }
+
+    return data?.is_configured === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Obtiene las credenciales activas de un tenant según su modo (sandbox/production)
  * @param {string} tenantId 
  * @returns {Promise<Object|null>}
@@ -316,24 +346,29 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
     if (idx >= 0) {
       tenants[idx].subscription_tier = tier
       tenants[idx].premium_until = expiresAt?.toISOString() || null
+      tenants[idx].orders_limit = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
+      tenants[idx].orders_remaining = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
       tenantsData.tenants = tenants
       localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
     }
     return
   }
 
-  const { error } = await supabase
-    .from('tenants')
-    .update({
-      subscription_tier: tier,
-      premium_until: expiresAt?.toISOString() || null,
-    })
-    .eq('id', tenantId)
+  // SEGURIDAD: Solo usar función RPC con SECURITY DEFINER
+  // El cliente NUNCA puede hacer UPDATE directo a subscription_tier o premium_until
+  // La función RPC verifica internamente que el usuario sea owner o super_admin
+  const { data, error } = await supabase.rpc('update_tenant_subscription', {
+    p_tenant_id: tenantId,
+    p_tier: tier,
+    p_expires_at: expiresAt?.toISOString() || null
+  })
 
   if (error) {
-    console.error('Error actualizando tier de tenant:', error)
-    throw error
+    console.error('Error actualizando suscripción:', error)
+    throw new Error(error.message || 'Error al actualizar suscripción. Contacta soporte.')
   }
+
+  return data
 }
 
 /**
