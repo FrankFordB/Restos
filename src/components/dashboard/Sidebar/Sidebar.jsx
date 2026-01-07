@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import './Sidebar.css'
 import {
@@ -14,6 +14,8 @@ import {
   Link2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   LayoutDashboard,
   Menu,
   X,
@@ -60,8 +62,31 @@ export default function Sidebar({
   orderLimitsStatus = null,
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [canScrollUp, setCanScrollUp] = useState(false)
+  const [canScrollDown, setCanScrollDown] = useState(false)
+  const navRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Detectar estado de scroll
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+
+    const checkScroll = () => {
+      setCanScrollUp(nav.scrollTop > 10)
+      setCanScrollDown(nav.scrollTop < nav.scrollHeight - nav.clientHeight - 10)
+    }
+
+    checkScroll()
+    nav.addEventListener('scroll', checkScroll)
+    window.addEventListener('resize', checkScroll)
+
+    return () => {
+      nav.removeEventListener('scroll', checkScroll)
+      window.removeEventListener('resize', checkScroll)
+    }
+  }, [isCollapsed])
 
   // Plan info calculations
   const planInfo = useMemo(() => {
@@ -185,8 +210,21 @@ export default function Sidebar({
           )}
           </div>
 
+          {/* Scroll Up Hint */}
+          {!isCollapsed && canScrollUp && (
+            <button 
+              className="sidebar__scrollHint sidebar__scrollHint--up"
+              onClick={() => {
+                if (navRef.current) navRef.current.scrollBy({ top: -100, behavior: 'smooth' })
+              }}
+              title="Subir"
+            >
+              <ChevronUp size={14} />
+            </button>
+          )}
+
           {/* Navigation */}
-          <nav className="sidebar__nav">
+          <nav className="sidebar__nav" ref={navRef}>
             <ul className="sidebar__menu">
               {MENU_ITEMS.map((item) => {
                 const Icon = item.icon
@@ -276,6 +314,19 @@ export default function Sidebar({
               })}
             </ul>
           </nav>
+
+          {/* Scroll Down Hint */}
+          {!isCollapsed && canScrollDown && (
+            <button 
+              className="sidebar__scrollHint sidebar__scrollHint--down"
+              onClick={() => {
+                if (navRef.current) navRef.current.scrollBy({ top: 100, behavior: 'smooth' })
+              }}
+              title="Bajar"
+            >
+              <ChevronDown size={14} />
+            </button>
+          )}
 
           {/* Plan Info Section */}
           {!isCollapsed && (

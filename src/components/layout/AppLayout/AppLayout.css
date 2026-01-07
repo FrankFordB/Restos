@@ -22,6 +22,12 @@
   margin-left: 72px;
 }
 
+/* Cuando hay NotFound o páginas sin sidebar, el header ocupa todo el ancho */
+.app:has(.notFound) .app__header,
+.app:has(.authPage) .app__header {
+  margin-left: 0;
+}
+
 .app__main {
   flex: 1;
   padding: 0;

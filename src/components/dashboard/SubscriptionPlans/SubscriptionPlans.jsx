@@ -163,14 +163,20 @@ export default function SubscriptionPlans({
                 ) : action.type === 'downgrade' ? (
                   <button
                     className="planCard__cta planCard__cta--downgrade"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePlanClick(plan, action)
+                    }}
                   >
                     ⚠️ Cambiar a {plan.name}
                   </button>
                 ) : (
                   <button
                     className={`planCard__cta ${plan.featured ? 'planCard__cta--primary' : 'planCard__cta--secondary'}`}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePlanClick(plan, action)
+                    }}
                   >
                     {currentTier === SUBSCRIPTION_TIERS.FREE ? 'Comenzar' : 'Actualizar'}
                   </button>

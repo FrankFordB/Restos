@@ -635,6 +635,7 @@
 
 .superAdmin__tableBody {
   /* Sin límite de altura - muestra todo el contenido */
+  display: block;
 }
 
 .superAdmin__tableRow {

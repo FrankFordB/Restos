@@ -599,7 +599,7 @@ export default function UserDashboardPage() {
         onCollapsedChange={setSidebarCollapsed}
         onPendingOrdersClick={() => setShowPendingModal(true)}
         orderLimitsStatus={orderLimitsStatus}
-        onUpgradeClick={() => setActiveTab('plan')}
+        onUpgradeClick={() => setActiveTab('plans')}
       />
 
       {/* Modal de pedidos pendientes */}
@@ -757,69 +757,39 @@ export default function UserDashboardPage() {
 
         {/* Sales Tab */}
         {activeTab === 'sales' && (
-          <>
-            <header className="dash__header">
-              <h1>Ventas</h1>
-              <p className="muted">Analiza el rendimiento de tu negocio.</p>
-            </header>
-            <SalesStats tenantId={user.tenantId} />
-          </>
+          <SalesStats tenantId={user.tenantId} />
         )}
 
         {/* Menu Tab */}
         {activeTab === 'menu' && (
-          <>
-            <header className="dash__header">
-              <h1>Menú</h1>
-              <p className="muted">Administra los productos de tu restaurante.</p>
-            </header>
-            <ProductsManager tenantId={user.tenantId} />
-          </>
+          <ProductsManager tenantId={user.tenantId} />
         )}
 
         {/* Extras Tab */}
         {activeTab === 'extras' && (
-          <>
-            <header className="dash__header">
-              <h1>Extras y Toppings</h1>
-              <p className="muted">Configura los extras que se pueden agregar a cualquier producto.</p>
-            </header>
-            <ExtrasManager tenantId={user.tenantId} />
-          </>
+          <ExtrasManager tenantId={user.tenantId} />
         )}
 
         {/* Kitchen Tab */}
         {activeTab === 'kitchen' && (
-          <>
-            <header className="dash__header">
-              <h1>Cocina</h1>
-              <p className="muted">Vista de cocina para preparar pedidos.</p>
-            </header>
-            <Card title="Pantalla de cocina">
-              <div className="dash__emptyState">
-                <ChefHat size={48} />
-                <h3>Próximamente</h3>
-                <p className="muted">La vista de cocina para gestionar pedidos en tiempo real estará disponible pronto.</p>
-              </div>
-            </Card>
-          </>
+          <Card title="Pantalla de cocina">
+            <div className="dash__emptyState">
+              <ChefHat size={48} />
+              <h3>Próximamente</h3>
+              <p className="muted">La vista de cocina para gestionar pedidos en tiempo real estará disponible pronto.</p>
+            </div>
+          </Card>
         )}
 
         {/* Inventory Tab */}
         {activeTab === 'inventory' && (
-          <>
-            <header className="dash__header">
-              <h1>Inventario</h1>
-              <p className="muted">Controla el stock de tus productos.</p>
-            </header>
-            <Card title="Gestión de inventario">
-              <div className="dash__emptyState">
-                <Package size={48} />
-                <h3>Próximamente</h3>
-                <p className="muted">El sistema de inventario estará disponible pronto.</p>
-              </div>
-            </Card>
-          </>
+          <Card title="Gestión de inventario">
+            <div className="dash__emptyState">
+              <Package size={48} />
+              <h3>Próximamente</h3>
+              <p className="muted">El sistema de inventario estará disponible pronto.</p>
+            </div>
+          </Card>
         )}
 
         {/* Store Editor Tab */}
@@ -830,11 +800,6 @@ export default function UserDashboardPage() {
         {/* QR & Links Tab */}
         {activeTab === 'qr' && (
           <>
-            <header className="dash__header">
-              <h1>QR y Enlaces</h1>
-              <p className="muted">Comparte tu tienda con tus clientes.</p>
-            </header>
-
             <div className="dash__qrGrid">
               {/* QR Code Card */}
               <Card title="Código QR">
@@ -945,22 +910,11 @@ export default function UserDashboardPage() {
         )}
 
         {activeTab === 'mercadopago' && currentTenant?.id && (
-          <>
-            <header className="dash__header">
-              <h1>Configuración de MercadoPago</h1>
-              <p className="muted">Configura tus credenciales para recibir pagos de tus clientes</p>
-            </header>
-            <MercadoPagoConfig tenantId={currentTenant.id} />
-          </>
+          <MercadoPagoConfig tenantId={currentTenant.id} />
         )}
 
         {activeTab === 'plans' && (
           <>
-            <header className="dash__header">
-              <h1>Mi Plan de Suscripción</h1>
-              <p className="muted">Elige el plan que mejor se adapte a tu negocio</p>
-            </header>
-            
             {/* Estado actual de la suscripción (solo si es premium) */}
             <SubscriptionStatus
               tenant={currentTenant}
@@ -1033,11 +987,6 @@ function ReportsSection({ tenantId }) {
 
   return (
     <>
-      <header className="dash__header">
-        <h1>Reportes</h1>
-        <p className="muted">Análisis y estadísticas de tus pedidos y ventas.</p>
-      </header>
-
       <div className="reports__filters">
         {[
           { key: 'week', label: 'Esta Semana' },

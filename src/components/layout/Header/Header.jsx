@@ -200,35 +200,20 @@ FrankFood
               </>
             ) : null}
 
-            {/* Premium Badge or Upgrade Button */}
-            {user && user.role !== ROLES.SUPER_ADMIN && (
-              isPremiumUser ? (
-                <button 
-                  className="header__tierBadge"
-                  style={{ '--tier-color': TIER_COLORS[currentTier] }}
-                  onClick={() => { 
-                    handleMenuTabClick('plans')
-                    setShowMobileMenu(false) 
-                  }}
-                  title="Ver mi plan"
-                >
-                  <span className="tier-icon">{currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}</span>
-                  <span className="tier-name">{TIER_LABELS[currentTier]}</span>
-                </button>
-              ) : (
-                <button 
-                  className="header__upgradeCta"
-                  onClick={() => { 
-                    handleMenuTabClick('plans')
-                    setShowMobileMenu(false) 
-                  }}
-                  title="Mejorar mi plan"
-                >
-                  <span className="upgrade-icon">✨</span>
-                  <span className="upgrade-text">Hazte Premium</span>
-                  <span className="upgrade-arrow">→</span>
-                </button>
-              )
+            {/* Premium Badge - solo para usuarios premium */}
+            {user && user.role !== ROLES.SUPER_ADMIN && isPremiumUser && (
+              <button 
+                className="header__tierBadge"
+                style={{ '--tier-color': TIER_COLORS[currentTier] }}
+                onClick={() => { 
+                  handleMenuTabClick('plans')
+                  setShowMobileMenu(false) 
+                }}
+                title="Ver mi plan"
+              >
+                <span className="tier-icon">{currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}</span>
+                <span className="tier-name">{TIER_LABELS[currentTier]}</span>
+              </button>
             )}
 
             {user ? (
