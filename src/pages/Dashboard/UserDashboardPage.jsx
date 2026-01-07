@@ -593,11 +593,13 @@ export default function UserDashboardPage() {
         tenantLogo={currentTenant?.logo || ''}
         tenantSlug={currentTenant?.slug || ''}
         subscriptionTier={subscriptionTier}
+        premiumUntil={premiumUntil}
         pendingOrdersCount={pendingOrdersCount}
         isCollapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         onPendingOrdersClick={() => setShowPendingModal(true)}
         orderLimitsStatus={orderLimitsStatus}
+        onUpgradeClick={() => setActiveTab('plan')}
       />
 
       {/* Modal de pedidos pendientes */}

@@ -12,7 +12,7 @@ import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/su
 import { fetchTenantPauseStatus } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { loadJson } from '../../../shared/storage'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Shield } from 'lucide-react'
 
 export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const user = useAppSelector(selectUser)
@@ -185,6 +185,18 @@ FrankFood
                 >
                   Dashboard
                 </NavLink>
+                
+                {/* Super Admin Exclusive Button */}
+                {user.role === ROLES.SUPER_ADMIN && (
+                  <NavLink
+                    className="header__superAdminBtn"
+                    to="/admin"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Shield size={16} />
+                    <span>Panel Admin</span>
+                  </NavLink>
+                )}
               </>
             ) : null}
 
@@ -194,7 +206,11 @@ FrankFood
                 <button 
                   className="header__tierBadge"
                   style={{ '--tier-color': TIER_COLORS[currentTier] }}
-                  onClick={() => { setShowPremiumModal(true); setShowMobileMenu(false); }}
+                  onClick={() => { 
+                    handleMenuTabClick('plans')
+                    setShowMobileMenu(false) 
+                  }}
+                  title="Ver mi plan"
                 >
                   <span className="tier-icon">{currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}</span>
                   <span className="tier-name">{TIER_LABELS[currentTier]}</span>
@@ -202,7 +218,11 @@ FrankFood
               ) : (
                 <button 
                   className="header__upgradeCta"
-                  onClick={() => { setShowPremiumModal(true); setShowMobileMenu(false); }}
+                  onClick={() => { 
+                    handleMenuTabClick('plans')
+                    setShowMobileMenu(false) 
+                  }}
+                  title="Mejorar mi plan"
                 >
                   <span className="upgrade-icon">✨</span>
                   <span className="upgrade-text">Hazte Premium</span>

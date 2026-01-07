@@ -15,6 +15,7 @@ export default function SubscriptionPlans({
   onDowngrade,
 }) {
   const [billing, setBilling] = useState('monthly') // 'monthly' | 'yearly'
+  const [selectedPlan, setSelectedPlan] = useState(null) // Para hover/selección visual
 
   const plans = [
     {
@@ -22,6 +23,7 @@ export default function SubscriptionPlans({
       icon: '🆓',
       name: 'Gratis',
       description: 'Para comenzar',
+      accentColor: '#6b7280', // gray
     },
     {
       tier: SUBSCRIPTION_TIERS.PREMIUM,
@@ -29,12 +31,14 @@ export default function SubscriptionPlans({
       name: 'Premium',
       description: 'Para crecer',
       featured: true,
+      accentColor: '#f59e0b', // amber
     },
     {
       tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
       icon: '👑',
       name: 'Premium Pro',
       description: 'Sin límites',
+      accentColor: '#8b5cf6', // violet
     },
   ]
 
@@ -53,15 +57,13 @@ export default function SubscriptionPlans({
     return null
   }
 
-  const handleUpgrade = (tier) => {
-    if (onUpgrade) {
-      onUpgrade(tier, billing)
-    }
-  }
-
-  const handleDowngrade = (tier) => {
-    if (onDowngrade) {
-      onDowngrade(tier)
+  const handlePlanClick = (plan, action) => {
+    if (action.type === 'current') return
+    
+    if (action.type === 'downgrade') {
+      onDowngrade?.(plan.tier)
+    } else {
+      onUpgrade?.(plan.tier, billing)
     }
   }
 
@@ -108,12 +110,23 @@ export default function SubscriptionPlans({
           const price = getPrice(plan.tier)
           const savings = getSavings(plan.tier)
           const features = TIER_FEATURES[plan.tier]
+          const isSelected = selectedPlan === plan.tier
+          const isCurrent = action.type === 'current'
+          const isClickable = !isCurrent
 
           return (
             <div
               key={plan.tier}
-              className={`planCard ${plan.featured ? 'planCard--featured' : ''}`}
+              className={`planCard ${plan.featured ? 'planCard--featured' : ''} ${isSelected ? 'planCard--selected' : ''} ${isCurrent ? 'planCard--current' : ''} ${isClickable ? 'planCard--clickable' : ''}`}
+              style={{ '--plan-accent': plan.accentColor }}
+              onClick={() => isClickable && handlePlanClick(plan, action)}
+              onMouseEnter={() => isClickable && setSelectedPlan(plan.tier)}
+              onMouseLeave={() => setSelectedPlan(null)}
             >
+              {isCurrent && (
+                <div className="planCard__currentBadge">Tu plan</div>
+              )}
+              
               <div className="planCard__header">
                 <div className="planCard__icon">{plan.icon}</div>
                 <h3 className="planCard__name">{plan.name}</h3>
@@ -144,20 +157,20 @@ export default function SubscriptionPlans({
 
               <div className="planCard__footer">
                 {action.type === 'current' ? (
-                  <div className="planCard__current">
-                    ✓ Tu plan actual
+                  <div className="planCard__currentLabel">
+                    ✓ Plan activo
                   </div>
                 ) : action.type === 'downgrade' ? (
                   <button
                     className="planCard__cta planCard__cta--downgrade"
-                    onClick={() => handleDowngrade(plan.tier)}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     ⚠️ Cambiar a {plan.name}
                   </button>
                 ) : (
                   <button
                     className={`planCard__cta ${plan.featured ? 'planCard__cta--primary' : 'planCard__cta--secondary'}`}
-                    onClick={() => handleUpgrade(plan.tier)}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {currentTier === SUBSCRIPTION_TIERS.FREE ? 'Comenzar' : 'Actualizar'}
                   </button>

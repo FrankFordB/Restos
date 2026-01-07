@@ -4,7 +4,6 @@ import { Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { useAppDispatch } from '../../app/hooks'
 import { handleOAuthCallback } from '../../lib/supabaseAuth'
 import { setUserFromOAuth } from '../../features/auth/authSlice'
-import { fetchProfile } from '../../lib/supabaseApi'
 import './AuthPages.css'
 
 export default function AuthCallbackPage() {
@@ -25,35 +24,12 @@ export default function AuthCallbackPage() {
         throw new Error('No se pudo obtener la sesión')
       }
 
-      const user = session.user
-      
-      // Check if user has a tenant (completed registration)
-      const profile = await fetchProfile(user.id)
-      const hasTenant = profile?.tenant_id != null
-
-      if (!hasTenant) {
-        // Store OAuth data for step 2 registration
-        sessionStorage.setItem('pendingOAuthRegistration', JSON.stringify({
-          email: user.email,
-          fullName: user.user_metadata?.full_name || user.user_metadata?.name || '',
-          fromOAuth: true,
-          verified: true,
-          userId: user.id
-        }))
-        
-        // Redirect to complete registration (step 2 - create store)
-        setStatus('success')
-        setTimeout(() => {
-          navigate('/register?step=2&oauth=true')
-        }, 1000)
-      } else {
-        // Full registration complete, login user
-        await dispatch(setUserFromOAuth(session))
-        setStatus('success')
-        setTimeout(() => {
-          navigate('/dashboard')
-        }, 1000)
-      }
+      // Login user and redirect to dashboard
+      await dispatch(setUserFromOAuth(session))
+      setStatus('success')
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 1000)
     } catch (err) {
       setStatus('error')
       setError(err.message || 'Error en la autenticación')

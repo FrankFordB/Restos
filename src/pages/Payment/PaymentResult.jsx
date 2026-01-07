@@ -50,9 +50,20 @@ export default function PaymentResult() {
       const isPending = status === 'pending' || status === 'in_process'
       const isFailure = status === 'rejected' || status === 'cancelled'
 
+      console.log('🔄 PaymentResult - Processing:', {
+        status,
+        isSuccess,
+        paymentType,
+        refData,
+        paymentId,
+        preferenceId
+      })
+
       // Si es una suscripción exitosa, actualizar el tenant
       if (isSuccess && (paymentType === 'subscription' || refData.type === 'subscription')) {
+        console.log('✅ Procesando upgrade de suscripción...')
         await handleSubscriptionSuccess(refData, paymentId, preferenceId)
+        console.log('✅ Upgrade completado!')
       }
 
       // Si es un pago de tienda (store_order), actualizar la orden
@@ -133,9 +144,13 @@ export default function PaymentResult() {
     try {
       let subscriptionData = refData
 
+      console.log('📦 handleSubscriptionSuccess - Input:', { refData, paymentId, preferenceId })
+
       // Si no tenemos los datos del tenant en external_reference, buscar la suscripción pendiente
       if ((!subscriptionData.tenantId || !subscriptionData.planTier) && preferenceId) {
+        console.log('🔍 Buscando suscripción pendiente por preferenceId...')
         const pendingSubscription = await getPendingSubscriptionByPreference(preferenceId)
+        console.log('📋 Suscripción pendiente encontrada:', pendingSubscription)
         if (pendingSubscription) {
           subscriptionData = {
             tenantId: pendingSubscription.tenant_id,
@@ -146,6 +161,8 @@ export default function PaymentResult() {
         }
       }
 
+      console.log('📊 subscriptionData final:', subscriptionData)
+
       // Calcular fecha de expiración
       const expiresAt = new Date()
       if (subscriptionData.billingPeriod === 'yearly') {
@@ -154,19 +171,29 @@ export default function PaymentResult() {
         expiresAt.setMonth(expiresAt.getMonth() + 1)
       }
 
+      console.log('📅 expiresAt:', expiresAt)
+
       // Actualizar suscripción en BD
       if (preferenceId) {
+        console.log('💾 Actualizando platform_subscriptions...')
         await updatePlatformSubscription(preferenceId, {
           paymentId,
           status: 'approved',
           paidAt: new Date(),
           expiresAt,
         })
+        console.log('✅ platform_subscriptions actualizado')
       }
 
       // Actualizar tier del tenant
       if (subscriptionData.tenantId && subscriptionData.planTier) {
+        console.log('🚀 Actualizando tenant subscription tier...', {
+          tenantId: subscriptionData.tenantId,
+          planTier: subscriptionData.planTier,
+          expiresAt
+        })
         await updateTenantSubscriptionTier(subscriptionData.tenantId, subscriptionData.planTier, expiresAt)
+        console.log('✅ Tenant tier actualizado!')
       } else {
         console.warn('⚠️ No se pudo actualizar tier: faltan tenantId o planTier', subscriptionData)
       }

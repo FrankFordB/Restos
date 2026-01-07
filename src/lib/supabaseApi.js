@@ -340,6 +340,441 @@ export async function adminSetTenantOwnerAccountStatus({ tenantId, status }) {
   return upsertRow
 }
 
+// -------------------------
+// Admin: CRUD completo de usuarios
+// -------------------------
+
+// Actualizar información de un usuario (admin)
+export async function adminUpdateUser({ userId, updates }) {
+  ensureSupabase()
+  if (!userId) throw new Error('userId requerido')
+  
+  const allowedFields = ['full_name', 'role', 'account_status', 'tenant_id']
+  const patch = {}
+  
+  for (const key of allowedFields) {
+    if (updates[key] !== undefined) {
+      patch[key] = updates[key]
+    }
+  }
+  
+  if (Object.keys(patch).length === 0) {
+    throw new Error('No hay campos válidos para actualizar')
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(patch)
+    .eq('user_id', userId)
+    .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source, created_at')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Eliminar usuario (elimina profile y opcionalmente tenant)
+// NOTA: Para eliminar el auth.user, necesitas ejecutar admin_delete_auth_user RPC
+export async function adminDeleteUser({ userId, deleteWithTenant = false }) {
+  ensureSupabase()
+  if (!userId) throw new Error('userId requerido')
+
+  // Primero verificamos si tiene tenant asociado
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('tenant_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (profileError) throw profileError
+
+  // Si tiene tenant y se quiere eliminar junto con él
+  if (profile?.tenant_id && deleteWithTenant) {
+    // Eliminar productos de la tienda
+    await supabase
+      .from('products')
+      .delete()
+      .eq('tenant_id', profile.tenant_id)
+
+    // Eliminar categorías de la tienda
+    await supabase
+      .from('categories')
+      .delete()
+      .eq('tenant_id', profile.tenant_id)
+
+    // Eliminar la tienda
+    await supabase
+      .from('tenants')
+      .delete()
+      .eq('id', profile.tenant_id)
+  } else if (profile?.tenant_id) {
+    // Solo desvincular
+    await supabase
+      .from('tenants')
+      .update({ owner_user_id: null })
+      .eq('owner_user_id', userId)
+  }
+
+  // Intentar eliminar de auth.users usando RPC (si existe la función)
+  try {
+    await supabase.rpc('admin_delete_auth_user', { p_user_id: userId })
+    return { success: true, authDeleted: true }
+  } catch (rpcError) {
+    // Si falla el RPC, solo eliminar el profile (fallback)
+    console.warn('RPC admin_delete_auth_user no disponible, eliminando solo profile:', rpcError)
+    
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('user_id', userId)
+
+    if (error) throw error
+    return { success: true, authDeleted: false }
+  }
+}
+
+// Bloquear usuario (account_status = 'blocked')
+export async function adminBlockUser({ userId }) {
+  ensureSupabase()
+  if (!userId) throw new Error('userId requerido')
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ account_status: 'blocked' })
+    .eq('user_id', userId)
+    .select('user_id, email, full_name, role, tenant_id, account_status')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Obtener usuario por ID con su tenant
+export async function adminGetUserWithTenant(userId) {
+  ensureSupabase()
+  if (!userId) throw new Error('userId requerido')
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source, created_at')
+    .eq('user_id', userId)
+    .single()
+
+  if (profileError) throw profileError
+
+  let tenant = null
+  if (profile?.tenant_id) {
+    const { data: tenantData } = await supabase
+      .from('tenants')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, created_at')
+      .eq('id', profile.tenant_id)
+      .single()
+    tenant = tenantData
+  }
+
+  return { ...profile, tenant }
+}
+
+// -------------------------
+// Admin: CRUD completo de tiendas
+// -------------------------
+
+// Crear tienda y vincular a usuario
+export async function adminCreateTenant({ name, slug, ownerUserId, isPublic = true }) {
+  ensureSupabase()
+  if (!name || !slug) throw new Error('name y slug son requeridos')
+
+  // Verificar que el slug no exista
+  const { data: existing } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (existing) throw new Error('El slug ya está en uso')
+
+  // Si hay ownerUserId, verificar que no tenga ya una tienda
+  if (ownerUserId) {
+    const { data: existingOwner } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('owner_user_id', ownerUserId)
+      .maybeSingle()
+
+    if (existingOwner) throw new Error('Este usuario ya tiene una tienda asignada')
+  }
+
+  // Crear la tienda
+  const { data: tenant, error } = await supabase
+    .from('tenants')
+    .insert({ 
+      name, 
+      slug, 
+      owner_user_id: ownerUserId || null,
+      is_public: isPublic,
+      subscription_tier: 'free'
+    })
+    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at')
+    .single()
+
+  if (error) throw error
+
+  // Si hay owner, actualizar su profile con el tenant_id
+  if (ownerUserId) {
+    await supabase
+      .from('profiles')
+      .update({ tenant_id: tenant.id, role: 'tenant_admin' })
+      .eq('user_id', ownerUserId)
+  }
+
+  return tenant
+}
+
+// Actualizar tienda
+export async function adminUpdateTenant({ tenantId, updates }) {
+  ensureSupabase()
+  if (!tenantId) throw new Error('tenantId requerido')
+  
+  const allowedFields = ['name', 'slug', 'is_public', 'description', 'slogan', 'logo']
+  const patch = {}
+  
+  for (const key of allowedFields) {
+    if (updates[key] !== undefined) {
+      patch[key] = updates[key]
+    }
+  }
+  
+  // Verificar slug único si se está actualizando
+  if (patch.slug) {
+    const { data: existing } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', patch.slug)
+      .neq('id', tenantId)
+      .maybeSingle()
+
+    if (existing) throw new Error('El slug ya está en uso')
+  }
+
+  const { data, error } = await supabase
+    .from('tenants')
+    .update(patch)
+    .eq('id', tenantId)
+    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at, logo, description, slogan')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Eliminar tienda (con opciones para el dueño)
+export async function adminDeleteTenant({ tenantId, deleteOwner = false, blockOwner = false }) {
+  ensureSupabase()
+  if (!tenantId) throw new Error('tenantId requerido')
+
+  // Obtener info del tenant
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('owner_user_id')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  if (tenantError) throw tenantError
+  if (!tenant) throw new Error('Tienda no encontrada')
+
+  const ownerId = tenant?.owner_user_id
+
+  // Eliminar productos de la tienda
+  await supabase
+    .from('products')
+    .delete()
+    .eq('tenant_id', tenantId)
+
+  // Eliminar categorías de la tienda
+  await supabase
+    .from('categories')
+    .delete()
+    .eq('tenant_id', tenantId)
+
+  // Eliminar órdenes de la tienda
+  await supabase
+    .from('orders')
+    .delete()
+    .eq('tenant_id', tenantId)
+
+  // Eliminar la tienda
+  const { error } = await supabase
+    .from('tenants')
+    .delete()
+    .eq('id', tenantId)
+
+  if (error) throw error
+
+  // Manejar el owner según la opción elegida
+  if (ownerId) {
+    if (deleteOwner) {
+      // Eliminar el profile del dueño
+      await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', ownerId)
+    } else if (blockOwner) {
+      // Bloquear al dueño
+      await supabase
+        .from('profiles')
+        .update({ tenant_id: null, account_status: 'blocked' })
+        .eq('user_id', ownerId)
+    } else {
+      // Solo desvincular
+      await supabase
+        .from('profiles')
+        .update({ tenant_id: null })
+        .eq('user_id', ownerId)
+    }
+  }
+
+  return { success: true }
+}
+
+// Vincular tienda a usuario
+export async function adminLinkTenantToUser({ tenantId, userId }) {
+  ensureSupabase()
+  if (!tenantId || !userId) throw new Error('tenantId y userId son requeridos')
+
+  // Verificar que el usuario no tenga ya otra tienda
+  const { data: existingTenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('owner_user_id', userId)
+    .neq('id', tenantId)
+    .maybeSingle()
+
+  if (existingTenant) throw new Error('Este usuario ya tiene una tienda asignada')
+
+  // Verificar que la tienda no tenga ya otro owner
+  const { data: currentTenant } = await supabase
+    .from('tenants')
+    .select('owner_user_id')
+    .eq('id', tenantId)
+    .single()
+
+  // Si tiene otro owner, desvincular primero
+  if (currentTenant?.owner_user_id && currentTenant.owner_user_id !== userId) {
+    await supabase
+      .from('profiles')
+      .update({ tenant_id: null })
+      .eq('user_id', currentTenant.owner_user_id)
+  }
+
+  // Actualizar tenant con nuevo owner
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .update({ owner_user_id: userId })
+    .eq('id', tenantId)
+    .select('id, name, slug, owner_user_id')
+    .single()
+
+  if (tenantError) throw tenantError
+
+  // Actualizar profile del usuario
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ tenant_id: tenantId, role: 'tenant_admin' })
+    .eq('user_id', userId)
+
+  if (profileError) throw profileError
+
+  return tenant
+}
+
+// Desvincular tienda de usuario
+export async function adminUnlinkTenantFromUser({ tenantId }) {
+  ensureSupabase()
+  if (!tenantId) throw new Error('tenantId requerido')
+
+  // Obtener el owner actual
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('owner_user_id')
+    .eq('id', tenantId)
+    .single()
+
+  if (tenant?.owner_user_id) {
+    // Desvincular del profile
+    await supabase
+      .from('profiles')
+      .update({ tenant_id: null })
+      .eq('user_id', tenant.owner_user_id)
+  }
+
+  // Quitar owner del tenant
+  const { data, error } = await supabase
+    .from('tenants')
+    .update({ owner_user_id: null })
+    .eq('id', tenantId)
+    .select('id, name, slug, owner_user_id')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Obtener tienda con owner detallado
+export async function adminGetTenantWithOwner(tenantId) {
+  ensureSupabase()
+  if (!tenantId) throw new Error('tenantId requerido')
+
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at, logo, description, slogan')
+    .eq('id', tenantId)
+    .single()
+
+  if (tenantError) throw tenantError
+
+  let owner = null
+  if (tenant?.owner_user_id) {
+    const { data: ownerData } = await supabase
+      .from('profiles')
+      .select('user_id, email, full_name, role, account_status, created_at')
+      .eq('user_id', tenant.owner_user_id)
+      .single()
+    owner = ownerData
+  }
+
+  return { ...tenant, owner }
+}
+
+// Buscar usuarios sin tienda (para asignar)
+export async function adminGetUsersWithoutTenant() {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, email, full_name, role, account_status, created_at')
+    .is('tenant_id', null)
+    .neq('role', 'super_admin')
+    .eq('account_status', 'active')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
+// Buscar tiendas sin owner (para asignar)
+export async function adminGetTenantsWithoutOwner() {
+  ensureSupabase()
+  
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id, name, slug, is_public, subscription_tier, created_at')
+    .is('owner_user_id', null)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
 export async function createTenant({ name, slug, ownerUserId }) {
   ensureSupabase()
   const { data, error } = await supabase

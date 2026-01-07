@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import './Sidebar.css'
 import {
@@ -23,6 +23,8 @@ import {
   Crown,
   ShoppingBag,
   Infinity,
+  Calendar,
+  ArrowUpCircle,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -48,16 +50,58 @@ export default function Sidebar({
   tenantLogo = '',
   tenantSlug = '',
   subscriptionTier = 'free',
+  premiumUntil = null,
   pendingOrdersCount = 0,
   isCollapsed = false,
   onCollapsedChange,
   onPendingOrdersClick,
+  onUpgradeClick,
   // Order limits props
   orderLimitsStatus = null,
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Plan info calculations
+  const planInfo = useMemo(() => {
+    const isPremium = subscriptionTier !== 'free'
+    const tierLabels = {
+      free: 'Gratis',
+      premium: 'Premium',
+      premium_pro: 'Premium Pro'
+    }
+    const tierIcons = {
+      free: '🆓',
+      premium: '⭐',
+      premium_pro: '👑'
+    }
+    
+    let expiresAt = null
+    let daysRemaining = null
+    let isExpired = false
+    let isExpiringSoon = false
+    
+    if (isPremium && premiumUntil) {
+      expiresAt = new Date(premiumUntil)
+      const now = new Date()
+      const diffMs = expiresAt - now
+      daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+      isExpired = daysRemaining <= 0
+      isExpiringSoon = daysRemaining > 0 && daysRemaining <= 7
+    }
+    
+    return {
+      tier: subscriptionTier,
+      label: tierLabels[subscriptionTier] || 'Gratis',
+      icon: tierIcons[subscriptionTier] || '🆓',
+      isPremium,
+      expiresAt,
+      daysRemaining,
+      isExpired,
+      isExpiringSoon
+    }
+  }, [subscriptionTier, premiumUntil])
 
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -232,6 +276,61 @@ export default function Sidebar({
               })}
             </ul>
           </nav>
+
+          {/* Plan Info Section */}
+          {!isCollapsed && (
+            <div 
+              className={`sidebar__planInfo ${planInfo.isExpiringSoon ? 'sidebar__planInfo--warning' : ''} ${planInfo.isExpired ? 'sidebar__planInfo--expired' : ''}`}
+              onClick={() => onTabChange('plans')}
+            >
+              <div className="sidebar__planHeader">
+                <span className="sidebar__planIcon">{planInfo.icon}</span>
+                <span className="sidebar__planLabel">{planInfo.label}</span>
+              </div>
+              
+              {planInfo.isPremium && planInfo.expiresAt && !planInfo.isExpired && (
+                <div className="sidebar__planExpiry">
+                  <Calendar size={12} />
+                  <span>
+                    {planInfo.daysRemaining <= 30 
+                      ? `${planInfo.daysRemaining} días restantes`
+                      : `Expira: ${planInfo.expiresAt.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    }
+                  </span>
+                </div>
+              )}
+              
+              {planInfo.isExpired && (
+                <div className="sidebar__planExpiry sidebar__planExpiry--expired">
+                  <span>⚠️ Plan expirado</span>
+                </div>
+              )}
+              
+              {!planInfo.isPremium && (
+                <button 
+                  className="sidebar__upgradeBtn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onUpgradeClick?.()
+                  }}
+                >
+                  <ArrowUpCircle size={14} />
+                  <span>Mejorar plan</span>
+                </button>
+              )}
+            </div>
+          )}
+          
+          {/* Collapsed Plan Info */}
+          {isCollapsed && (
+            <div 
+              className={`sidebar__planInfoCollapsed ${planInfo.isExpiringSoon ? 'sidebar__planInfo--warning' : ''}`}
+              onClick={() => onTabChange('plans')}
+              title={`${planInfo.label}${planInfo.daysRemaining ? ` - ${planInfo.daysRemaining} días` : ''}`}
+            >
+              <span>{planInfo.icon}</span>
+            </div>
+          )}
 
           {/* Collapse Toggle */}
           <button 
