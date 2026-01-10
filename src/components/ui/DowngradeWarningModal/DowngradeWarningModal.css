@@ -83,6 +83,41 @@
   padding: 1.75rem 2rem;
 }
 
+/* Scheduled change info */
+.downgradeModal__scheduledInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.downgradeModal__scheduledIcon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.downgradeModal__scheduledText {
+  flex: 1;
+}
+
+.downgradeModal__scheduledText strong {
+  display: block;
+  color: #4ade80;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.downgradeModal__scheduledText p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .downgradeModal__warning {
   background: rgba(251, 146, 60, 0.1);
   border: 1px solid rgba(251, 146, 60, 0.25);

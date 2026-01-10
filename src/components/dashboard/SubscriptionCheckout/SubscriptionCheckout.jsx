@@ -19,7 +19,7 @@ import {
 import {
   createPlatformSubscription,
   updateTenantSubscriptionTier,
-  performTenantDowngrade,
+  scheduleTierChange,
 } from '../../../lib/supabaseMercadopagoApi'
 
 /**
@@ -73,28 +73,32 @@ export default function SubscriptionCheckout({
     
     setDowngradeLoading(true)
     try {
-      console.log('Attempting downgrade:', { tenantId, downgradeTier, premiumUntil })
+      console.log('Scheduling tier change:', { tenantId, downgradeTier, premiumUntil })
       
-      // Perform the downgrade (resets configurations)
-      // Si es downgrade a premium, preservar la fecha de expiración
-      await performTenantDowngrade(tenantId, downgradeTier, premiumUntil)
+      // Programar el cambio de tier para cuando expire la suscripción actual
+      // El usuario mantiene su plan actual hasta que expire
+      const result = await scheduleTierChange(tenantId, downgradeTier, premiumUntil)
       
-      console.log('Downgrade successful')
+      console.log('Tier change scheduled:', result)
       
       setShowDowngradeModal(false)
       setDowngradeTier(null)
+      
+      // Mostrar mensaje de éxito
+      const expiryDate = premiumUntil ? new Date(premiumUntil).toLocaleDateString('es-AR') : 'que expire'
+      alert(`✅ Cambio programado exitosamente.\n\nTu plan actual seguirá activo hasta el ${expiryDate}.\nDespués de esa fecha, cambiarás a ${TIER_LABELS[downgradeTier]}.`)
       
       // Notify parent and reload to reflect changes
       if (onSubscriptionComplete) {
         onSubscriptionComplete(downgradeTier)
       }
       
-      // Reload page to reset all state
+      // Reload page to update UI
       window.location.reload()
     } catch (err) {
-      console.error('Error performing downgrade:', err)
+      console.error('Error scheduling tier change:', err)
       console.error('Error details:', err.message, err.code, err.details)
-      alert(`Error al cambiar el plan: ${err.message || 'Error desconocido'}. Por favor intenta nuevamente.`)
+      alert(`Error al programar el cambio de plan: ${err.message || 'Error desconocido'}. Por favor intenta nuevamente.`)
     } finally {
       setDowngradeLoading(false)
     }
@@ -212,6 +216,7 @@ export default function SubscriptionCheckout({
         open={showDowngradeModal}
         currentTier={currentTier}
         targetTier={downgradeTier}
+        premiumUntil={premiumUntil}
         onConfirm={handleDowngradeConfirm}
         onCancel={handleDowngradeCancel}
         loading={downgradeLoading}

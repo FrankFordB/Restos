@@ -372,11 +372,87 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
 }
 
 /**
- * Downgrade tenant to a lower tier (FREE or PREMIUM)
- * Resets configurations to match the new tier
- * Works in both Supabase and MOCK mode
+ * Schedule a tier change for when the current subscription expires
+ * The user keeps their current tier until expiration
  * @param {string} tenantId 
  * @param {string} targetTier - 'free' or 'premium'
+ * @param {string} premiumUntil - Current subscription expiration date
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const scheduleTierChange = async (tenantId, targetTier, premiumUntil = null) => {
+  if (!isSupabaseConfigured) {
+    // En modo mock, guardar el tier programado en localStorage
+    const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
+    const tenants = tenantsData.tenants || []
+    const idx = tenants.findIndex(t => t.id === tenantId)
+    
+    if (idx >= 0) {
+      tenants[idx].scheduled_tier = targetTier
+      tenants[idx].scheduled_at = new Date().toISOString()
+      tenantsData.tenants = tenants
+      localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
+    }
+
+    const expiryDate = premiumUntil ? new Date(premiumUntil).toLocaleDateString() : 'que expire'
+    return { 
+      success: true, 
+      scheduled: true,
+      message: `Cambio programado. Tu plan actual seguirá activo hasta ${expiryDate}.`
+    }
+  }
+
+  // En modo Supabase, usar la función RPC
+  const { data, error } = await supabase.rpc('schedule_tier_change', {
+    p_tenant_id: tenantId,
+    p_scheduled_tier: targetTier
+  })
+
+  if (error) throw error
+
+  return {
+    success: true,
+    scheduled: true,
+    ...data
+  }
+}
+
+/**
+ * Cancel a scheduled tier change
+ * @param {string} tenantId 
+ * @returns {Promise<{success: boolean}>}
+ */
+export const cancelScheduledTierChange = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    // En modo mock
+    const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
+    const tenants = tenantsData.tenants || []
+    const idx = tenants.findIndex(t => t.id === tenantId)
+    
+    if (idx >= 0) {
+      tenants[idx].scheduled_tier = null
+      tenants[idx].scheduled_at = null
+      tenantsData.tenants = tenants
+      localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
+    }
+
+    return { success: true, message: 'Cambio cancelado. Mantendrás tu plan actual.' }
+  }
+
+  // En modo Supabase
+  const { data, error } = await supabase.rpc('cancel_scheduled_tier_change', {
+    p_tenant_id: tenantId
+  })
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Downgrade tenant to a lower tier IMMEDIATELY
+ * Only use this when subscription has expired or for testing
+ * @param {string} tenantId 
+ * @param {string} targetTier - 'free' or 'premium'
+ * @param {string} premiumUntil - Expiration date to preserve (for premium downgrade)
  * @returns {Promise<{success: boolean}>}
  */
 export const performTenantDowngrade = async (tenantId, targetTier, premiumUntil = null) => {

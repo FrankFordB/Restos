@@ -9,11 +9,13 @@ import {
 /**
  * Modal de advertencia al hacer downgrade de suscripción
  * Informa al usuario sobre las configuraciones que perderá
+ * El cambio se programa para cuando expire la suscripción actual
  */
 export default function DowngradeWarningModal({
   open,
   currentTier,
   targetTier,
+  premiumUntil,
   onConfirm,
   onCancel,
   loading = false,
@@ -23,25 +25,43 @@ export default function DowngradeWarningModal({
   const lostFeatures = getDowngradeLostFeatures(currentTier, targetTier)
   const currentLabel = TIER_LABELS[currentTier] || 'Premium'
   const targetLabel = TIER_LABELS[targetTier] || 'Free'
+  
+  // Formatear fecha de expiración
+  const expiryDate = premiumUntil 
+    ? new Date(premiumUntil).toLocaleDateString('es-AR', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      })
+    : null
 
   return (
     <div className="downgradeModal__overlay" role="dialog" aria-modal="true">
       <div className="downgradeModal__card">
         {/* Header con icono de advertencia */}
         <div className="downgradeModal__header">
-          <div className="downgradeModal__icon">⚠️</div>
-          <h2 className="downgradeModal__title">¿Cambiar a {targetLabel}?</h2>
+          <div className="downgradeModal__icon">📅</div>
+          <h2 className="downgradeModal__title">Programar cambio a {targetLabel}</h2>
         </div>
 
         {/* Contenido */}
         <div className="downgradeModal__content">
+          {/* Info sobre el cambio programado */}
+          <div className="downgradeModal__scheduledInfo">
+            <div className="downgradeModal__scheduledIcon">🔄</div>
+            <div className="downgradeModal__scheduledText">
+              <strong>Tu plan actual seguirá activo</strong>
+              <p>
+                Mantendrás todos los beneficios de <strong>{currentLabel}</strong> hasta 
+                {expiryDate ? ` el ${expiryDate}` : ' que expire tu suscripción'}.
+                Después de esa fecha, cambiarás automáticamente a <strong>{targetLabel}</strong>.
+              </p>
+            </div>
+          </div>
+
           <div className="downgradeModal__warning">
             <p className="downgradeModal__warningText">
-              Estás por cambiar de <strong>{currentLabel}</strong> a <strong>{targetLabel}</strong>.
-            </p>
-            <p className="downgradeModal__warningSubtext">
-              Al hacer esto, <strong>perderás todas las configuraciones premium</strong> y tu tienda 
-              se revertirá a las opciones básicas del plan {targetLabel}.
+              Cuando expire tu plan actual, los siguientes cambios se aplicarán:
             </p>
           </div>
 
@@ -62,9 +82,9 @@ export default function DowngradeWarningModal({
 
           {/* Alerta de configuración */}
           <div className="downgradeModal__alert">
-            <span className="downgradeModal__alertIcon">🔄</span>
+            <span className="downgradeModal__alertIcon">⚠️</span>
             <div className="downgradeModal__alertContent">
-              <strong>Tus configuraciones se resetearán</strong>
+              <strong>Las configuraciones se resetearán al expirar</strong>
               <p>
                 Los estilos de cards, fuentes, paletas de colores, hero y widgets premium 
                 volverán a sus valores predeterminados del plan {targetLabel}.
@@ -101,21 +121,21 @@ export default function DowngradeWarningModal({
             onClick={onCancel}
             disabled={loading}
           >
-            Cancelar, mantener {currentLabel}
+            Cancelar
           </Button>
           <Button
             variant="danger"
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? 'Procesando...' : `Confirmar cambio a ${targetLabel}`}
+            {loading ? 'Procesando...' : `Programar cambio a ${targetLabel}`}
           </Button>
         </div>
 
         {/* Nota */}
         <div className="downgradeModal__note">
-          💡 <strong>Consejo:</strong> Si cambias de opinión, siempre puedes volver a 
-          actualizar tu plan, pero tendrás que reconfigurar todo desde cero.
+          💡 <strong>Importante:</strong> Podrás cancelar este cambio programado en cualquier 
+          momento antes de que expire tu suscripción actual.
         </div>
       </div>
     </div>
