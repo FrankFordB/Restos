@@ -3,6 +3,8 @@ import './SubscriptionCheckout.css'
 import SubscriptionPlans from '../SubscriptionPlans/SubscriptionPlans'
 import PaymentSuccessModal from '../../ui/PaymentSuccessModal/PaymentSuccessModal'
 import DowngradeWarningModal from '../../ui/DowngradeWarningModal/DowngradeWarningModal'
+import { Star, Crown } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
@@ -28,6 +30,7 @@ export default function SubscriptionCheckout({
   tenantId,
   tenantName,
   currentTier = SUBSCRIPTION_TIERS.FREE,
+  premiumUntil = null,
   userEmail,
   onSubscriptionComplete,
 }) {
@@ -70,8 +73,13 @@ export default function SubscriptionCheckout({
     
     setDowngradeLoading(true)
     try {
+      console.log('Attempting downgrade:', { tenantId, downgradeTier, premiumUntil })
+      
       // Perform the downgrade (resets configurations)
-      await performTenantDowngrade(tenantId, downgradeTier)
+      // Si es downgrade a premium, preservar la fecha de expiración
+      await performTenantDowngrade(tenantId, downgradeTier, premiumUntil)
+      
+      console.log('Downgrade successful')
       
       setShowDowngradeModal(false)
       setDowngradeTier(null)
@@ -85,7 +93,8 @@ export default function SubscriptionCheckout({
       window.location.reload()
     } catch (err) {
       console.error('Error performing downgrade:', err)
-      alert('Error al cambiar el plan. Por favor intenta nuevamente.')
+      console.error('Error details:', err.message, err.code, err.details)
+      alert(`Error al cambiar el plan: ${err.message || 'Error desconocido'}. Por favor intenta nuevamente.`)
     } finally {
       setDowngradeLoading(false)
     }
@@ -232,7 +241,7 @@ export default function SubscriptionCheckout({
           <div className="checkoutModal__content">
             {/* Header */}
             <div className="checkoutModal__header">
-              <div className="checkoutModal__logo">💳</div>
+              <div className="checkoutModal__logo"><img className="checkoutModal__logo" src="src\Img\MP_manos-removebg-preview.png" alt="" /></div>
               <div className="checkoutModal__headerText">
                 <h3>Confirmar Suscripción</h3>
                 <p>Pago seguro con MercadoPago</p>
@@ -251,13 +260,16 @@ export default function SubscriptionCheckout({
               </div>
             ) : (
               <div className="checkoutModal__body">
-                {/* Resumen */}
+                {/* Columna izquierda - Resumen */}
                 <div className="checkoutModal__summary">
+                  <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: '700', color: '#111827' }}>
+                    Resumen del pedido
+                  </h4>
                   <div className="checkoutModal__summaryRow">
                     <span className="checkoutModal__summaryLabel">Plan</span>
                     <span className="checkoutModal__summaryValue checkoutModal__summaryValue--plan">
                       <span className={`checkoutModal__planBadge checkoutModal__planBadge--${selectedPlan}`}>
-                        {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                        {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={14} /> : <Crown size={14} />}
                         {TIER_LABELS[selectedPlan]}
                       </span>
                     </span>
@@ -265,7 +277,7 @@ export default function SubscriptionCheckout({
                   <div className="checkoutModal__summaryRow">
                     <span className="checkoutModal__summaryLabel">Período</span>
                     <span className="checkoutModal__summaryValue">
-                      {billingPeriod === 'yearly' ? 'Anual' : 'Mensual'}
+                      {billingPeriod === 'yearly' ? 'Anual (12 meses)' : 'Mensual'}
                     </span>
                   </div>
                   <div className="checkoutModal__summaryRow">
@@ -273,99 +285,84 @@ export default function SubscriptionCheckout({
                     <span className="checkoutModal__summaryValue">{tenantName}</span>
                   </div>
                   <div className="checkoutModal__summaryRow">
-                    <span className="checkoutModal__summaryLabel">Total</span>
+                    <span className="checkoutModal__summaryLabel">Total a pagar</span>
                     <span className="checkoutModal__summaryValue checkoutModal__total">
                       {formatAmount(getPrice())}
                     </span>
                   </div>
                 </div>
 
-                {/* Método de pago */}
-                <div className="checkoutModal__paymentMethod">
-                  <div className="checkoutModal__mpLogo">MP</div>
-                  <div className="checkoutModal__mpInfo">
-                    <h4>MercadoPago</h4>
-                    <p>Tarjeta, transferencia, efectivo y más</p>
+                {/* Columna derecha - Método de pago y acciones */}
+                <div className="checkoutModal__paymentColumn">
+                  {/* Método de pago */}
+                  <div className="checkoutModal__paymentMethod">
+                    <div className="checkoutModal__mpLogo"><img className="checkoutModal__logo" src="src\Img\MP_manos-removebg-preview.png" alt="" /></div>
+                    <div className="checkoutModal__mpInfo">
+                      <h4>MercadoPago</h4>
+                      <p>Tarjeta, transferencia, efectivo y más</p>
+                    </div>
+                  </div>
+
+                  {/* Error */}
+                  {error && (
+                    <div style={{
+                      padding: '0.875rem 1rem',
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '10px',
+                      color: '#dc2626',
+                      fontSize: '0.875rem',
+                    }}>
+                      {error}
+                    </div>
+                  )}
+
+                  {/* Términos */}
+                  <label className="checkoutModal__terms">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                    />
+                    <span>
+                      Acepto los{' '}
+                      <a href="/terminos" target="_blank" className="checkoutModal__termsLink">
+                        términos y condiciones
+                      </a>{' '}
+                      y la{' '}
+                      <a href="/privacidad" target="_blank" className="checkoutModal__termsLink">
+                        política de privacidad
+                      </a>
+                    </span>
+                  </label>
+
+                  {/* Seguridad */}
+                  <div className="checkoutModal__security" style={{ marginTop: 'auto', borderTop: 'none', paddingTop: 0 }}>
+                    <span><Lock size={16} /></span>
+                    <span>Pago 100% seguro • Datos encriptados</span>
                   </div>
                 </div>
 
-                {/* Error */}
-                {error && (
-                  <div style={{
-                    padding: '0.75rem 1rem',
-                    background: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    borderRadius: '8px',
-                    color: '#dc2626',
-                    fontSize: '0.9rem',
-                    marginBottom: '1rem',
-                  }}>
-                    {error}
-                  </div>
-                )}
-
-                {/* Términos */}
-                <label className="checkoutModal__terms">
-                  <input
-                    type="checkbox"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                  />
-                  <span>
-                    Acepto los{' '}
-                    <a href="/terminos" target="_blank" className="checkoutModal__termsLink">
-                      términos y condiciones
-                    </a>{' '}
-                    y la{' '}
-                    <a href="/privacidad" target="_blank" className="checkoutModal__termsLink">
-                      política de privacidad
-                    </a>
-                  </span>
-                </label>
-
-                {/* Acciones */}
+                {/* Acciones - Full width */}
                 <div className="checkoutModal__actions">
-                  <button
-                    className="checkoutModal__payBtn"
-                    onClick={handlePayment}
-                    disabled={!termsAccepted}
-                  >
-                    🔒 Pagar {formatAmount(getPrice())}
-                  </button>
+                  <div className="checkoutModal__actionsRow">
+                    <button
+                      className="checkoutModal__cancelBtn"
+                      onClick={handleCloseCheckout}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      className="checkoutModal__payBtn"
+                      onClick={handlePayment}
+                      disabled={!termsAccepted}
+                    >
+                      <Lock size={16} /> Pagar {formatAmount(getPrice())}
+                    </button>
+                  </div>
                   
                   {/* Botón de demo para desarrollo local */}
-                  {window.location.hostname === 'localhost' && (
-                    <button
-                      className="checkoutModal__demoBtn"
-                      onClick={simulateDemoPayment}
-                      disabled={!termsAccepted}
-                      style={{
-                        padding: '0.75rem 1.5rem',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '10px',
-                        fontWeight: '600',
-                        cursor: termsAccepted ? 'pointer' : 'not-allowed',
-                        opacity: termsAccepted ? 1 : 0.5,
-                      }}
-                    >
-                      🧪 Demo (sin MP)
-                    </button>
-                  )}
                   
-                  <button
-                    className="checkoutModal__cancelBtn"
-                    onClick={handleCloseCheckout}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-
-                {/* Seguridad */}
-                <div className="checkoutModal__security">
-                  <span>🔐</span>
-                  <span>Pago 100% seguro • Datos encriptados</span>
                 </div>
               </div>
             )}

@@ -200,22 +200,6 @@ FrankFood
               </>
             ) : null}
 
-            {/* Premium Badge - solo para usuarios premium */}
-            {user && user.role !== ROLES.SUPER_ADMIN && isPremiumUser && (
-              <button 
-                className="header__tierBadge"
-                style={{ '--tier-color': TIER_COLORS[currentTier] }}
-                onClick={() => { 
-                  handleMenuTabClick('plans')
-                  setShowMobileMenu(false) 
-                }}
-                title="Ver mi plan"
-              >
-                <span className="tier-icon">{currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐'}</span>
-                <span className="tier-name">{TIER_LABELS[currentTier]}</span>
-              </button>
-            )}
-
             {user ? (
               <>
                 <div className="header__userMenu" ref={menuRef}>
@@ -266,12 +250,7 @@ FrankFood
                         </button>
                         <button className="header__userMenuItem header__userMenuItem--plan" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
                           <span className="header__userMenuItemIcon">{isPremiumUser ? (currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐') : '📋'}</span>
-                          <span className="header__userMenuItemContent">
-                            Mi Plan
-                            <span className={`header__userMenuItemPlanBadge ${isPremiumUser ? 'premium' : 'free'}`}>
-                              {isPremiumUser ? TIER_LABELS[currentTier] : 'Free'}
-                            </span>
-                          </span>
+                          Mi Plan
                         </button>
                         <button className="header__userMenuItem" onClick={() => handleMenuTabClick('account')}>
                           <span className="header__userMenuItemIcon">💳</span>

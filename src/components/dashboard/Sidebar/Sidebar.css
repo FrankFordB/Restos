@@ -162,7 +162,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 10px 10px;
+  padding: 6px 10px;
   border: none;
   background: transparent;
   border-radius: 10px;
@@ -367,7 +367,7 @@
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  margin: 8px;
+  margin: 4px;
   border: none;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
@@ -597,8 +597,9 @@
 
 /* ========== PLAN INFO SECTION ========== */
 .sidebar__planInfo {
-  margin: 12px 12px 8px;
-  padding: 12px;
+  margin: 1px 12px 1px 12px;
+  padding: 12px 12px;
+  align-self: center;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);

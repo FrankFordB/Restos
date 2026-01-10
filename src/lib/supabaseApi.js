@@ -1688,14 +1688,13 @@ export async function resetTenantSettingsToFree(tenantId) {
 export async function performDowngradeToFree(tenantId) {
   ensureSupabase()
   
-  // 1. Update subscription tier to FREE
-  const { error: tierError } = await supabase
-    .from('tenants')
-    .update({
-      subscription_tier: 'free',
-      premium_until: null,
+  // 1. Update subscription tier to FREE usando RPC (bypass RLS)
+  const { data, error: tierError } = await supabase
+    .rpc('update_tenant_subscription', {
+      p_tenant_id: tenantId,
+      p_tier: 'free',
+      p_expires_at: null
     })
-    .eq('id', tenantId)
 
   if (tierError) throw tierError
 
@@ -1720,19 +1719,13 @@ export async function performDowngradeToFree(tenantId) {
 export async function performDowngradeToPremium(tenantId, premiumUntil = null) {
   ensureSupabase()
   
-  // 1. Update subscription tier to PREMIUM
-  const updateData = {
-    subscription_tier: 'premium',
-  }
-  
-  if (premiumUntil) {
-    updateData.premium_until = premiumUntil
-  }
-
-  const { error: tierError } = await supabase
-    .from('tenants')
-    .update(updateData)
-    .eq('id', tenantId)
+  // 1. Update subscription tier to PREMIUM usando RPC (bypass RLS)
+  const { data, error: tierError } = await supabase
+    .rpc('update_tenant_subscription', {
+      p_tenant_id: tenantId,
+      p_tier: 'premium',
+      p_expires_at: premiumUntil || null
+    })
 
   if (tierError) throw tierError
 

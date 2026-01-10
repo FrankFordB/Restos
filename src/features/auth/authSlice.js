@@ -13,6 +13,7 @@ import {
   generateUniqueSlug,
 } from '../../lib/supabaseApi'
 import { getMFAFactors, getCurrentUser } from '../../lib/supabaseAuth'
+import { registerReferralUse } from '../../lib/supabaseReferralApi'
 import { ROLES } from '../../shared/constants'
 
 const PERSIST_KEY = 'state.auth'
@@ -137,7 +138,7 @@ export const registerWithEmail = createAsyncThunk(
       return { user, createdTenant }
     }
 
-    const { email, password, tenantName, fromOAuth, userId } = payload
+    const { email, password, tenantName, fromOAuth, userId, referralCode } = payload
     
     let authed
     
@@ -201,6 +202,22 @@ export const registerWithEmail = createAsyncThunk(
       await upsertProfile({ userId: authed.id, role: finalRole, tenantId: finalTenantId })
     } catch {
       // ignore (policies/triggers not installed)
+    }
+
+    // === REFERRAL SYSTEM: Register referral use if code provided ===
+    if (referralCode && referralCode.trim()) {
+      try {
+        console.log('🎁 Registrando uso de código de referido:', referralCode)
+        await registerReferralUse({
+          code: referralCode.trim(),
+          referredUserId: authed.id,
+          referredEmail: email,
+        })
+        console.log('✅ Uso de referido registrado exitosamente')
+      } catch (referralError) {
+        // No fail registration if referral fails - just log it
+        console.error('⚠️ Error registrando referido (no crítico):', referralError)
+      }
     }
 
     return {

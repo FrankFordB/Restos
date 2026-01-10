@@ -19,6 +19,7 @@ import SubscriptionCheckout from '../../components/dashboard/SubscriptionCheckou
 import SubscriptionStatus from '../../components/dashboard/SubscriptionStatus/SubscriptionStatus'
 import OrderLimitWarningModal from '../../components/dashboard/OrderLimitWarningModal/OrderLimitWarningModal'
 import DashboardWelcomeModal from '../../components/dashboard/DashboardWelcomeModal/DashboardWelcomeModal'
+import ReferralsManager from '../../components/dashboard/ReferralsManager/ReferralsManager'
 import Sidebar from '../../components/dashboard/Sidebar/Sidebar'
 import AccountSection from './AccountSection'
 import StoreEditor from './StoreEditor'
@@ -929,6 +930,7 @@ export default function UserDashboardPage() {
               tenantId={currentTenant?.id}
               tenantName={currentTenant?.name || 'Mi Tienda'}
               currentTier={subscriptionTier}
+              premiumUntil={currentTenant?.premium_until}
               userEmail={user?.email}
               onSubscriptionComplete={(newTier) => {
                 // Recargar datos del tenant
@@ -938,6 +940,13 @@ export default function UserDashboardPage() {
               }}
             />
           </>
+        )}
+
+        {activeTab === 'referrals' && currentTenant?.id && user?.id && (
+          <ReferralsManager 
+            tenantId={currentTenant.id} 
+            userId={user.id}
+          />
         )}
 
         {activeTab === 'account' && (

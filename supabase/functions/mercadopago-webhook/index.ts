@@ -334,6 +334,67 @@ async function activateSubscription(supabase: any, params: {
     description: `Suscripción ${planTier} activada vía pago MercadoPago`,
   })
 
+  // === REFERRAL SYSTEM: Convertir referido si aplica ===
+  try {
+    // Obtener owner del tenant
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('owner_id')
+      .eq('id', tenantId)
+      .single()
+
+    if (tenant?.owner_id) {
+      // Verificar si el usuario fue referido y tiene uso pendiente
+      const { data: pendingReferral } = await supabase
+        .from('referral_uses')
+        .select('id, referral_code_id')
+        .eq('referred_user_id', tenant.owner_id)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (pendingReferral) {
+        console.log('🎁 Procesando conversión de referido:', {
+          userId: tenant.owner_id,
+          referralUseId: pendingReferral.id,
+        })
+
+        // Llamar a la función RPC para convertir el referido
+        const { data: conversionResult, error: conversionError } = await supabase.rpc(
+          'convert_referral',
+          {
+            p_referred_user_id: tenant.owner_id,
+            p_payment_id: paymentId,
+            p_payment_amount: amount || 0,
+            p_subscription_plan: planTier,
+          }
+        )
+
+        if (conversionError) {
+          console.error('❌ Error convirtiendo referido:', conversionError)
+        } else {
+          console.log('✅ Referido convertido exitosamente:', conversionResult)
+          
+          // Registrar en auditoría
+          await supabase.from('subscription_audit_log').insert({
+            tenant_id: tenantId,
+            subscription_id: subscriptionId,
+            action: 'referral_converted',
+            action_type: 'webhook',
+            new_value: {
+              referral_use_id: pendingReferral.id,
+              referral_code_id: pendingReferral.referral_code_id,
+              conversion_result: conversionResult,
+            },
+            description: 'Referido convertido tras primer pago',
+          })
+        }
+      }
+    }
+  } catch (referralError) {
+    // No fallar el webhook por errores de referidos
+    console.error('⚠️ Error en sistema de referidos (no crítico):', referralError)
+  }
+
   console.log('✅ Suscripción activada:', {
     tenantId,
     planTier,

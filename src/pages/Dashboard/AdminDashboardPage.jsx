@@ -7,6 +7,7 @@ import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import ProductsManager from '../../components/dashboard/ProductsManager/ProductsManager'
 import OrdersManager from '../../components/dashboard/OrdersManager/OrdersManager'
 import SubscriptionsAdmin from '../../components/dashboard/SubscriptionsAdmin/SubscriptionsAdmin'
+import ReferralsAdmin from '../../components/dashboard/ReferralsAdmin/ReferralsAdmin'
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal'
 import {
   adminListProfiles,
@@ -34,7 +35,8 @@ import {
   XCircle,
   Ban,
   Utensils,
-  Lock
+  Lock,
+  Users
 } from 'lucide-react'
 
 const ITEMS_PER_PAGE = 10
@@ -681,6 +683,23 @@ export default function AdminDashboardPage() {
         }
       >
         <SubscriptionsAdmin />
+      </Card>
+
+      {/* Referrals Admin Section */}
+      <Card 
+        title="Sistema de Referidos" 
+        style={{ marginTop: '1.5rem' }}
+        action={
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => window.location.href = '/admin/referrals'}
+          >
+            <Users size={14} /> Ver Panel Completo
+          </Button>
+        }
+      >
+        <ReferralsAdmin />
       </Card>
 
       {/* Tier Assignment Modal */}

@@ -558,13 +558,13 @@
 .products__modalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .products__modal {

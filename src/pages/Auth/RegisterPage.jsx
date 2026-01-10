@@ -77,11 +77,19 @@ export default function RegisterPage() {
   const urlStep = searchParams.get('step')
   const isOAuth = searchParams.get('oauth') === 'true'
   const isStep2 = urlStep === '2'
+  
+  // Capture referral code from URL (?ref=CODE)
+  const referralCodeFromUrl = searchParams.get('ref') || ''
 
   // Check for OAuth registration data
   const oauthDataRaw = sessionStorage.getItem('pendingOAuthRegistration')
   const oauthData = oauthDataRaw ? JSON.parse(oauthDataRaw) : null
   const isOAuthRegistration = isOAuth && oauthData
+  
+  // Store referral code in sessionStorage if present (so it persists through verification)
+  if (referralCodeFromUrl) {
+    sessionStorage.setItem('referralCode', referralCodeFromUrl)
+  }
 
   // Step tracking
   const [step, setStep] = useState(isStep2 ? 2 : 1)
@@ -239,6 +247,9 @@ export default function RegisterPage() {
       
       // Check if this is an OAuth registration
       if (isOAuthRegistration && oauthData) {
+        // Get referral code from sessionStorage
+        const storedReferralCode = sessionStorage.getItem('referralCode') || ''
+        
         // For OAuth users, we need to create the tenant for the existing user
         const result = await dispatch(
           registerWithEmail({ 
@@ -258,12 +269,15 @@ export default function RegisterPage() {
             // Flags for OAuth
             emailVerified: true,
             fromOAuth: true,
-            userId: oauthData.userId
+            userId: oauthData.userId,
+            // Referral code
+            referralCode: storedReferralCode
           }),
         ).unwrap()
         
-        // Clear OAuth registration data
+        // Clear OAuth registration data and referral code
         sessionStorage.removeItem('pendingOAuthRegistration')
+        sessionStorage.removeItem('referralCode')
         
         if (result?.createdTenant) {
           dispatch(addTenant(result.createdTenant))
@@ -279,6 +293,9 @@ export default function RegisterPage() {
       const registrationCountry = pendingData?.country || country
       const registrationCity = pendingData?.city || city
       const registrationPhone = pendingData?.phoneNumber || (phoneNumber ? `${phoneCode}${phoneNumber}` : null)
+      
+      // Get referral code from sessionStorage
+      const storedReferralCode = sessionStorage.getItem('referralCode') || ''
       
       const result = await dispatch(
         registerWithEmail({ 
@@ -296,12 +313,15 @@ export default function RegisterPage() {
           storePhone,
           storeAddress,
           // Flag to indicate email is already verified
-          emailVerified: isStep2
+          emailVerified: isStep2,
+          // Referral code
+          referralCode: storedReferralCode
         }),
       ).unwrap()
       
-      // Clear pending registration data
+      // Clear pending registration data and referral code
       sessionStorage.removeItem('pendingRegistration')
+      sessionStorage.removeItem('referralCode')
       
       if (result?.createdTenant) {
         dispatch(addTenant(result.createdTenant))

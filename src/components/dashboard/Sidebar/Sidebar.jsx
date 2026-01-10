@@ -27,6 +27,10 @@ import {
   Infinity,
   Calendar,
   ArrowUpCircle,
+  Users,
+  Gift,
+  Star,
+  Gem,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -39,6 +43,7 @@ const MENU_ITEMS = [
   { id: 'extras', label: 'Extras / Toppings', icon: Layers },
   { id: 'mercadopago', label: 'MercadoPago', icon: CreditCard },
   { id: 'plans', label: 'Mi Plan', icon: Crown },
+  { id: 'referrals', label: 'Referidos', icon: Users },
   { id: 'kitchen', label: 'Cocina', icon: ChefHat },
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'reports', label: 'Reportes', icon: BarChart3 },  
@@ -97,9 +102,9 @@ export default function Sidebar({
       premium_pro: 'Premium Pro'
     }
     const tierIcons = {
-      free: '🆓',
-      premium: '⭐',
-      premium_pro: '👑'
+      free: <Gift size={16} />,
+      premium: <Star size={16} />,
+      premium_pro: <Crown size={16} />
     }
     
     let expiresAt = null

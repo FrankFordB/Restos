@@ -8,6 +8,7 @@ import {
   TIER_ORDER,
   isDowngrade,
 } from '../../../shared/subscriptions'
+import { Gift, Star, Crown, Check, AlertTriangle } from 'lucide-react'
 
 export default function SubscriptionPlans({ 
   currentTier = SUBSCRIPTION_TIERS.FREE, 
@@ -20,14 +21,14 @@ export default function SubscriptionPlans({
   const plans = [
     {
       tier: SUBSCRIPTION_TIERS.FREE,
-      icon: '🆓',
+      icon: <Gift size={24} />,
       name: 'Gratis',
       description: 'Para comenzar',
       accentColor: '#6b7280', // gray
     },
     {
       tier: SUBSCRIPTION_TIERS.PREMIUM,
-      icon: '⭐',
+      icon: <Star size={24} />,
       name: 'Premium',
       description: 'Para crecer',
       featured: true,
@@ -35,7 +36,7 @@ export default function SubscriptionPlans({
     },
     {
       tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
-      icon: '👑',
+      icon: <Crown size={24} />,
       name: 'Premium Pro',
       description: 'Sin límites',
       accentColor: '#8b5cf6', // violet
@@ -148,7 +149,7 @@ export default function SubscriptionPlans({
                 <ul className="planCard__features">
                   {features.map((feature, idx) => (
                     <li key={idx} className="planCard__feature">
-                      <span className="planCard__featureIcon">✓</span>
+                      <span className="planCard__featureIcon"><Check size={14} /></span>
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -158,7 +159,7 @@ export default function SubscriptionPlans({
               <div className="planCard__footer">
                 {action.type === 'current' ? (
                   <div className="planCard__currentLabel">
-                    ✓ Plan activo
+                    <Check size={14} /> Plan activo
                   </div>
                 ) : action.type === 'downgrade' ? (
                   <button
@@ -168,7 +169,7 @@ export default function SubscriptionPlans({
                       handlePlanClick(plan, action)
                     }}
                   >
-                    ⚠️ Cambiar a {plan.name}
+                    <AlertTriangle size={14} /> Cambiar a {plan.name}
                   </button>
                 ) : (
                   <button

@@ -1,12 +1,12 @@
 .confirmModal__overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 20px;
-  background: color-mix(in srgb, var(--text) 22%, transparent);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
 }
 
 .confirmModal__card {

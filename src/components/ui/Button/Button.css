@@ -73,6 +73,24 @@
   box-shadow: 0 8px 20px rgba(239, 68, 68, 0.35);
 }
 
+.btn--outline {
+  background: transparent;
+  border: 2px solid var(--border, rgba(255, 255, 255, 0.2));
+  color: var(--text, #fff);
+  box-shadow: none;
+}
+
+.btn--outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary-color, #f59e0b);
+  color: var(--primary-color, #f59e0b);
+  transform: translateY(-1px);
+}
+
+.btn--outline:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .btn--sm {
   padding: 8px 14px;
   font-size: 0.875rem;

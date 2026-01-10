@@ -7,7 +7,8 @@ import {
   Crown, 
   Zap,
   ArrowRight,
-  Sparkles 
+  Sparkles,
+  Star,
 } from 'lucide-react'
 import { TIER_LABELS, TIER_ICONS, ORDER_LIMITS, TIER_PRICES } from '../../../shared/subscriptions'
 
@@ -48,7 +49,7 @@ export default function OrderLimitWarningModal({
     {
       tier: 'premium',
       name: 'Premium',
-      icon: '⭐',
+      icon: <Star size={20} />,
       ordersLimit: ORDER_LIMITS.premium,
       monthlyPrice: TIER_PRICES?.premium?.monthly || 9.99,
       yearlyPrice: TIER_PRICES?.premium?.yearly || 99,
@@ -64,7 +65,7 @@ export default function OrderLimitWarningModal({
     {
       tier: 'premium_pro',
       name: 'Premium Pro',
-      icon: '👑',
+      icon: <Crown size={20} />,
       ordersLimit: null, // Unlimited
       monthlyPrice: TIER_PRICES?.premium_pro?.monthly || 19.99,
       yearlyPrice: TIER_PRICES?.premium_pro?.yearly || 199,

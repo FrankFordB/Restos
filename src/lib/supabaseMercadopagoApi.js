@@ -379,7 +379,7 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
  * @param {string} targetTier - 'free' or 'premium'
  * @returns {Promise<{success: boolean}>}
  */
-export const performTenantDowngrade = async (tenantId, targetTier) => {
+export const performTenantDowngrade = async (tenantId, targetTier, premiumUntil = null) => {
   if (!isSupabaseConfigured) {
     // En modo mock, actualizar localStorage
     const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
@@ -388,7 +388,11 @@ export const performTenantDowngrade = async (tenantId, targetTier) => {
     
     if (idx >= 0) {
       tenants[idx].subscription_tier = targetTier
-      tenants[idx].premium_until = null
+      // Solo borrar premium_until si es downgrade a FREE
+      if (targetTier === 'free') {
+        tenants[idx].premium_until = null
+      }
+      // Si es downgrade a premium, mantener la fecha de expiración
       tenantsData.tenants = tenants
       localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
     }
@@ -442,7 +446,8 @@ export const performTenantDowngrade = async (tenantId, targetTier) => {
   if (targetTier === 'free') {
     return await performDowngradeToFree(tenantId)
   } else if (targetTier === 'premium') {
-    return await performDowngradeToPremium(tenantId)
+    // Pasar la fecha de expiración para preservar los días restantes
+    return await performDowngradeToPremium(tenantId, premiumUntil)
   }
   
   throw new Error('Tier de destino inválido: ' + targetTier)
