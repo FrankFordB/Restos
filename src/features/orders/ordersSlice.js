@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice, createSelector } from '@reduxjs/toolkit'
 import { loadJson, saveJson } from '../../shared/storage'
 import { createId } from '../../shared/ids'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { createOrderWithItems, listOrdersByTenantId, updateOrderStatus, deleteOrder as deleteOrderApi } from '../../lib/supabaseOrdersApi'
+import { createOrderWithItems, listOrdersByTenantId, updateOrderStatus, deleteOrder as deleteOrderApi, markOrderAsPaid, updateOrderNotes, updateOrderItems as updateOrderItemsApi } from '../../lib/supabaseOrdersApi'
 import { fetchCategoriesForTenant } from '../categories/categoriesSlice'
 import { fetchProductsForTenant } from '../products/productsSlice'
 
@@ -120,6 +120,50 @@ export const deleteOrder = createAsyncThunk(
   },
 )
 
+export const markOrderPaid = createAsyncThunk(
+  'orders/markOrderPaid',
+  async ({ tenantId, orderId, isPaid = true }) => {
+    if (!isSupabaseConfigured) {
+      // Modo local: solo devolver para actualizar el state
+      return { tenantId, orderId, isPaid, isLocal: true }
+    }
+
+    const updated = await markOrderAsPaid(orderId, isPaid)
+    return { tenantId, order: updated }
+  },
+)
+
+export const updateInternalNotes = createAsyncThunk(
+  'orders/updateInternalNotes',
+  async ({ tenantId, orderId, notes }) => {
+    if (!isSupabaseConfigured) {
+      // Modo local: solo devolver para actualizar el state
+      return { tenantId, orderId, notes, isLocal: true }
+    }
+
+    const updated = await updateOrderNotes(orderId, notes)
+    return { tenantId, order: updated }
+  },
+)
+
+export const updateOrderItemsList = createAsyncThunk(
+  'orders/updateOrderItemsList',
+  async ({ tenantId, orderId, items, newTotal, originalItems }, { dispatch }) => {
+    if (!isSupabaseConfigured) {
+      // Modo local: actualizar items en memoria
+      return { tenantId, orderId, items, newTotal, isLocal: true }
+    }
+
+    const updated = await updateOrderItemsApi(orderId, items, newTotal, originalItems)
+    
+    // Recargar categorías y productos para reflejar el nuevo stock
+    dispatch(fetchCategoriesForTenant(tenantId))
+    dispatch(fetchProductsForTenant(tenantId))
+    
+    return { tenantId, order: updated }
+  },
+)
+
 const ordersSlice = createSlice({
   name: 'orders',
   initialState,
@@ -170,6 +214,83 @@ const ordersSlice = createSlice({
         if (!state.ordersByTenantId[tenantId]) return
         
         state.ordersByTenantId[tenantId] = state.ordersByTenantId[tenantId].filter((o) => o.id !== orderId)
+        persist(state)
+      })
+      .addCase(markOrderPaid.fulfilled, (state, action) => {
+        const { tenantId, order, orderId, isPaid, isLocal } = action.payload
+        if (!tenantId) return
+        if (!state.ordersByTenantId[tenantId]) return
+        
+        if (isLocal) {
+          // Modo local: actualizar is_paid y paid_at
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === orderId)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              is_paid: isPaid,
+              paid_at: isPaid ? new Date().toISOString() : null,
+            }
+          }
+        } else if (order) {
+          // Modo Supabase: reemplazar con el pedido actualizado
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === order.id)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              ...order,
+            }
+          }
+        }
+        persist(state)
+      })
+      .addCase(updateInternalNotes.fulfilled, (state, action) => {
+        const { tenantId, order, orderId, notes, isLocal } = action.payload
+        if (!tenantId) return
+        if (!state.ordersByTenantId[tenantId]) return
+        
+        if (isLocal) {
+          // Modo local: actualizar internal_notes
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === orderId)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              internal_notes: notes,
+            }
+          }
+        } else if (order) {
+          // Modo Supabase: reemplazar con el pedido actualizado
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === order.id)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              internal_notes: order.internal_notes || '',
+            }
+          }
+        }
+        persist(state)
+      })
+      .addCase(updateOrderItemsList.fulfilled, (state, action) => {
+        const { tenantId, order, orderId, items, newTotal, isLocal } = action.payload
+        if (!tenantId) return
+        if (!state.ordersByTenantId[tenantId]) return
+        
+        if (isLocal) {
+          // Modo local: actualizar items y total
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === orderId)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = {
+              ...state.ordersByTenantId[tenantId][index],
+              items: items,
+              total: newTotal,
+            }
+          }
+        } else if (order) {
+          // Modo Supabase: reemplazar con el pedido actualizado
+          const index = state.ordersByTenantId[tenantId].findIndex((o) => o.id === order.id)
+          if (index !== -1) {
+            state.ordersByTenantId[tenantId][index] = order
+          }
+        }
         persist(state)
       })
   },

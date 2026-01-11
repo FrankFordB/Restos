@@ -138,6 +138,8 @@ export const { addTenant, setTenants, upsertTenant } = tenantsSlice.actions
 export const selectTenants = (state) => state.tenants.tenants
 export const selectTenantBySlug = (slug) => (state) =>
   state.tenants.tenants.find((t) => t.slug === slug)
+export const selectTenantById = (id) => (state) =>
+  state.tenants.tenants.find((t) => t.id === id)
 
 export const selectTenantFetchStatus = (slug) => (state) => state.tenants.statusBySlug?.[slug] || 'idle'
 export const selectTenantFetchError = (slug) => (state) => state.tenants.errorBySlug?.[slug] || null

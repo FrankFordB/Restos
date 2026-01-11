@@ -27,6 +27,9 @@ export async function listOrdersByTenantId(tenantId) {
       delivery_address, 
       delivery_notes, 
       payment_method,
+      is_paid,
+      paid_at,
+      internal_notes,
       order_items (
         id,
         product_id,
@@ -56,6 +59,9 @@ export async function listOrdersByTenantId(tenantId) {
     delivery_address: o.delivery_address,
     delivery_notes: o.delivery_notes,
     payment_method: o.payment_method,
+    is_paid: o.is_paid || false,
+    paid_at: o.paid_at || null,
+    internal_notes: o.internal_notes || '',
     items: (o.order_items || []).map((item) => ({
       id: item.id,
       productId: item.product_id,
@@ -127,12 +133,15 @@ export async function createOrderWithItems({ tenantId, items, total, customer, d
   if (itemsError) throw itemsError
 
   // Restar stock de los productos vendidos
+  console.log('[CreateOrder] Items para stock:', stockItems)
   if (stockItems.length > 0) {
     await decrementProductStock(stockItems)
     
     // También decrementar stock global de categorías
     // Agrupar por categoría y sumar cantidades
     await decrementCategoryStockByProducts(tenantId, stockItems)
+  } else {
+    console.log('[CreateOrder] No hay items con productId para decrementar stock')
   }
 
   return {
@@ -244,27 +253,35 @@ export async function deleteOrder(orderId) {
 export async function decrementProductStock(items) {
   ensureSupabase()
   
+  console.log('[Stock] Decrementando stock de productos:', items)
+  
   // Para cada item, decrementar el stock del producto
   const updates = items.map(async (item) => {
-    if (!item.productId) return null
+    if (!item.productId) {
+      console.log('[Stock] Item sin productId:', item)
+      return null
+    }
     
     // Primero obtenemos el stock actual
     const { data: product, error: fetchError } = await supabase
       .from('products')
-      .select('id, stock')
+      .select('id, stock, name')
       .eq('id', item.productId)
       .single()
     
     if (fetchError || !product) {
+      console.log('[Stock] Producto no encontrado:', item.productId, fetchError)
       return null
     }
     
     // Si no tiene stock definido, no hacemos nada
     if (product.stock === null || product.stock === undefined) {
+      console.log('[Stock] Producto sin stock configurado:', product.name)
       return null
     }
     
     const newStock = Math.max(0, (product.stock || 0) - (item.quantity || 1))
+    console.log(`[Stock] ${product.name}: ${product.stock} -> ${newStock} (restando ${item.quantity})`)
     
     const { error: updateError } = await supabase
       .from('products')
@@ -272,6 +289,7 @@ export async function decrementProductStock(items) {
       .eq('id', item.productId)
     
     if (updateError) {
+      console.log('[Stock] Error actualizando:', updateError)
       return null
     }
     
@@ -290,23 +308,28 @@ export async function decrementProductStock(items) {
 export async function decrementCategoryStock(categoryId, quantity) {
   ensureSupabase()
   
+  console.log('[CategoryStock] Decrementando categoría:', categoryId, 'cantidad:', quantity)
+  
   // Obtener stock actual de la categoría
   const { data: category, error: fetchError } = await supabase
     .from('product_categories')
-    .select('id, current_stock, max_stock')
+    .select('id, current_stock, max_stock, name')
     .eq('id', categoryId)
     .single()
   
   if (fetchError || !category) {
+    console.log('[CategoryStock] Categoría no encontrada:', categoryId, fetchError)
     return null
   }
   
   // Si no tiene stock definido, no hacemos nada
   if (category.current_stock === null || category.current_stock === undefined) {
+    console.log('[CategoryStock] Categoría sin stock configurado:', category.name)
     return null
   }
   
   const newStock = Math.max(0, (category.current_stock || 0) - quantity)
+  console.log(`[CategoryStock] ${category.name}: ${category.current_stock} -> ${newStock}`)
   
   const { error: updateError } = await supabase
     .from('product_categories')
@@ -314,6 +337,7 @@ export async function decrementCategoryStock(categoryId, quantity) {
     .eq('id', categoryId)
   
   if (updateError) {
+    console.log('[CategoryStock] Error actualizando:', updateError)
     return null
   }
   
@@ -504,4 +528,218 @@ export async function updateOrderPaymentStatus(orderId, { status, payment_status
   }
 
   return data
+}
+
+/**
+ * Marcar un pedido como pagado o no pagado
+ * @param {string} orderId - ID del pedido
+ * @param {boolean} isPaid - Estado de pago
+ * @returns {Object} Pedido actualizado
+ */
+export async function markOrderAsPaid(orderId, isPaid = true) {
+  ensureSupabase()
+
+  const updateData = {
+    is_paid: isPaid,
+    paid_at: isPaid ? new Date().toISOString() : null
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update(updateData)
+    .eq('id', orderId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error marking order as paid:', error)
+    throw error
+  }
+
+  return {
+    ...data,
+    is_paid: data.is_paid || false,
+    paid_at: data.paid_at || null
+  }
+}
+
+/**
+ * Actualizar notas internas de un pedido
+ * @param {string} orderId - ID del pedido
+ * @param {string} notes - Notas internas
+ * @returns {Object} Pedido actualizado
+ */
+export async function updateOrderNotes(orderId, notes) {
+  ensureSupabase()
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ internal_notes: notes })
+    .eq('id', orderId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating order notes:', error)
+    throw error
+  }
+
+  return {
+    ...data,
+    internal_notes: data.internal_notes || ''
+  }
+}
+
+/**
+ * Actualiza los items de un pedido (elimina los existentes y crea nuevos)
+ * @param {string} orderId - ID del pedido
+ * @param {Array} items - Nuevos items del pedido
+ * @param {number} newTotal - Nuevo total del pedido
+ * @param {Array} originalItems - Items originales para calcular diferencia de stock
+ * @returns {Object} Pedido actualizado con items
+ */
+export async function updateOrderItems(orderId, items, newTotal, originalItems = []) {
+  ensureSupabase()
+
+  // Calcular diferencia de stock (productos agregados)
+  // Comparar items nuevos vs originales para saber qué productos se agregaron
+  const stockToDecrement = []
+  
+  items.forEach(newItem => {
+    const productId = newItem.product_id || newItem.productId
+    if (!productId) return
+    
+    const newQty = newItem.quantity || newItem.qty || 1
+    
+    // Buscar si este producto existía en los items originales
+    const originalItem = originalItems.find(oi => 
+      (oi.product_id || oi.productId) === productId
+    )
+    const originalQty = originalItem ? (originalItem.quantity || originalItem.qty || 0) : 0
+    
+    // Si la cantidad aumentó, decrementar la diferencia
+    const diff = newQty - originalQty
+    if (diff > 0) {
+      stockToDecrement.push({ productId, quantity: diff })
+    }
+  })
+
+  // 1. Eliminar todos los items existentes del pedido
+  const { error: deleteError } = await supabase
+    .from('order_items')
+    .delete()
+    .eq('order_id', orderId)
+
+  if (deleteError) {
+    console.error('Error deleting order items:', deleteError)
+    throw deleteError
+  }
+
+  // 2. Insertar los nuevos items
+  const rows = items.map((it) => ({
+    order_id: orderId,
+    product_id: it.product_id || it.productId || null,
+    name: it.product_name || it.name,
+    unit_price: it.unit_price || it.price,
+    qty: it.quantity || it.qty,
+    line_total: (it.unit_price || it.price || 0) * (it.quantity || it.qty || 1),
+    extras: it.extras || [],
+    comment: it.comment || null,
+  }))
+
+  const { error: insertError } = await supabase
+    .from('order_items')
+    .insert(rows)
+
+  if (insertError) {
+    console.error('Error inserting order items:', insertError)
+    throw insertError
+  }
+
+  // 3. Decrementar stock de productos agregados
+  if (stockToDecrement.length > 0) {
+    await decrementProductStock(stockToDecrement)
+    
+    // También decrementar stock global de categorías
+    // Primero obtenemos el tenant_id del pedido
+    const { data: orderInfo } = await supabase
+      .from('orders')
+      .select('tenant_id')
+      .eq('id', orderId)
+      .single()
+    
+    if (orderInfo?.tenant_id) {
+      await decrementCategoryStockByProducts(orderInfo.tenant_id, stockToDecrement)
+    }
+  }
+
+  // 4. Actualizar el total del pedido
+  const { data, error: updateError } = await supabase
+    .from('orders')
+    .update({ total: newTotal })
+    .eq('id', orderId)
+    .select(`
+      id, 
+      tenant_id, 
+      status, 
+      total, 
+      currency, 
+      created_at, 
+      customer_name, 
+      customer_phone, 
+      delivery_type, 
+      delivery_address, 
+      delivery_notes, 
+      payment_method,
+      is_paid,
+      paid_at,
+      internal_notes,
+      order_items (
+        id,
+        product_id,
+        name,
+        unit_price,
+        qty,
+        line_total,
+        extras,
+        comment
+      )
+    `)
+    .single()
+
+  if (updateError) {
+    console.error('Error updating order total:', updateError)
+    throw updateError
+  }
+
+  return {
+    id: data.id,
+    tenantId: data.tenant_id,
+    status: data.status,
+    total: Number(data.total),
+    currency: data.currency,
+    created_at: data.created_at,
+    customer_name: data.customer_name,
+    customer_phone: data.customer_phone,
+    delivery_type: data.delivery_type,
+    delivery_address: data.delivery_address,
+    delivery_notes: data.delivery_notes,
+    payment_method: data.payment_method,
+    is_paid: data.is_paid || false,
+    paid_at: data.paid_at || null,
+    internal_notes: data.internal_notes || '',
+    items: (data.order_items || []).map((item) => ({
+      id: item.id,
+      productId: item.product_id,
+      name: item.name,
+      product_name: item.name,
+      unit_price: Number(item.unit_price),
+      price: Number(item.unit_price),
+      qty: item.qty,
+      quantity: item.qty,
+      line_total: Number(item.line_total),
+      extras: item.extras || [],
+      comment: item.comment || null,
+    })),
+  }
 }

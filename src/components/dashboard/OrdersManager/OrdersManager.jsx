@@ -10,7 +10,8 @@ import TutorialSection from '../TutorialSection/TutorialSection'
 import ProductDetailModal from '../../storefront/ProductDetailModal/ProductDetailModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { selectUser } from '../../../features/auth/authSlice'
-import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
+import { selectTenantById } from '../../../features/tenants/tenantsSlice'
+import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder, markOrderPaid, updateInternalNotes, updateOrderItemsList } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
 import { fetchCategoriesForTenant, selectCategoriesForTenant, patchCategory } from '../../../features/categories/categoriesSlice'
 import { fetchExtrasForTenant, selectExtrasForTenant, fetchExtraGroupsForTenant, selectExtraGroupsForTenant } from '../../../features/extras/extrasSlice'
@@ -18,6 +19,8 @@ import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, upda
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
+import { printBothTickets, printKitchenTicket, printClientTicket, printCombinedTicket } from '../../../lib/ticketPrinter'
+import PrintOptionsModal from '../../ui/PrintOptionsModal/PrintOptionsModal'
 import {
   RefreshCw,
   Search,
@@ -56,6 +59,8 @@ import {
   CreditCard,
   Smartphone,
   Wallet,
+  StickyNote,
+  RotateCcw,
 } from 'lucide-react'
 
 const DELIVERY_TYPES = {
@@ -65,10 +70,30 @@ const DELIVERY_TYPES = {
 }
 
 const STATUS_CONFIG = {
-  pending: { color: '#f97316', icon: <Clock size={16} />, label: 'Pendiente' },
-  in_progress: { color: '#3b82f6', icon: <RefreshCw size={16} />, label: 'En curso' },
-  completed: { color: '#10b981', icon: <CheckCircle size={16} />, label: 'Completado' },
-  cancelled: { color: '#ef4444', icon: <X size={16} />, label: 'Cancelado' },
+  pending: { 
+    color: '#f97316', 
+    icon: <Clock size={16} />, 
+    label: 'Pendiente',
+    gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)'
+  },
+  in_progress: { 
+    color: '#3b82f6', 
+    icon: <RefreshCw size={16} />, 
+    label: 'En curso',
+    gradient: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)'
+  },
+  completed: { 
+    color: '#10b981', 
+    icon: <CheckCircle size={16} />, 
+    label: 'Completado',
+    gradient: 'linear-gradient(135deg, #34d399 0%, #059669 100%)'
+  },
+  cancelled: { 
+    color: '#ef4444', 
+    icon: <X size={16} />, 
+    label: 'Cancelado',
+    gradient: 'linear-gradient(135deg, #f87171 0%, #dc2626 100%)'
+  },
 }
 
 const PAYMENT_METHODS = {
@@ -88,6 +113,7 @@ const ORDER_STATUSES = {
 export default function OrdersManager({ tenantId }) {
   const dispatch = useAppDispatch()
   const user = useAppSelector(selectUser)
+  const tenant = useAppSelector(selectTenantById(tenantId))
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
@@ -151,6 +177,11 @@ export default function OrdersManager({ tenantId }) {
   
   // Estado del modal de stock de productos
   const [showStockProductsModal, setShowStockProductsModal] = useState(false)
+  
+  // Estado del modal de opciones de impresión
+  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [printingOrder, setPrintingOrder] = useState(null)
+  const [printingOrderIsPaid, setPrintingOrderIsPaid] = useState(false)
 
   // Cargar configuración desde Supabase al montar
   useEffect(() => {
@@ -763,26 +794,32 @@ export default function OrdersManager({ tenantId }) {
     }
   }
 
-  // Acción masiva: Marcar como pagados (localStorage)
-  const bulkMarkAsPaid = () => {
+  // Acción masiva: Marcar como pagados (base de datos)
+  const bulkMarkAsPaid = async () => {
     if (selectedOrderIds.size === 0) return
-    const paidOrdersKey = `paidOrders.${tenantId}`
-    const currentPaid = loadJson(paidOrdersKey, {})
-    const updated = { ...currentPaid }
-    selectedOrderIds.forEach((id) => {
-      updated[id] = true
-    })
-    saveJson(paidOrdersKey, updated)
-    clearSelection()
-    handleRefresh()
+    setIsBulkActionLoading(true)
+    try {
+      const promises = Array.from(selectedOrderIds).map((orderId) =>
+        dispatch(markOrderPaid({ tenantId, orderId, isPaid: true }))
+      )
+      await Promise.all(promises)
+      clearSelection()
+    } finally {
+      setIsBulkActionLoading(false)
+    }
   }
 
   // Acción masiva: Imprimir todos
   const bulkPrintOrders = () => {
     if (selectedOrderIds.size === 0) return
     const ordersToPrint = orders.filter((o) => selectedOrderIds.has(o.id))
-    ordersToPrint.forEach((order) => {
-      printOrder(order)
+    ordersToPrint.forEach((order, index) => {
+      // Delay entre impresiones para evitar bloqueo de popups
+      setTimeout(() => {
+        printCombinedTicket(order, tenant, {
+          thankYouMessage: tenant?.ticket_message || '¡Gracias por tu compra!'
+        })
+      }, index * 1000)
     })
   }
 
@@ -1439,9 +1476,15 @@ export default function OrdersManager({ tenantId }) {
                   key={order.id}
                   order={order}
                   tenantId={tenantId}
+                  tenant={tenant}
                   onOpenDetail={(o) => setSelectedOrder(o)}
                   isSelected={selectedOrderIds.has(order.id)}
                   onToggleSelect={() => toggleOrderSelection(order.id)}
+                  onOpenPrintModal={(o, isPaid) => {
+                    setPrintingOrder(o)
+                    setPrintingOrderIsPaid(isPaid)
+                    setShowPrintModal(true)
+                  }}
                 />
               ))
             )}
@@ -1501,10 +1544,19 @@ export default function OrdersManager({ tenantId }) {
       {/* Modal detalle de pedido */}
       {selectedOrder && (
         <OrderDetailModal
-          order={selectedOrder}
+          order={orders.find((o) => o.id === selectedOrder.id) || selectedOrder}
           tenantId={tenantId}
+          tenant={tenant}
           onClose={() => setSelectedOrder(null)}
-          products={[]}
+          products={products}
+          extras={extras}
+          extraGroups={extraGroups}
+          categories={categories}
+          onOpenPrintModal={(o, isPaid) => {
+            setPrintingOrder(o)
+            setPrintingOrderIsPaid(isPaid)
+            setShowPrintModal(true)
+          }}
         />
       )}
 
@@ -1545,41 +1597,57 @@ export default function OrdersManager({ tenantId }) {
           isEditing={!!editingCartItemId}
         />
       )}
+
+      {/* Modal de opciones de impresión */}
+      {showPrintModal && printingOrder && (
+        <PrintOptionsModal
+          order={printingOrder}
+          tenant={tenant}
+          isPaid={printingOrderIsPaid}
+          onClose={() => {
+            setShowPrintModal(false)
+            setPrintingOrder(null)
+            setPrintingOrderIsPaid(false)
+          }}
+        />
+      )}
     </div>
   )
 }
 
 // Card de orden individual - Compacta, clic abre modal
-function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggleSelect }) {
+function OrderCard({ order, tenantId, tenant, onOpenDetail, isSelected = false, onToggleSelect, onOpenPrintModal }) {
   const dispatch = useAppDispatch()
   const [isUpdating, setIsUpdating] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
   const [showTransferConfirm, setShowTransferConfirm] = useState(false)
+  const [showNoteTooltip, setShowNoteTooltip] = useState(false)
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending
   const deliveryType = DELIVERY_TYPES[order.delivery_type] || DELIVERY_TYPES.mostrador
   const paymentMethod = PAYMENT_METHODS[order.payment_method] || order.payment_method
 
-  // Estado de pago confirmado (persistido en localStorage)
-  const paidOrdersKey = `paidOrders.${tenantId}`
-  const [paidOrders, setPaidOrders] = useState(() => {
-    return loadJson(paidOrdersKey, {})
-  })
-  const isPaymentConfirmed = paidOrders[order.id] === true
+  // Estado de pago confirmado (desde la base de datos)
+  const isPaymentConfirmed = order.is_paid === true
 
-  const markAsPaid = (e) => {
+  const markAsPaid = async (e) => {
     if (e) e.stopPropagation()
-    const newPaidOrders = { ...paidOrders, [order.id]: true }
-    setPaidOrders(newPaidOrders)
-    saveJson(paidOrdersKey, newPaidOrders)
+    setIsUpdating(true)
+    try {
+      await dispatch(markOrderPaid({ tenantId, orderId: order.id, isPaid: true }))
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
-  const markAsUnpaid = (e) => {
+  const markAsUnpaid = async (e) => {
     if (e) e.stopPropagation()
-    const newPaidOrders = { ...paidOrders }
-    delete newPaidOrders[order.id]
-    setPaidOrders(newPaidOrders)
-    saveJson(paidOrdersKey, newPaidOrders)
+    setIsUpdating(true)
+    try {
+      await dispatch(markOrderPaid({ tenantId, orderId: order.id, isPaid: false }))
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const handleStatusChange = async (e, newStatus) => {
@@ -1587,6 +1655,16 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
     setIsUpdating(true)
     try {
       await dispatch(updateOrder({ tenantId, orderId: order.id, newStatus }))
+      
+      // Al tomar pedido (pasar a in_progress), imprimir tickets automáticamente
+      if (newStatus === 'in_progress') {
+        // Imprimir ticket combinado (cocina + cliente)
+        printCombinedTicket(order, tenant, {
+          priority: 'normal',
+          isPaid: isPaymentConfirmed,
+          thankYouMessage: tenant?.ticket_message || '¡Gracias por tu compra!'
+        })
+      }
     } finally {
       setIsUpdating(false)
     }
@@ -1819,14 +1897,50 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
 
           {/* Acciones secundarias */}
           <div className="orderCard__secondaryActions">
+            {/* Botón de nota (solo si hay nota) */}
+            {order.internal_notes && order.internal_notes.trim() && (
+              <div className="orderCard__noteWrapper">
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowNoteTooltip(!showNoteTooltip)
+                  }}
+                  title="Ver nota"
+                  className="orderCard__noteBtn"
+                >
+                  <StickyNote size={16} />
+                </Button>
+                {showNoteTooltip && (
+                  <div className="orderCard__noteTooltip" onClick={(e) => e.stopPropagation()}>
+                    <div className="orderCard__noteTooltipHeader">
+                      <span>📝 Nota para cocina</span>
+                      <button 
+                        className="orderCard__noteTooltipClose"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowNoteTooltip(false)
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="orderCard__noteTooltipContent">
+                      {order.internal_notes}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <Button 
               size="sm" 
               variant="secondary"
               onClick={(e) => {
                 e.stopPropagation()
-                printOrder(order)
+                onOpenPrintModal(order, isPaymentConfirmed)
               }}
-              title="Imprimir pedido"
+              title="Opciones de impresión"
             >
               <Printer size={16} />
             </Button>
@@ -2033,15 +2147,256 @@ function PaymentModal({ order, onClose, onSuccess }) {
 }
 
 // Modal de detalle de pedido completo
-function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
+function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], extras = [], extraGroups = [], categories = [], onOpenPrintModal }) {
   const dispatch = useAppDispatch()
   const [isUpdating, setIsUpdating] = useState(false)
-  const [comment, setComment] = useState(order.comment || '')
+  const [internalNotes, setInternalNotes] = useState(order.internal_notes || '')
+  const [notesChanged, setNotesChanged] = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [productQty, setProductQty] = useState(1)
+  const [editedItems, setEditedItems] = useState(order.items || [])
+  const [originalItems] = useState(order.items || []) // Guardar items originales al abrir el modal
+  const [itemsChanged, setItemsChanged] = useState(false)
+  const [selectedExtras, setSelectedExtras] = useState({}) // { extraId: quantity }
+  
+  // Estados para la vista de tienda embebida
+  const [showProductStore, setShowProductStore] = useState(false)
+  const [storeSelectedCategory, setStoreSelectedCategory] = useState(null)
+  const [storeSelectedProduct, setStoreSelectedProduct] = useState(null)
+  const [showStoreProductDetail, setShowStoreProductDetail] = useState(false)
+  const [editingCartItemIndex, setEditingCartItemIndex] = useState(null) // Índice del item que se está editando
+  
+  // Obtener producto seleccionado y sus extras disponibles (para el selector simple)
+  const selectedProduct = products.find(p => p.id === selectedProductId)
+  const productExtrasFromProduct = selectedProduct?.productExtras || []
+  const hasInlineExtras = productExtrasFromProduct.length > 0 && typeof productExtrasFromProduct[0] === 'object'
+  const availableExtras = hasInlineExtras 
+    ? productExtrasFromProduct.filter(e => e.active !== false)
+    : extras.filter(e => productExtrasFromProduct.includes(e.id) && e.active !== false)
+  
+  // Productos visibles (activos)
+  const visibleProducts = useMemo(() => products.filter(p => p.active !== false), [products])
+  
+  // Filtrar productos por categoría
+  const filteredStoreProducts = useMemo(() => {
+    if (storeSelectedCategory === null) return visibleProducts
+    if (storeSelectedCategory === '__unassigned__') return visibleProducts.filter(p => !p.category)
+    return visibleProducts.filter(p => p.category === storeSelectedCategory)
+  }, [visibleProducts, storeSelectedCategory])
+  
+  // Sincronizar notas cuando cambia el order (pero solo si no hay cambios pendientes)
+  useEffect(() => {
+    if (!notesChanged) {
+      setInternalNotes(order.internal_notes || '')
+    }
+  }, [order.id, order.internal_notes, notesChanged])
+  
+  // Sincronizar items cuando cambia el order
+  useEffect(() => {
+    if (!itemsChanged) {
+      setEditedItems(order.items || [])
+    }
+  }, [order.id, order.items, itemsChanged])
+  
+  // Limpiar extras al cambiar de producto
+  useEffect(() => {
+    setSelectedExtras({})
+  }, [selectedProductId])
   
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending
   const deliveryType = DELIVERY_TYPES[order.delivery_type] || DELIVERY_TYPES.mostrador
+
+  // Estado de pago (desde la base de datos)
+  const isPaymentConfirmed = order.is_paid === true
+  
+  // Abrir detalle de producto en la tienda
+  const openStoreProductDetail = (product) => {
+    setStoreSelectedProduct(product)
+    setShowStoreProductDetail(true)
+  }
+  
+  // Agregar producto desde la tienda embebida
+  const handleAddFromStore = ({ product, quantity, selectedExtras: extrasFromModal, extrasTotal, unitPrice, totalPrice, comment }) => {
+    // Si estamos editando un item existente
+    if (editingCartItemIndex !== null) {
+      const updatedItems = [...editedItems]
+      updatedItems[editingCartItemIndex] = {
+        ...updatedItems[editingCartItemIndex],
+        price: unitPrice + (extrasTotal || 0),
+        unit_price: unitPrice,
+        quantity: quantity,
+        extras: extrasFromModal || [],
+        comment: comment || null
+      }
+      setEditedItems(updatedItems)
+      setEditingCartItemIndex(null)
+    } else {
+      // Agregar nuevo item
+      const newItem = {
+        product_id: product.id,
+        product_name: product.name,
+        price: unitPrice + (extrasTotal || 0),
+        unit_price: unitPrice,
+        quantity: quantity,
+        extras: extrasFromModal || [],
+        comment: comment || null
+      }
+      setEditedItems([...editedItems, newItem])
+    }
+    
+    setItemsChanged(true)
+    setShowStoreProductDetail(false)
+    setStoreSelectedProduct(null)
+  }
+  
+  // Editar un item del carrito
+  const handleEditCartItem = (idx) => {
+    const item = editedItems[idx]
+    // Buscar el producto original para obtener sus extras disponibles
+    const product = products.find(p => p.id === item.product_id)
+    if (product) {
+      setEditingCartItemIndex(idx)
+      setStoreSelectedProduct({
+        ...product,
+        // Pasar los datos actuales del item para pre-cargar en el modal
+        _editData: {
+          quantity: item.quantity || item.qty || 1,
+          extras: item.extras || [],
+          comment: item.comment || ''
+        }
+      })
+      setShowStoreProductDetail(true)
+    }
+  }
+  
+  // Editar un item desde la lista normal (sin modo tienda)
+  const handleEditItemFromList = (idx) => {
+    const item = editedItems[idx]
+    // Buscar el producto original para obtener sus extras disponibles
+    const product = products.find(p => p.id === (item.product_id || item.productId))
+    if (product) {
+      setEditingCartItemIndex(idx)
+      setStoreSelectedProduct({
+        ...product,
+        _editData: {
+          quantity: item.quantity || item.qty || 1,
+          extras: item.extras || [],
+          comment: item.comment || ''
+        }
+      })
+      setShowStoreProductDetail(true)
+    }
+  }
+  
+  // Agregar producto al pedido (método simple)
+  const handleAddProduct = () => {
+    if (!selectedProductId) return
+    const product = products.find(p => p.id === selectedProductId)
+    if (!product) return
+    
+    // Construir extras seleccionados (buscar en availableExtras que ya tiene la lógica correcta)
+    const extrasToAdd = Object.entries(selectedExtras)
+      .filter(([_, qty]) => qty > 0)
+      .map(([extraId, qty]) => {
+        // Buscar primero en availableExtras (puede ser inline o de extras globales)
+        const extra = availableExtras.find(e => e.id === extraId)
+        return extra ? {
+          id: extra.id,
+          name: extra.name,
+          price: Number(extra.price) || 0,
+          quantity: qty
+        } : null
+      })
+      .filter(Boolean)
+    
+    const extrasTotal = extrasToAdd.reduce((sum, e) => sum + (e.price * e.quantity), 0)
+    
+    const newItem = {
+      product_id: product.id,
+      product_name: product.name,
+      price: product.price + extrasTotal, // Precio base + extras
+      unit_price: product.price,
+      quantity: productQty,
+      extras: extrasToAdd
+    }
+    
+    setEditedItems([...editedItems, newItem])
+    setItemsChanged(true)
+    setSelectedProductId('')
+    setProductQty(1)
+    setSelectedExtras({})
+    setShowAddProduct(false)
+  }
+  
+  // Toggle extra
+  const handleToggleExtra = (extraId) => {
+    setSelectedExtras(prev => ({
+      ...prev,
+      [extraId]: prev[extraId] ? 0 : 1
+    }))
+  }
+  
+  // Cambiar cantidad de extra
+  const handleExtraQtyChange = (extraId, delta) => {
+    setSelectedExtras(prev => ({
+      ...prev,
+      [extraId]: Math.max(0, (prev[extraId] || 0) + delta)
+    }))
+  }
+  
+  // Eliminar producto del pedido
+  const handleRemoveItem = (index) => {
+    const newItems = editedItems.filter((_, idx) => idx !== index)
+    setEditedItems(newItems)
+    setItemsChanged(true)
+  }
+  
+  // Cambiar cantidad de un item
+  const handleChangeItemQty = (index, newQty) => {
+    if (newQty < 1) return
+    const newItems = [...editedItems]
+    newItems[index] = { ...newItems[index], quantity: newQty, qty: newQty }
+    setEditedItems(newItems)
+    setItemsChanged(true)
+  }
+  
+  // Guardar cambios en los items
+  const handleSaveItems = async () => {
+    if (!itemsChanged) return
+    setIsUpdating(true)
+    try {
+      const newTotal = editedItems.reduce((acc, item) => 
+        acc + (Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)), 0
+      ) - (order.discount || 0)
+      
+      await dispatch(updateOrderItemsList({ 
+        tenantId, 
+        orderId: order.id, 
+        items: editedItems, 
+        newTotal,
+        originalItems // Usar los items originales guardados al abrir el modal
+      }))
+      setItemsChanged(false)
+    } catch (e) {
+      console.error('Error guardando items:', e)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+  
+  // Guardar notas internas
+  const handleSaveNotes = async () => {
+    if (!notesChanged) return
+    setIsUpdating(true)
+    try {
+      await dispatch(updateInternalNotes({ tenantId, orderId: order.id, notes: internalNotes }))
+      setNotesChanged(false)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   // Calcular tiempo transcurrido
   const getTimeAgo = (dateString) => {
@@ -2062,6 +2417,15 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
     setIsUpdating(true)
     try {
       await dispatch(updateOrder({ tenantId, orderId: order.id, newStatus }))
+      
+      // Al tomar pedido (pasar a in_progress), imprimir tickets automáticamente
+      if (newStatus === 'in_progress') {
+        printCombinedTicket(order, tenant, {
+          priority: 'normal',
+          isPaid: isPaymentConfirmed,
+          thankYouMessage: tenant?.ticket_message || '¡Gracias por tu compra!'
+        })
+      }
     } finally {
       setIsUpdating(false)
     }
@@ -2092,16 +2456,16 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
     }
   }
 
-  // Cálculo de subtotal y descuentos
-  const subtotal = order.items?.reduce((acc, item) => acc + (Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)), 0) || 0
+  // Cálculo de subtotal y descuentos usando editedItems
+  const subtotal = editedItems?.reduce((acc, item) => acc + (Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)), 0) || 0
   const discount = order.discount || 0
-  const total = Number(order.total) || subtotal - discount
+  const total = itemsChanged ? subtotal - discount : (Number(order.total) || subtotal - discount)
 
   return (
     <div className="modal__overlay">
       <div className="orderDetailModal">
         {/* Header */}
-        <div className="orderDetailModal__header">
+        <div className="orderDetailModal__header" style={{ background: status.gradient }}>
           <div className="orderDetailModal__titleRow">
             <div className="orderDetailModal__orderInfo">
               <h2>Pedido #{order.id?.slice(0, 8).toUpperCase()}</h2>
@@ -2120,9 +2484,10 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
           </div>
         </div>
 
-        {/* Body - Grid layout */}
-        <div className="orderDetailModal__body">
-          {/* Columna Izquierda */}
+        {/* Body - Grid layout de 3 columnas */}
+        <div className={`orderDetailModal__body ${showProductStore ? 'orderDetailModal__body--storeMode' : ''}`}>
+          {/* Columna Izquierda - Cliente y Entrega (oculta en modo tienda) */}
+          {!showProductStore && (
           <div className="orderDetailModal__left">
             {/* Cliente */}
             <div className="orderDetailModal__section">
@@ -2137,10 +2502,13 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                   <strong>{order.customer_phone || 'N/A'}</strong>
                   {order.customer_phone && (
                     <button 
-                      className="orderDetailModal__whatsappBtn"
+                      className="orderDetailModal__whatsappCircle"
                       onClick={handleWhatsApp}
+                      title="Enviar WhatsApp"
                     >
-                      <Phone size={14} /> WhatsApp
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
                     </button>
                   )}
                 </div>
@@ -2173,55 +2541,315 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                 </div>
               )}
             </div>
-
-            {/* Comentario */}
-            <div className="orderDetailModal__section">
-              <h4><MessageSquare size={16} /> Comentario interno</h4>
-              <textarea
-                className="orderDetailModal__comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Agregar nota interna..."
-                rows="2"
-              />
-            </div>
           </div>
+          )}
 
-          {/* Columna Derecha */}
-          <div className="orderDetailModal__right">
-            {/* Productos */}
-            <div className="orderDetailModal__section">
-              <div className="orderDetailModal__sectionHeader">
-                <h4><ShoppingCart size={16} /> Productos ({order.items?.length || 0})</h4>
-                <button 
-                  className="orderDetailModal__addBtn"
-                  onClick={() => setShowAddProduct(!showAddProduct)}
-                >
-                  + Agregar
-                </button>
+          {/* Columna Central - Productos */}
+          <div className="orderDetailModal__center">
+            {/* Vista de tienda para agregar productos */}
+            {showProductStore ? (
+              <>
+              <div className="orderDetailModal__productStore">
+                <div className="orderDetailModal__storeHeader">
+                  <button 
+                    className="orderDetailModal__storeBack"
+                    onClick={() => setShowProductStore(false)}
+                  >
+                    <ArrowLeft size={16} /> Volver
+                  </button>
+                  <h4>Agregar Productos</h4>
+                </div>
+                
+                {/* Categorías */}
+                <div className="orderDetailModal__storeCategories">
+                  <button
+                    className={`orderDetailModal__storeCatBtn ${storeSelectedCategory === null ? 'orderDetailModal__storeCatBtn--active' : ''}`}
+                    onClick={() => setStoreSelectedCategory(null)}
+                  >
+                    Todos
+                  </button>
+                  {categories.filter(c => c.active !== false).map(cat => (
+                    <button
+                      key={cat.id}
+                      className={`orderDetailModal__storeCatBtn ${storeSelectedCategory === cat.name ? 'orderDetailModal__storeCatBtn--active' : ''}`}
+                      onClick={() => setStoreSelectedCategory(cat.name)}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Grid de productos */}
+                <div className="orderDetailModal__storeGrid">
+                  {filteredStoreProducts.map(product => (
+                    <div 
+                      key={product.id} 
+                      className="orderDetailModal__storeProduct"
+                      onClick={() => openStoreProductDetail(product)}
+                    >
+                      {product.imageUrl && (
+                        <img 
+                          src={product.imageUrl} 
+                          alt={product.name}
+                          className="orderDetailModal__storeProductImg"
+                        />
+                      )}
+                      <div className="orderDetailModal__storeProductInfo">
+                        <span className="orderDetailModal__storeProductName">{product.name}</span>
+                        <span className="orderDetailModal__storeProductPrice">${product.price}</span>
+                        {(product.productExtras?.length > 0) && (
+                          <span className="orderDetailModal__storeProductExtras">
+                            + Extras disponibles
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Modal de detalle del producto */}
+                {showStoreProductDetail && storeSelectedProduct && (
+                  <ProductDetailModal
+                    product={storeSelectedProduct}
+                    groups={extraGroups}
+                    extras={extras}
+                    onClose={() => {
+                      setShowStoreProductDetail(false)
+                      setStoreSelectedProduct(null)
+                      setEditingCartItemIndex(null)
+                    }}
+                    onAddToCart={handleAddFromStore}
+                    currentCartQuantity={0}
+                    initialQuantity={storeSelectedProduct._editData?.quantity || 1}
+                    initialExtras={storeSelectedProduct._editData?.extras || []}
+                    initialComment={storeSelectedProduct._editData?.comment || ''}
+                    isEditing={editingCartItemIndex !== null}
+                  />
+                )}
               </div>
+              
+              {/* Carrito lateral en modo tienda */}
+              <div className="orderDetailModal__storeCart">
+                <div className="orderDetailModal__storeCartHeader">
+                  <h4><ShoppingCart size={16} /> Carrito ({editedItems?.length || 0})</h4>
+                  {itemsChanged && (
+                    <button 
+                      className="orderDetailModal__saveItemsBtn"
+                      onClick={handleSaveItems}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? 'Guardando...' : '✓ Guardar'}
+                    </button>
+                  )}
+                </div>
+                <div className="orderDetailModal__storeCartItems">
+                  {editedItems?.length === 0 ? (
+                    <div className="orderDetailModal__storeCartEmpty">
+                      <ShoppingCart size={32} />
+                      <p>Carrito vacío</p>
+                      <span>Selecciona productos para agregar</span>
+                    </div>
+                  ) : (
+                    editedItems?.map((item, idx) => (
+                      <div key={idx} className="orderDetailModal__storeCartItem">
+                        <div className="orderDetailModal__storeCartItemHeader">
+                          <span className="orderDetailModal__storeCartItemName">{item.product_name || item.name}</span>
+                          <button 
+                            className="orderDetailModal__storeCartEdit"
+                            onClick={() => handleEditCartItem(idx)}
+                            title="Editar"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        </div>
+                        
+                        {/* Extras detallados */}
+                        {item.extras && item.extras.length > 0 && (
+                          <div className="orderDetailModal__storeCartItemExtrasDetail">
+                            {item.extras.map((extra, extraIdx) => (
+                              <div key={extraIdx} className="orderDetailModal__storeCartItemExtra">
+                                <span className="orderDetailModal__storeCartItemExtraName">
+                                  + {extra.name}{extra.selectedOption ? ` (${extra.selectedOption})` : ''}
+                                </span>
+                                {extra.quantity > 1 && (
+                                  <span className="orderDetailModal__storeCartItemExtraQty">x{extra.quantity}</span>
+                                )}
+                                <span className="orderDetailModal__storeCartItemExtraPrice">
+                                  +${(Number(extra.price || 0) * (extra.quantity || 1)).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Comentario */}
+                        {item.comment && (
+                          <div className="orderDetailModal__storeCartItemComment">
+                            <MessageSquare size={12} />
+                            <span>{item.comment}</span>
+                          </div>
+                        )}
+                        
+                        <div className="orderDetailModal__storeCartItemActions">
+                          <div className="orderDetailModal__storeCartQty">
+                            <button onClick={() => handleChangeItemQty(idx, (item.quantity || item.qty || 1) - 1)}>-</button>
+                            <span>{item.quantity || item.qty}</span>
+                            <button onClick={() => handleChangeItemQty(idx, (item.quantity || item.qty || 1) + 1)}>+</button>
+                          </div>
+                          <span className="orderDetailModal__storeCartItemPrice">
+                            ${(Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}
+                          </span>
+                          <button 
+                            className="orderDetailModal__storeCartRemove"
+                            onClick={() => handleRemoveItem(idx)}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="orderDetailModal__storeCartTotal">
+                  <span>Total:</span>
+                  <strong>${subtotal.toFixed(2)}</strong>
+                </div>
+              </div>
+              </>
+            ) : (
+              /* Vista normal de productos del pedido */
+              <div className="orderDetailModal__section">
+                <div className="orderDetailModal__sectionHeader">
+                  <h4><ShoppingCart size={16} /> Productos ({editedItems?.length || 0})</h4>
+                  <div className="orderDetailModal__sectionActions">
+                    {itemsChanged && (
+                      <button 
+                        className="orderDetailModal__saveItemsBtn"
+                        onClick={handleSaveItems}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? 'Guardando...' : '✓ Guardar'}
+                      </button>
+                    )}
+                    {editedItems?.length > 0 && (
+                      <button 
+                        className="orderDetailModal__editBtn"
+                        onClick={() => setShowProductStore(true)}
+                        title="Editar productos del pedido"
+                      >
+                        <Edit2 size={14} /> Editar
+                      </button>
+                    )}
+                    <button 
+                      className="orderDetailModal__addBtn"
+                      onClick={() => setShowProductStore(true)}
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                </div>
               
               {showAddProduct && (
                 <div className="orderDetailModal__addProduct">
-                  <select className="orderDetailModal__productSelect">
-                    <option value="">Seleccionar producto...</option>
-                    {products.filter(p => p.active).map(p => (
-                      <option key={p.id} value={p.id}>{p.name} - ${p.price}</option>
-                    ))}
-                  </select>
-                  <Button size="sm">Agregar</Button>
+                  <div className="orderDetailModal__addProductRow">
+                    <select 
+                      className="orderDetailModal__productSelect"
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                    >
+                      <option value="">Seleccionar producto...</option>
+                      {products.filter(p => p.active !== false).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} - ${p.price} {p.stock !== null && p.stock !== undefined ? `(Stock: ${p.stock})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="orderDetailModal__qtyControl">
+                      <button 
+                        className="orderDetailModal__qtyBtn"
+                        onClick={() => setProductQty(Math.max(1, productQty - 1))}
+                      >-</button>
+                      <span>{productQty}</span>
+                      <button 
+                        className="orderDetailModal__qtyBtn"
+                        onClick={() => setProductQty(productQty + 1)}
+                      >+</button>
+                    </div>
+                  </div>
+                  
+                  {/* Extras disponibles para el producto seleccionado */}
+                  {availableExtras.length > 0 && (
+                    <div className="orderDetailModal__extrasSection">
+                      <span className="orderDetailModal__extrasLabel">Extras disponibles:</span>
+                      <div className="orderDetailModal__extrasList">
+                        {availableExtras.map(extra => (
+                          <div 
+                            key={extra.id} 
+                            className={`orderDetailModal__extraItem ${selectedExtras[extra.id] > 0 ? 'orderDetailModal__extraItem--selected' : ''}`}
+                          >
+                            <button 
+                              className="orderDetailModal__extraToggle"
+                              onClick={() => handleToggleExtra(extra.id)}
+                            >
+                              <span>{extra.name}</span>
+                              <span className="orderDetailModal__extraPrice">+${extra.price}</span>
+                            </button>
+                            {selectedExtras[extra.id] > 0 && (
+                              <div className="orderDetailModal__extraQty">
+                                <button onClick={() => handleExtraQtyChange(extra.id, -1)}>-</button>
+                                <span>{selectedExtras[extra.id]}</span>
+                                <button onClick={() => handleExtraQtyChange(extra.id, 1)}>+</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button 
+                    className="orderDetailModal__addItemBtn"
+                    onClick={handleAddProduct}
+                    disabled={!selectedProductId}
+                  >
+                    + Agregar al pedido
+                  </button>
                 </div>
               )}
 
               <div className="orderDetailModal__items">
-                {order.items?.map((item, idx) => (
+                {editedItems?.map((item, idx) => (
                   <div key={idx} className="orderDetailModal__item">
                     <div className="orderDetailModal__itemMain">
                       <span className="orderDetailModal__itemName">{item.product_name || item.name}</span>
-                      <span className="orderDetailModal__itemQty">x{item.quantity || item.qty}</span>
+                      <div className="orderDetailModal__itemQtyControl">
+                        <button 
+                          className="orderDetailModal__itemQtyBtn"
+                          onClick={() => handleChangeItemQty(idx, (item.quantity || item.qty || 1) - 1)}
+                        >-</button>
+                        <span className="orderDetailModal__itemQty">x{item.quantity || item.qty}</span>
+                        <button 
+                          className="orderDetailModal__itemQtyBtn"
+                          onClick={() => handleChangeItemQty(idx, (item.quantity || item.qty || 1) + 1)}
+                        >+</button>
+                      </div>
                       <span className="orderDetailModal__itemPrice">
                         ${(Number(item.price || item.unit_price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}
                       </span>
+                      <button 
+                        className="orderDetailModal__itemEdit"
+                        onClick={() => handleEditItemFromList(idx)}
+                        title="Editar extras y comentario"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button 
+                        className="orderDetailModal__itemRemove"
+                        onClick={() => handleRemoveItem(idx)}
+                        title="Eliminar"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                     {/* Extras del producto */}
                     {item.extras && item.extras.length > 0 && (
@@ -2251,10 +2879,35 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            )}
+            
+            {/* Modal de edición de producto (disponible en ambos modos) */}
+            {showStoreProductDetail && storeSelectedProduct && !showProductStore && (
+              <ProductDetailModal
+                product={storeSelectedProduct}
+                groups={extraGroups}
+                extras={extras}
+                onClose={() => {
+                  setShowStoreProductDetail(false)
+                  setStoreSelectedProduct(null)
+                  setEditingCartItemIndex(null)
+                }}
+                onAddToCart={handleAddFromStore}
+                currentCartQuantity={0}
+                initialQuantity={storeSelectedProduct._editData?.quantity || 1}
+                initialExtras={storeSelectedProduct._editData?.extras || []}
+                initialComment={storeSelectedProduct._editData?.comment || ''}
+                isEditing={editingCartItemIndex !== null}
+              />
+            )}
+          </div>
 
+          {/* Columna Derecha - Totales y Notas */}
+          <div className="orderDetailModal__right">
             {/* Totales */}
             <div className="orderDetailModal__section orderDetailModal__section--totals">
+              <h4><DollarSign size={16} /> Resumen</h4>
               <div className="orderDetailModal__row">
                 <span>Subtotal:</span>
                 <strong>${subtotal.toFixed(2)}</strong>
@@ -2275,72 +2928,132 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                   <strong>{PAYMENT_METHODS[order.payment_method] || order.payment_method}</strong>
                 </div>
               )}
+              <div className="orderDetailModal__row">
+                <span>Estado de pago:</span>
+                <strong className={isPaymentConfirmed ? 'orderDetailModal__paymentPaid' : 'orderDetailModal__paymentPending'}>
+                  {isPaymentConfirmed ? <><CheckCircle size={14} /> Pagado</> : <><Clock size={14} /> Pendiente</>}
+                </strong>
+              </div>
+            </div>
+
+            {/* Comentario interno para cocina */}
+            <div className="orderDetailModal__section">
+              <div className="orderDetailModal__sectionHeader">
+                <h4><MessageSquare size={16} /> Nota para cocina</h4>
+                {notesChanged && (
+                  <button 
+                    className="orderDetailModal__saveNoteBtn"
+                    onClick={handleSaveNotes}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? 'Guardando...' : 'Guardar'}
+                  </button>
+                )}
+              </div>
+              <textarea
+                className="orderDetailModal__comment"
+                value={internalNotes}
+                onChange={(e) => {
+                  setInternalNotes(e.target.value)
+                  setNotesChanged(true)
+                }}
+                placeholder="Ej: Sin sal, bien cocida, alergia a maní..."
+                rows="3"
+              />
             </div>
           </div>
         </div>
 
         {/* Footer - Acciones */}
         <div className="orderDetailModal__footer">
-          <div className="orderDetailModal__actions">
-            {/* Acciones de estado */}
+          {/* Acciones principales según estado */}
+          <div className="orderDetailModal__primaryActions">
             {order.status === 'pending' && (
               <>
-                <Button 
+                <button 
+                  className="orderDetailModal__btn orderDetailModal__btn--primary"
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('in_progress')}
                 >
-                  <Play size={16} /> Tomar Pedido
-                </Button>
-                <Button 
-                  variant="danger"
+                  <Play size={18} />
+                  <span>Tomar Pedido</span>
+                </button>
+                <button 
+                  className="orderDetailModal__btn orderDetailModal__btn--danger"
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('cancelled')}
                 >
-                  <XCircle size={16} /> Rechazar
-                </Button>
+                  <XCircle size={18} />
+                  <span>Rechazar</span>
+                </button>
               </>
             )}
             {order.status === 'in_progress' && (
               <>
-                <Button 
+                <button 
+                  className="orderDetailModal__btn orderDetailModal__btn--success"
                   disabled={isUpdating}
                   onClick={handleCompleteOrder}
                 >
-                  <Check size={16} /> Finalizar Pedido
-                </Button>
-                <Button 
-                  variant="danger"
+                  <Check size={18} />
+                  <span>Finalizar</span>
+                </button>
+                <button 
+                  className="orderDetailModal__btn orderDetailModal__btn--danger"
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('cancelled')}
                 >
-                  <XCircle size={16} /> Cancelar
-                </Button>
+                  <XCircle size={18} />
+                  <span>Cancelar</span>
+                </button>
               </>
             )}
             {order.status === 'completed' && (
-              <span className="orderDetailModal__completedBadge"><CheckCircle size={16} /> Pedido Completado</span>
+              <div className="orderDetailModal__statusBadge orderDetailModal__statusBadge--completed">
+                <CheckCircle size={18} />
+                <span>Completado</span>
+              </div>
             )}
             {order.status === 'cancelled' && (
-              <span className="orderDetailModal__cancelledBadge"><XCircle size={16} /> Pedido Cancelado</span>
+              <>
+                <div className="orderDetailModal__statusBadge orderDetailModal__statusBadge--cancelled">
+                  <XCircle size={18} />
+                  <span>Cancelado</span>
+                </div>
+                <button 
+                  className="orderDetailModal__btn orderDetailModal__btn--restore"
+                  disabled={isUpdating}
+                  onClick={() => handleStatusChange('pending')}
+                >
+                  <RotateCcw size={18} />
+                  <span>Restaurar</span>
+                </button>
+              </>
             )}
           </div>
           
+          {/* Acciones secundarias */}
           <div className="orderDetailModal__secondaryActions">
-            <Button 
-              variant="secondary" 
-              onClick={() => printOrder(order)}
+            <button 
+              className="orderDetailModal__btn orderDetailModal__btn--icon"
+              onClick={() => onOpenPrintModal(order, isPaymentConfirmed)}
+              title="Imprimir"
             >
-              <Printer size={16} /> Imprimir
-            </Button>
-            <Button 
-              variant="danger" 
+              <Printer size={18} />
+            </button>
+            <button 
+              className="orderDetailModal__btn orderDetailModal__btn--icon orderDetailModal__btn--iconDanger"
               onClick={() => setShowDeleteConfirm(true)}
+              title="Eliminar"
             >
-              <Trash2 size={16} /> Eliminar
-            </Button>
-            <Button variant="secondary" onClick={onClose}>
+              <Trash2 size={18} />
+            </button>
+            <button 
+              className="orderDetailModal__btn orderDetailModal__btn--close"
+              onClick={onClose}
+            >
               Cerrar
-            </Button>
+            </button>
           </div>
         </div>
 

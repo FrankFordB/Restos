@@ -1,0 +1,198 @@
+.printModal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.printModal {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 380px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.printModal__header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.printModal__icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  color: white;
+}
+
+.printModal__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 4px;
+}
+
+.printModal__subtitle {
+  font-size: 13px;
+  color: #666;
+}
+
+.printModal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.printModal__option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.printModal__option:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.printModal__option:active {
+  transform: scale(0.98);
+}
+
+.printModal__optionIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.printModal__optionIcon--kitchen {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+}
+
+.printModal__optionIcon--client {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.printModal__optionIcon--both {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+}
+
+.printModal__optionText {
+  flex: 1;
+}
+
+.printModal__optionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 2px;
+}
+
+.printModal__optionDesc {
+  font-size: 12px;
+  color: #666;
+}
+
+.printModal__optionArrow {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.printModal__cancel {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.printModal__cancel:hover {
+  background: #e5e7eb;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .printModal {
+    background: #1f2937;
+  }
+  
+  .printModal__title {
+    color: #f9fafb;
+  }
+  
+  .printModal__subtitle {
+    color: #9ca3af;
+  }
+  
+  .printModal__option {
+    border-color: #374151;
+    background: #111827;
+  }
+  
+  .printModal__option:hover {
+    border-color: #3b82f6;
+    background: #1e3a5f;
+  }
+  
+  .printModal__optionTitle {
+    color: #f9fafb;
+  }
+  
+  .printModal__optionDesc {
+    color: #9ca3af;
+  }
+  
+  .printModal__cancel {
+    background: #374151;
+    color: #f9fafb;
+  }
+  
+  .printModal__cancel:hover {
+    background: #4b5563;
+  }
+}

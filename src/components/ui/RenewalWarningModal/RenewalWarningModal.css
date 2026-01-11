@@ -6,132 +6,186 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  padding: 1rem;
+  padding: 2rem;
   backdrop-filter: blur(12px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .renewalModal__card {
-  background: white;
-  border-radius: 20px;
-  max-width: 500px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  border-radius: 24px;
+  max-width: 860px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 4rem);
   overflow-y: auto;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  animation: renewalModalIn 0.3s ease-out;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes renewalModalIn {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .renewalModal__header {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  padding: 1.5rem;
-  text-align: center;
-  border-bottom: 1px solid #fcd34d;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.renewalModal__header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  border-radius: 50%;
 }
 
 .renewalModal__icon {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
-  animation: pulse 2s infinite;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d97706;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+.renewalModal__headerContent {
+  flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .renewalModal__title {
-  margin: 0 0 0.5rem;
-  font-size: 1.35rem;
-  color: #92400e;
+  color: white;
+  margin: 0 0 0.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .renewalModal__countdown {
-  font-size: 1rem;
-  color: #b45309;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .renewalModal__countdown strong {
-  color: #92400e;
+  color: white;
 }
 
-.renewalModal__expired {
-  color: #dc2626;
+.renewalModal__expired,
+.renewalModal__urgent {
+  color: #fef3c7;
   font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .renewalModal__urgent {
-  color: #dc2626;
-  font-weight: 700;
   animation: blink 1s infinite;
 }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.6; }
 }
 
-.renewalModal__content {
-  padding: 1.5rem;
+.renewalModal__body {
+  padding: 2rem 2.5rem 2.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
 }
 
+.renewalModal__leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.renewalModal__rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Alerta principal */
 .renewalModal__alert {
   display: flex;
-  gap: 0.75rem;
-  background: linear-gradient(135deg, #fef9c3, #fef08a);
-  border: 1px solid #fde047;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1.25rem;
+  gap: 1rem;
+  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%);
+  border: 2px solid #fde047;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
 }
 
 .renewalModal__alertIcon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
+  color: #ca8a04;
 }
 
 .renewalModal__alertContent strong {
   display: block;
   color: #854d0e;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
   font-size: 0.95rem;
 }
 
 .renewalModal__alertContent p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.35rem;
   color: #a16207;
   font-size: 0.85rem;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .renewalModal__alertContent p:last-child {
   margin-bottom: 0;
 }
 
+/* Lo que perderás */
 .renewalModal__lostFeatures {
-  background: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
   border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1.25rem;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  flex: 1;
 }
 
 .renewalModal__lostFeaturesTitle {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.875rem;
   color: #dc2626;
   font-size: 0.9rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .renewalModal__featuresList {
@@ -140,7 +194,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .renewalModal__featureItem {
@@ -160,30 +214,37 @@
   color: #dc2626;
   font-weight: 700;
   font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
+/* Selector de período */
 .renewalModal__billing {
-  margin-bottom: 1.25rem;
+  background: white;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .renewalModal__billingTitle {
-  margin: 0 0 0.75rem;
-  font-size: 0.9rem;
+  margin: 0 0 0.875rem;
+  font-size: 0.95rem;
   color: #374151;
+  font-weight: 600;
 }
 
 .renewalModal__billingOptions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
 .renewalModal__billingBtn {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 1rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
   border: 2px solid #e5e7eb;
   border-radius: 12px;
   background: #f9fafb;
@@ -198,7 +259,8 @@
 
 .renewalModal__billingBtn--active {
   border-color: #f59e0b;
-  background: #fffbeb;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
 }
 
 .renewalModal__billingLabel {
@@ -217,24 +279,73 @@
   font-size: 0.7rem;
   color: #16a34a;
   font-weight: 600;
-  background: rgba(22, 163, 74, 0.1);
-  padding: 2px 8px;
+  background: rgba(22, 163, 74, 0.15);
+  padding: 3px 8px;
   border-radius: 999px;
+  margin-left: auto;
 }
 
+/* Método de pago */
+.renewalModal__paymentMethod {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #0285c73b;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.renewalModal__mpLogo {
+  width: 44px;
+  height: 32px;
+  background: linear-gradient(135deg, #009ee3, #00b4d8);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: -0.02em;
+  box-shadow: 0 4px 12px rgba(0, 158, 227, 0.3);
+  flex-shrink: 0;
+}
+
+.renewalModal__mpInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.renewalModal__mpInfo h4 {
+  margin: 0 0 0.15rem;
+  color: #0c4a6e;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.renewalModal__mpInfo p {
+  margin: 0;
+  color: #0369a1;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Aviso de reset */
 .renewalModal__resetWarning {
   display: flex;
   gap: 0.75rem;
   background: #fff7ed;
   border: 1px solid #fed7aa;
   border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .renewalModal__resetIcon {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   flex-shrink: 0;
+  color: #ea580c;
 }
 
 .renewalModal__resetWarning p {
@@ -244,40 +355,74 @@
   line-height: 1.5;
 }
 
+/* Acciones */
 .renewalModal__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0 1.5rem 1rem;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  padding: 0 2.5rem 1.5rem;
 }
 
 .renewalModal__actions button {
   width: 100%;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.9rem;
 }
 
+/* Nota inferior */
 .renewalModal__note {
-  background: #f0fdf4;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   border-top: 1px solid #bbf7d0;
-  padding: 1rem 1.5rem;
+  padding: 1rem 2.5rem;
   font-size: 0.8rem;
   color: #166534;
   text-align: center;
-  border-radius: 0 0 20px 20px;
+  border-radius: 0 0 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .renewalModal__overlay {
+    padding: 1rem;
+  }
+
+  .renewalModal__card {
+    max-width: 100%;
+    max-height: 95vh;
+  }
+
+  .renewalModal__body {
+    grid-template-columns: 1fr;
+    padding: 1.5rem;
+    gap: 1.25rem;
+  }
+
+  .renewalModal__header {
+    padding: 1rem 1.5rem;
+  }
+
+  .renewalModal__actions {
+    grid-template-columns: 1fr;
+    padding: 0 1.5rem 1rem;
+  }
+
+  .renewalModal__note {
+    padding: 1rem 1.5rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
 @media (max-width: 480px) {
   .renewalModal__card {
-    border-radius: 16px 16px 0 0;
-    max-height: 95vh;
+    border-radius: 20px 20px 0 0;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    max-width: 100%;
-  }
-
-  .renewalModal__billingOptions {
-    grid-template-columns: 1fr;
   }
 }

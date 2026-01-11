@@ -15,6 +15,7 @@ import {
 import {
   isPlatformMPConfigured,
   formatAmount,
+  createSubscriptionPreference,
 } from '../../../lib/mercadopago'
 import {
   updateTenantSubscriptionTier,
@@ -22,6 +23,7 @@ import {
   setTenantAutoRenew,
   cancelScheduledTierChange,
   scheduleTierChange,
+  createPlatformSubscription,
 } from '../../../lib/supabaseMercadopagoApi'
 import { fetchOrderLimitsStatus, subscribeToOrderLimits } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
@@ -132,25 +134,58 @@ export default function SubscriptionStatus({
     
     setRenewalLoading(true)
     try {
-      // Calcular nueva fecha de expiración
-      const newExpiry = calculateRenewalExpiry(status.expiresAt, billingPeriod)
+      const mpConfigured = isPlatformMPConfigured()
       
-      // Actualizar suscripción
-      await updateTenantSubscriptionTier(tenant.id, tier, newExpiry)
+      // Calcular precio según período
+      const { TIER_PRICES } = await import('../../../shared/subscriptions')
+      const prices = TIER_PRICES[tier] || { monthly: 0, yearly: 0 }
+      const amount = billingPeriod === 'yearly' ? prices.yearly : prices.monthly
       
-      setShowRenewalModal(false)
+      console.log('🔄 Renovando suscripción con MP:', { tenantId: tenant.id, tier, billingPeriod, amount, mpConfigured })
       
-      if (onRenewalComplete) {
-        onRenewalComplete(tier)
-      }
-      
-      // Recargar datos del tenant
-      if (onTenantUpdate) {
-        await onTenantUpdate()
+      if (mpConfigured) {
+        // Crear preferencia de pago en MercadoPago
+        const preference = await createSubscriptionPreference({
+          tenantId: tenant.id,
+          tenantName: tenant.business_name || tenant.slug,
+          planTier: tier,
+          billingPeriod,
+          amount,
+          payerEmail: tenant.contact_email || '',
+        })
+        
+        // Guardar suscripción pendiente
+        await createPlatformSubscription({
+          tenantId: tenant.id,
+          preferenceId: preference.preferenceId,
+          planTier: tier,
+          billingPeriod,
+          amount,
+        })
+        
+        console.log('🚀 Redirigiendo a MercadoPago...')
+        // Redirigir a MercadoPago
+        window.location.href = preference.initPoint
+      } else {
+        // Modo demo sin MercadoPago
+        const newExpiry = calculateRenewalExpiry(status.expiresAt, billingPeriod)
+        await updateTenantSubscriptionTier(tenant.id, tier, newExpiry)
+        console.log('✅ Renovación demo exitosa')
+        
+        setShowRenewalModal(false)
+        
+        if (onRenewalComplete) {
+          onRenewalComplete(tier)
+        }
+        
+        if (onTenantUpdate) {
+          await onTenantUpdate()
+        }
       }
     } catch (err) {
-      console.error('Error renewing subscription:', err)
-      alert('Error al renovar. Por favor intenta nuevamente.')
+      console.error('❌ Error renewing subscription:', err)
+      const errorMsg = err?.message || 'Error desconocido'
+      alert(`Error al renovar: ${errorMsg}. Por favor revisa la consola para más detalles.`)
     } finally {
       setRenewalLoading(false)
     }
@@ -253,7 +288,19 @@ export default function SubscriptionStatus({
             >
               <span className="subscriptionStatus__icon">{tierIcon}</span>
               <span className="subscriptionStatus__tier">{tierLabel}</span>
+              {tenant?.is_gifted && (
+                <span className="subscriptionStatus__giftBadge" title="Regalado por el administrador del sistema">
+                  🎁 Regalo
+                </span>
+              )}
             </div>
+            {tenant?.is_gifted && (
+              <div className="subscriptionStatus__giftInfo">
+                <span className="subscriptionStatus__giftText">
+                  Este plan fue regalado por el administrador del sistema
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Información de expiración */}
@@ -272,6 +319,17 @@ export default function SubscriptionStatus({
                 )}
               </span>
             </div>
+
+            {/* Mostrar suscripción comprada pendiente si existe */}
+            {tenant?.purchased_premium_tier && tenant?.purchased_premium_starts_at && (
+              <div className="subscriptionStatus__pendingPurchase">
+                <Calendar size={14} />
+                <span>
+                  Tu plan <strong>{TIER_LABELS[tenant.purchased_premium_tier]}</strong> comprado 
+                  inicia el {new Date(tenant.purchased_premium_starts_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                </span>
+              </div>
+            )}
             
             {/* Pedidos restantes */}
             <div className="subscriptionStatus__orders">

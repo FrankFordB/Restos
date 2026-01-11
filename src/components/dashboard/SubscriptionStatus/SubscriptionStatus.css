@@ -62,6 +62,60 @@
   font-weight: 700;
   font-size: 1.1rem;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--tier-color) 40%, transparent);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.subscriptionStatus__giftBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  animation: giftPulse 2s ease-in-out infinite;
+}
+
+@keyframes giftPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.subscriptionStatus__giftInfo {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  border-radius: 8px;
+}
+
+.subscriptionStatus__giftText {
+  font-size: 0.85rem;
+  color: #a855f7;
+  font-weight: 500;
+}
+
+.subscriptionStatus__pendingPurchase {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #16a34a;
+}
+
+.subscriptionStatus__pendingPurchase strong {
+  font-weight: 700;
 }
 
 .subscriptionStatus__icon {

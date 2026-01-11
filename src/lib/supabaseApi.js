@@ -242,26 +242,19 @@ export async function adminRemoveTenantPremium({ tenantId }) {
 }
 
 // Set subscription tier directly (free, premium, premium_pro)
+// Cuando el super admin asigna un tier, se usa gift_subscription
+// que maneja tanto regalos (premium/pro) como quitar regalos (free)
 export async function adminSetTenantTier({ tenantId, tier, days = null }) {
   ensureSupabase()
   if (!tenantId) throw new Error('tenantId requerido')
   if (!['free', 'premium', 'premium_pro'].includes(tier)) throw new Error('Tier inválido')
 
-  let premiumUntil = null
-  if (tier !== 'free' && days) {
-    const now = new Date()
-    premiumUntil = new Date(now.getTime() + Number(days) * 24 * 60 * 60 * 1000).toISOString()
-  } else if (tier !== 'free') {
-    // Si no se especifican días, dar 30 días por defecto
-    const now = new Date()
-    premiumUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-  }
-
-  // Usar RPC seguro en lugar de UPDATE directo
-  const { data, error } = await supabase.rpc('update_tenant_subscription', {
+  // Usar gift_subscription para todo - maneja free, premium y premium_pro
+  const daysToGift = tier === 'free' ? 0 : (days || 30)
+  const { data, error } = await supabase.rpc('gift_subscription', {
     p_tenant_id: tenantId,
     p_tier: tier,
-    p_expires_at: premiumUntil
+    p_days: daysToGift
   })
 
   if (error) throw error
@@ -272,7 +265,7 @@ export async function adminListTenants() {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at, logo, description, slogan')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, owner_user_id, created_at, logo, description, slogan, is_gifted, purchased_premium_tier, purchased_premium_starts_at, purchased_premium_until')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -815,7 +808,7 @@ export async function fetchTenantBySlug(slug) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan, is_gifted, purchased_premium_tier, purchased_premium_starts_at, purchased_premium_until')
     .eq('slug', slug)
     .maybeSingle()
   if (error) throw error
@@ -872,7 +865,7 @@ export async function fetchTenantById(tenantId) {
   
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, scheduled_tier, scheduled_at, logo, description, slogan, orders_limit, orders_remaining')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, scheduled_tier, scheduled_at, logo, description, slogan, orders_limit, orders_remaining, is_gifted, purchased_premium_tier, purchased_premium_starts_at, purchased_premium_until')
     .eq('id', tenantId)
     .maybeSingle()
 
@@ -884,7 +877,8 @@ export async function fetchTenantById(tenantId) {
   console.log('📦 fetchTenantById resultado:', {
     id: data?.id,
     subscription_tier: data?.subscription_tier,
-    premium_until: data?.premium_until
+    premium_until: data?.premium_until,
+    is_gifted: data?.is_gifted
   })
   
   return data

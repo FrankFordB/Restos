@@ -557,7 +557,7 @@ export default function SuperAdminDashboard() {
     }
   }
 
-  // Handle set premium tier with days
+  // Handle set premium tier with days (marked as gift from super admin)
   const handleSetPremium = async () => {
     if (!setPremiumModal) return
     setFormLoading(true)
@@ -568,9 +568,9 @@ export default function SuperAdminDashboard() {
         days: setPremiumModal.tier === 'free' ? null : setPremiumModal.days 
       })
       if (setPremiumModal.tier === 'free') {
-        setSuccessMsg('Plan cambiado a Free (sin límite de tiempo)')
+        setSuccessMsg('✓ Cambiado a Free - el usuario puede comprar su propia suscripción')
       } else {
-        setSuccessMsg(`Plan actualizado a ${TIER_LABELS[setPremiumModal.tier]} por ${setPremiumModal.days} días`)
+        setSuccessMsg(`🎁 Plan ${TIER_LABELS[setPremiumModal.tier]} regalado por ${setPremiumModal.days} días`)
       }
       setSetPremiumModal(null)
       await loadData()
@@ -1099,6 +1099,7 @@ export default function SuperAdminDashboard() {
                   {tenant.subscription_tier === 'premium_pro' ? <Crown size={12} /> : 
                    tenant.subscription_tier === 'premium' ? <Star size={12} /> : <Package size={12} />}
                   {TIER_LABELS[tenant.subscription_tier] || 'Free'}
+                  {tenant.is_gifted && <span className="superAdmin__giftIcon" title="Regalado">🎁</span>}
                 </span>
               </div>
               
@@ -1728,6 +1729,18 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
               )}
+              {setPremiumModal.tier !== 'free' && (
+                <div className="superAdmin__giftNote">
+                  <span>🎁</span>
+                  <p>Este plan será marcado como <strong>regalo</strong>. El usuario podrá comprar su propia suscripción y se activará al terminar este regalo.</p>
+                </div>
+              )}
+              {setPremiumModal.tier === 'free' && (
+                <div className="superAdmin__giftNote superAdmin__giftNote--info">
+                  <span>ℹ️</span>
+                  <p>El usuario será cambiado a Free y podrá <strong>comprar su propia suscripción</strong> cuando quiera.</p>
+                </div>
+              )}
               <div className="superAdmin__formActions">
                 <button 
                   type="button" 
@@ -1738,11 +1751,14 @@ export default function SuperAdminDashboard() {
                 </button>
                 <button 
                   type="button" 
-                  className="superAdmin__formBtn superAdmin__formBtn--premium" 
+                  className={`superAdmin__formBtn ${setPremiumModal.tier === 'free' ? 'superAdmin__formBtn--danger' : 'superAdmin__formBtn--premium'}`}
                   onClick={handleSetPremium}
                   disabled={formLoading}
                 >
-                  {formLoading ? 'Aplicando...' : `Aplicar ${TIER_LABELS[setPremiumModal.tier]}`}
+                  {formLoading 
+                    ? (setPremiumModal.tier === 'free' ? 'Cambiando...' : 'Regalando...') 
+                    : (setPremiumModal.tier === 'free' ? 'Cambiar a Free' : `🎁 Regalar ${TIER_LABELS[setPremiumModal.tier]}`)
+                  }
                 </button>
               </div>
             </div>

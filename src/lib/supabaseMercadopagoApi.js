@@ -337,8 +337,8 @@ export const getTenantSubscriptions = async (tenantId) => {
  * @param {Date} expiresAt 
  * @returns {Promise<void>}
  */
-export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) => {
-  console.log('🔧 updateTenantSubscriptionTier llamado:', { tenantId, tier, expiresAt })
+export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt, isGift = false) => {
+  console.log('🔧 updateTenantSubscriptionTier llamado:', { tenantId, tier, expiresAt, isGift })
   
   if (!isSupabaseConfigured) {
     console.log('📦 Modo mock: actualizando localStorage...')
@@ -349,13 +349,33 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
     if (idx >= 0) {
       tenants[idx].subscription_tier = tier
       tenants[idx].premium_until = expiresAt?.toISOString() || null
+      tenants[idx].is_gifted = isGift
       tenants[idx].orders_limit = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
       tenants[idx].orders_remaining = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
       tenantsData.tenants = tenants
       localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
       console.log('✅ Modo mock: tenant actualizado')
     }
-    return
+    return { success: true, is_gifted: isGift }
+  }
+
+  // Si es un regalo del super admin, usar la función de regalo
+  if (isGift) {
+    const daysUntilExpiry = expiresAt ? Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24)) : 30
+    console.log('🎁 Regalando suscripción por', daysUntilExpiry, 'días...')
+    const { data, error } = await supabase.rpc('gift_subscription', {
+      p_tenant_id: tenantId,
+      p_tier: tier,
+      p_days: daysUntilExpiry
+    })
+    
+    if (error) {
+      console.error('❌ Error regalando suscripción:', error)
+      throw new Error(error.message || 'Error al regalar suscripción')
+    }
+    
+    console.log('✅ Regalo exitoso:', data)
+    return data
   }
 
   // SEGURIDAD: Solo usar función RPC con SECURITY DEFINER
@@ -375,6 +395,79 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
   }
 
   console.log('✅ RPC exitoso:', data)
+  return data
+}
+
+/**
+ * Purchase a subscription - handles pending purchases when there's an active gift
+ * @param {string} tenantId 
+ * @param {string} tier 
+ * @param {Date} expiresAt 
+ * @returns {Promise<{success: boolean, pending?: boolean, message?: string}>}
+ */
+export const purchaseSubscription = async (tenantId, tier, expiresAt) => {
+  console.log('🛒 purchaseSubscription:', { tenantId, tier, expiresAt })
+  
+  if (!isSupabaseConfigured) {
+    // En modo mock, verificar si tiene regalo activo
+    const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
+    const tenants = tenantsData.tenants || []
+    const idx = tenants.findIndex(t => t.id === tenantId)
+    
+    if (idx >= 0) {
+      const tenant = tenants[idx]
+      const hasActiveGift = tenant.is_gifted && tenant.premium_until && new Date(tenant.premium_until) > new Date()
+      
+      if (hasActiveGift) {
+        // Guardar suscripción pendiente
+        const giftExpires = new Date(tenant.premium_until)
+        const purchaseDuration = expiresAt - new Date()
+        tenants[idx].purchased_premium_tier = tier
+        tenants[idx].purchased_premium_starts_at = giftExpires.toISOString()
+        tenants[idx].purchased_premium_until = new Date(giftExpires.getTime() + purchaseDuration).toISOString()
+        tenantsData.tenants = tenants
+        localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
+        
+        return {
+          success: true,
+          pending: true,
+          tier,
+          starts_at: giftExpires,
+          expires_at: new Date(giftExpires.getTime() + purchaseDuration),
+          message: `Tu suscripción iniciará cuando termine el regalo el ${giftExpires.toLocaleDateString()}`
+        }
+      } else {
+        // Activar inmediatamente
+        tenants[idx].subscription_tier = tier
+        tenants[idx].premium_until = expiresAt?.toISOString() || null
+        tenants[idx].is_gifted = false
+        tenants[idx].purchased_premium_tier = null
+        tenants[idx].purchased_premium_starts_at = null
+        tenants[idx].purchased_premium_until = null
+        tenants[idx].orders_limit = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
+        tenants[idx].orders_remaining = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
+        tenantsData.tenants = tenants
+        localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
+        
+        return { success: true, pending: false, tier, expires_at: expiresAt }
+      }
+    }
+    return { success: false }
+  }
+
+  // Usar la función RPC de compra
+  const { data, error } = await supabase.rpc('purchase_subscription', {
+    p_tenant_id: tenantId,
+    p_tier: tier,
+    p_expires_at: expiresAt?.toISOString() || null
+  })
+
+  if (error) {
+    console.error('❌ Error comprando suscripción:', error)
+    throw new Error(error.message || 'Error al procesar la compra')
+  }
+
+  console.log('✅ Compra procesada:', data)
   return data
 }
 

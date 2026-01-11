@@ -110,6 +110,15 @@ export const createSubscriptionPreference = async ({
       subscriptionId, // ID para correlación con webhook
     }),
     statement_descriptor: 'RESTOS',
+    // Excluir métodos de pago que no son instantáneos para evitar "pago en proceso"
+    payment_methods: {
+      excluded_payment_types: [
+        { id: 'ticket' },       // Rapipago, Pago Fácil, etc.
+        { id: 'atm' },          // Cajeros automáticos
+        { id: 'bank_transfer' }, // Transferencias bancarias
+      ],
+      // installments: 12, // Máximo de cuotas (opcional)
+    },
     // SIEMPRE enviar back_urls - MercadoPago las usa para el botón "Volver al sitio"
     back_urls: {
       success: `${MP_CONFIG.appUrl}/payment/success?type=subscription&tenant=${tenantId}`,

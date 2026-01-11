@@ -59,6 +59,7 @@ export default function Sidebar({
   tenantSlug = '',
   subscriptionTier = 'free',
   premiumUntil = null,
+  isGifted = false,
   pendingOrdersCount = 0,
   isCollapsed = false,
   onCollapsedChange,
@@ -130,9 +131,10 @@ export default function Sidebar({
       expiresAt,
       daysRemaining,
       isExpired,
-      isExpiringSoon
+      isExpiringSoon,
+      isGifted: isGifted
     }
-  }, [subscriptionTier, premiumUntil])
+  }, [subscriptionTier, premiumUntil, isGifted])
 
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -337,12 +339,17 @@ export default function Sidebar({
           {/* Plan Info Section */}
           {!isCollapsed && (
             <div 
-              className={`sidebar__planInfo ${planInfo.isExpiringSoon ? 'sidebar__planInfo--warning' : ''} ${planInfo.isExpired ? 'sidebar__planInfo--expired' : ''}`}
+              className={`sidebar__planInfo ${planInfo.isExpiringSoon ? 'sidebar__planInfo--warning' : ''} ${planInfo.isExpired ? 'sidebar__planInfo--expired' : ''} ${planInfo.isGifted ? 'sidebar__planInfo--gifted' : ''}`}
               onClick={() => onTabChange('plans')}
             >
               <div className="sidebar__planHeader">
                 <span className="sidebar__planIcon">{planInfo.icon}</span>
                 <span className="sidebar__planLabel">{planInfo.label}</span>
+                {planInfo.isGifted && (
+                  <span className="sidebar__giftBadge" title="Regalado por el administrador">
+                    🎁 Regalo
+                  </span>
+                )}
               </div>
               
               {planInfo.isPremium && planInfo.expiresAt && !planInfo.isExpired && (

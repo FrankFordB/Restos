@@ -197,8 +197,9 @@ export default function UserDashboardPage() {
     return SUBSCRIPTION_TIERS.FREE
   }, [currentTenant])
 
-  // Get premium expiration date
+  // Get premium expiration date and gift status
   const premiumUntil = currentTenant?.premium_until
+  const isGifted = currentTenant?.is_gifted || false
   const _isPremiumActive = premiumUntil && new Date(premiumUntil) > new Date() && subscriptionTier !== 'free'
 
   // Copied state for links - debe estar antes de cualquier return condicional
@@ -652,6 +653,7 @@ export default function UserDashboardPage() {
         tenantSlug={currentTenant?.slug || ''}
         subscriptionTier={subscriptionTier}
         premiumUntil={premiumUntil}
+        isGifted={isGifted}
         pendingOrdersCount={pendingOrdersCount}
         isCollapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
