@@ -9,6 +9,8 @@ import {
   ArrowRight,
   Sparkles,
   Star,
+  Check,
+  Lock,
 } from 'lucide-react'
 import { TIER_LABELS, TIER_ICONS, ORDER_LIMITS, TIER_PRICES } from '../../../shared/subscriptions'
 
@@ -192,7 +194,7 @@ export default function OrderLimitWarningModal({
                   
                   <ul className="orderLimitModal__planFeatures">
                     {plan.features.slice(0, 3).map((feature, idx) => (
-                      <li key={idx}>✓ {feature}</li>
+                      <li key={idx}><Check size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> {feature}</li>
                     ))}
                   </ul>
                 </button>
@@ -215,7 +217,7 @@ export default function OrderLimitWarningModal({
 
         {/* Note */}
         <p className="orderLimitModal__note">
-          🔒 Pago seguro con MercadoPago • Cancela cuando quieras
+          <Lock size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Pago seguro con MercadoPago • Cancela cuando quieras
         </p>
       </div>
     </div>

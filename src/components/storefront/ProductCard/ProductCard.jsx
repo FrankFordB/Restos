@@ -1,6 +1,6 @@
 import './ProductCard.css'
 import Button from '../../ui/Button/Button'
-import { Settings } from 'lucide-react'
+import { Settings, Flame, Pencil, Trash2, Lock, Plus } from 'lucide-react'
 
 export default function ProductCard({ 
   product, 
@@ -77,7 +77,7 @@ export default function ProductCard({
       {/* Badge Popular - solo para los 3 más vendidos */}
       {isPopular && !isOutOfStock && !wouldExceedStock && !isLowStock && (
         <div className="productCard__popularBadge">
-          <span>🔥 Popular</span>
+          <span><Flame size={14} /> Popular</span>
         </div>
       )}
       
@@ -129,7 +129,7 @@ export default function ProductCard({
               }}
               aria-label="Editar producto"
             >
-              ✏️
+              <Pencil size={14} />
             </button>
           )}
           {onDelete && (
@@ -142,7 +142,7 @@ export default function ProductCard({
               }}
               aria-label="Eliminar producto"
             >
-              🗑️
+              <Trash2 size={14} />
             </button>
           )}
         </div>
@@ -223,7 +223,7 @@ export default function ProductCard({
                   onClick={!isAddDisabled ? onAdd : undefined}
                   disabled={isAddDisabled}
                 >
-                  {disabled ? '🔒' : '+'}
+                  {disabled ? <Lock size={16} /> : <Plus size={16} />}
                 </button>
               )}
             </div>
@@ -261,7 +261,7 @@ export default function ProductCard({
               </div>
             ) : (
               <Button size="sm" onClick={!isAddDisabled ? onAdd : undefined} disabled={isAddDisabled}>
-                {disabled ? '🔒 Cerrado' : isPolaroid ? '+' : 'Agregar'}
+                {disabled ? <><Lock size={14} /> Cerrado</> : isPolaroid ? <Plus size={16} /> : 'Agregar'}
               </Button>
             )}
 

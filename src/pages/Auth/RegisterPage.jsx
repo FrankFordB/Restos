@@ -21,7 +21,10 @@ import {
   Sparkles,
   ShieldCheck,
   Zap,
-  Loader2
+  Loader2,
+  UtensilsCrossed,
+  Pizza,
+  Coffee
 } from 'lucide-react'
 
 // Google icon component
@@ -341,10 +344,10 @@ export default function RegisterPage() {
         <div className="authPage__heroOverlay"></div>
         
         <div className="authPage__floatingElements">
-          <div className="authPage__floatingCard authPage__floatingCard--1">🍔</div>
-          <div className="authPage__floatingCard authPage__floatingCard--2">🍕</div>
-          <div className="authPage__floatingCard authPage__floatingCard--3">🍣</div>
-          <div className="authPage__floatingCard authPage__floatingCard--4">☕</div>
+          <div className="authPage__floatingCard authPage__floatingCard--1"><UtensilsCrossed size={24} /></div>
+          <div className="authPage__floatingCard authPage__floatingCard--2"><Pizza size={24} /></div>
+          <div className="authPage__floatingCard authPage__floatingCard--3"><UtensilsCrossed size={24} /></div>
+          <div className="authPage__floatingCard authPage__floatingCard--4"><Coffee size={24} /></div>
         </div>
         
         <div className="authPage__heroContent">

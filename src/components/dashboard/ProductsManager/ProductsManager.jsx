@@ -20,10 +20,11 @@ import {
   selectProductsForTenant,
 } from '../../../features/products/productsSlice'
 import {
+  createCategory,
   fetchCategoriesForTenant,
   selectCategoriesForTenant,
 } from '../../../features/categories/categoriesSlice'
-import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut } from 'lucide-react'
+import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut, Plus, Link2, Upload, X } from 'lucide-react'
 
 // Constantes de zoom
 const ZOOM_MIN = 0.5
@@ -126,6 +127,15 @@ export default function ProductsManager({ tenantId }) {
   const [stockUnlimited, setStockUnlimited] = useState(true)
   const [imageFile, setImageFile] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
+  
+  // Estados para crear nueva categoría
+  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  
+  // Estados para imagen por URL
+  const [imageMode, setImageMode] = useState('file') // 'file' | 'url'
+  const [imageUrl, setImageUrl] = useState('')
 
   // Estados para modal de edición
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -542,6 +552,32 @@ export default function ProductsManager({ tenantId }) {
     }
   }
 
+  // Crear nueva categoría
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return
+    setSavingCategory(true)
+    try {
+      const result = await dispatch(createCategory({
+        tenantId,
+        category: { name: newCategoryName.trim() }
+      })).unwrap()
+      // Seleccionar la nueva categoría (en crear o editar producto)
+      const newCatName = result.row?.name || newCategoryName.trim()
+      if (editModalOpen) {
+        setEditCategory(newCatName)
+      } else {
+        setCategory(newCatName)
+      }
+      setNewCategoryName('')
+      setShowNewCategoryModal(false)
+    } catch (e) {
+      console.error('Error creando categoría:', e)
+      alert('Error creando categoría: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
   return (
     <div className="products">
       {/* Header con título y botón de tutorial */}
@@ -588,6 +624,9 @@ export default function ProductsManager({ tenantId }) {
                 return
               }
 
+              // Determinar URL de imagen final
+              const finalImageUrl = imageUrl.trim() || mockImageUrl || null
+
               let created
               try {
                 created = await dispatch(
@@ -599,7 +638,7 @@ export default function ProductsManager({ tenantId }) {
                       description: description.trim(),
                       category: category.trim() || null,
                       stock: stockUnlimited ? null : (stock.trim() ? parseInt(stock, 10) : null),
-                      ...(mockImageUrl ? { imageUrl: mockImageUrl } : null),
+                      ...(finalImageUrl ? { imageUrl: finalImageUrl } : null),
                     },
                   }),
                 ).unwrap()
@@ -609,8 +648,8 @@ export default function ProductsManager({ tenantId }) {
                 return
               }
 
-              // Si hay archivo seleccionado y Supabase estÃ¡ configurado, se sube y se guarda en el producto.
-              // (En modo MOCK no subimos archivos.)
+              // Si hay archivo seleccionado y Supabase está configurado, se sube y se guarda en el producto.
+              // (En modo MOCK no subimos archivos. Si usó URL, ya quedó guardada.)
               try {
                 if (isSupabaseConfigured && imageFile && created?.row?.id) {
                   setPhotoStatus('Subiendo foto...')
@@ -622,9 +661,11 @@ export default function ProductsManager({ tenantId }) {
                   await dispatch(
                     patchProduct({ tenantId, productId: created.row.id, patch: { imageUrl: url } }),
                   ).unwrap()
-                  setPhotoStatus('Foto subida y guardada âœ…')
+                  setPhotoStatus('Foto subida y guardada ✅')
                 } else if (!isSupabaseConfigured && imageFile) {
-                  setPhotoStatus('Foto guardada localmente âœ…')
+                  setPhotoStatus('Foto guardada localmente ✅')
+                } else if (imageUrl.trim()) {
+                  setPhotoStatus('Imagen por URL guardada ✅')
                 }
               } catch (e) {
                 setPhotoStatus(formatPhotoError(e))
@@ -637,6 +678,8 @@ export default function ProductsManager({ tenantId }) {
               setStock('')
               setStockUnlimited(true)
               setImageFile(null)
+              setImageUrl('')
+              setImageMode('file')
               if (createFileInputRef.current) createFileInputRef.current.value = ''
             }}
           >
@@ -646,43 +689,86 @@ export default function ProductsManager({ tenantId }) {
       >
         <div className="products__form">
           <div className="products__formField">
-            <Input label="Nombre" value={name} onChange={setName} placeholder="Hamburguesa doble" />
-            <InfoTooltip 
-              text="El nombre del producto como aparecerá en tu menú. Usa un nombre claro y atractivo."
-              position="right"
-              size={14}
+            <div className="products__fieldHeader">
+              <span className="products__label">Nombre</span>
+              <InfoTooltip 
+                text="El nombre del producto como aparecerá en tu menú. Usa un nombre claro y atractivo."
+                position="right"
+                size={14}
+              />
+            </div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Hamburguesa doble"
+              className="products__input"
             />
           </div>
           <div className="products__formField">
-            <Input
-              label="Precio"
+            <div className="products__fieldHeader">
+              <span className="products__label">Precio</span>
+              <InfoTooltip 
+                text="El precio en pesos. Puedes usar coma o punto como separador decimal."
+                position="right"
+                size={14}
+              />
+            </div>
+            <input
+              type="text"
               value={price}
-              onChange={setPrice}
+              onChange={(e) => setPrice(e.target.value)}
               placeholder="9,99"
               inputMode="decimal"
               autoComplete="off"
-            />
-            <InfoTooltip 
-              text="El precio en pesos. Puedes usar coma o punto como separador decimal."
-              position="right"
-              size={14}
+              className="products__input"
             />
           </div>
           <div className="products__formField">
-            <Input label="Descripción" value={description} onChange={setDescription} placeholder="Ingredientes..." />
-            <InfoTooltip 
-              text="Describe los ingredientes o detalles del producto. Ayuda a los clientes a decidir."
-              position="right"
-              size={14}
+            <div className="products__fieldHeader">
+              <span className="products__label">Descripción</span>
+              <InfoTooltip 
+                text="Describe los ingredientes o detalles del producto. Ayuda a los clientes a decidir."
+                position="right"
+                size={14}
+              />
+            </div>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ingredientes..."
+              className="products__input"
             />
           </div>
           <div className="products__formField">
-            <Input label="Categoría" value={category} onChange={setCategory} placeholder="Ej: Hamburguesas, Bebidas..." />
-            <InfoTooltip 
-              text="Agrupa tus productos por categorías para que los clientes encuentren fácilmente lo que buscan."
-              position="right"
-              size={14}
-            />
+            <div className="products__fieldHeader">
+              <span className="products__label">Categoría</span>
+              <InfoTooltip 
+                text="Agrupa tus productos por categorías para que los clientes encuentren fácilmente lo que buscan."
+                position="right"
+                size={14}
+              />
+            </div>
+            <div className="products__categorySelect">
+              <select
+                value={category}
+                onChange={(e) => {
+                  if (e.target.value === '__new__') {
+                    setShowNewCategoryModal(true)
+                  } else {
+                    setCategory(e.target.value)
+                  }
+                }}
+                className="products__select"
+              >
+                <option value="">Sin categoría</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+                <option value="__new__">+ Crear nueva categoría</option>
+              </select>
+            </div>
           </div>
           
           <div className="products__stockSection">
@@ -716,36 +802,85 @@ export default function ProductsManager({ tenantId }) {
             )}
           </div>
           
-          <div className="products__formField">
-            <label className="products__file">
-              <span className="products__fileLabel">Foto</span>
-              <input
-                ref={createFileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null
-                  if (!file) return
-                  setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
-                  openFocalPointEditor({ file, mode: 'create' })
-                  // permite re-seleccionar el mismo archivo luego
-                  e.target.value = ''
-                }}
+          <div className="products__formField products__formField--row">
+            <div className="products__fieldLabel">
+              <span className="products__label">Foto</span>
+              <InfoTooltip 
+                text="Sube una foto desde tu PC o pega un link de imagen."
+                position="right"
+                size={14}
               />
-            </label>
-            <InfoTooltip 
-              text="Sube una foto atractiva de tu producto. Se te pedirá definir el punto focal para un mejor recorte."
-              position="right"
-              size={14}
-            />
+            </div>
+            <div className="products__imageOptions">
+              <div className="products__imageTabs">
+                <button
+                  type="button"
+                  className={`products__imageTab ${imageMode === 'file' ? 'products__imageTab--active' : ''}`}
+                  onClick={() => setImageMode('file')}
+                >
+                  <Upload size={14} />
+                  Subir archivo
+                </button>
+                <button
+                  type="button"
+                  className={`products__imageTab ${imageMode === 'url' ? 'products__imageTab--active' : ''}`}
+                  onClick={() => setImageMode('url')}
+                >
+                  <Link2 size={14} />
+                  Pegar URL
+                </button>
+              </div>
+              
+              {imageMode === 'file' ? (
+                <label className="products__fileBtn">
+                  <Upload size={16} />
+                  <span>Elegir imagen</span>
+                  <input
+                    ref={createFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null
+                      if (!file) return
+                      setImageUrl('') // Limpiar URL si había
+                      setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
+                      openFocalPointEditor({ file, mode: 'create' })
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              ) : (
+                <div className="products__urlInput">
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value)
+                      setImageFile(null) // Limpiar archivo si había
+                    }}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    className="products__urlField"
+                  />
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      className="products__urlClear"
+                      onClick={() => setImageUrl('')}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {imageFile ? (
+          {(imageFile || imageUrl) && (
             <div className="products__imageRow">
-              <img className="products__thumb" src={previewUrl || ''} alt="" />
-              <span className="products__hint">Vista previa (recortada)</span>
+              <img className="products__thumb" src={imageUrl || previewUrl || ''} alt="" />
+              <span className="products__hint">Vista previa</span>
             </div>
-          ) : null}
+          )}
 
           {!isSupabaseConfigured ? <p className="products__hint">Modo MOCK: la foto se guarda localmente.</p> : null}
           {photoStatus ? <p className="products__hint">{photoStatus}</p> : null}
@@ -870,7 +1005,7 @@ export default function ProductsManager({ tenantId }) {
                           // Para creación, guardar el archivo y el punto focal
                           setImageFile(fileToUpload)
                           // Guardar focalPoint temporalmente (se usará al crear el producto)
-                          setPhotoStatus('Imagen lista ✅')
+                          setPhotoStatus('Imagen lista')
                           closeFocalPointEditor()
                           return
                         }
@@ -885,7 +1020,7 @@ export default function ProductsManager({ tenantId }) {
                             await dispatch(
                               patchProduct({ tenantId, productId, patch: { imageUrl: dataUrl, focalPoint } }),
                             ).unwrap()
-                            setPhotoStatus('Imagen actualizada (local) ✅')
+                            setPhotoStatus('Imagen actualizada (local)')
                             closeFocalPointEditor()
                             return
                           }
@@ -893,7 +1028,7 @@ export default function ProductsManager({ tenantId }) {
                           setPhotoStatus('Subiendo imagen...')
                           const url = await uploadProductImage({ tenantId: tenantIdForUpload, productId, file: fileToUpload })
                           await dispatch(patchProduct({ tenantId, productId, patch: { imageUrl: url, focalPoint } })).unwrap()
-                          setPhotoStatus('Imagen actualizada ✅')
+                          setPhotoStatus('Imagen actualizada')
                           closeFocalPointEditor()
                         }
                       } catch (err) {
@@ -1090,12 +1225,28 @@ export default function ProductsManager({ tenantId }) {
                   onChange={setEditDescription}
                   placeholder="Descripción del producto..."
                 />
-                <Input
-                  label="Categoría"
-                  value={editCategory}
-                  onChange={setEditCategory}
-                  placeholder="Ej: Hamburguesas, Bebidas..."
-                />
+                <div className="products__formField">
+                  <div className="products__fieldHeader">
+                    <span className="products__label">Categoría</span>
+                  </div>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        setShowNewCategoryModal(true)
+                      } else {
+                        setEditCategory(e.target.value)
+                      }
+                    }}
+                    className="products__select"
+                  >
+                    <option value="">Sin categoría</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                    <option value="__new__">+ Crear nueva categoría</option>
+                  </select>
+                </div>
                 
                 <div className="products__stockSection">
                   <label className="products__toggle products__toggle--stock">
@@ -1199,6 +1350,57 @@ export default function ProductsManager({ tenantId }) {
           onSaveVideo={handleSaveTutorial}
         />
       </div>
+
+      {/* Modal para crear nueva categoría */}
+      {showNewCategoryModal && (
+        <div 
+          className="products__modalOverlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowNewCategoryModal(false)
+          }}
+        >
+          <div className="products__modal products__modal--small">
+            <Card 
+              title="Crear nueva categoría"
+              actions={
+                <button 
+                  className="products__modalClose" 
+                  onClick={() => setShowNewCategoryModal(false)}
+                >
+                  <X size={18} />
+                </button>
+              }
+            >
+              <div className="products__newCategoryForm">
+                <Input
+                  label="Nombre de la categoría"
+                  value={newCategoryName}
+                  onChange={setNewCategoryName}
+                  placeholder="Ej: Postres, Ensaladas..."
+                  autoFocus
+                />
+                <div className="products__newCategoryActions">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowNewCategoryModal(false)
+                      setNewCategoryName('')
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleCreateCategory}
+                    disabled={!newCategoryName.trim() || savingCategory}
+                  >
+                    {savingCategory ? 'Guardando...' : 'Crear categoría'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

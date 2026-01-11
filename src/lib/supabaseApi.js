@@ -870,7 +870,7 @@ export async function fetchTenantById(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, logo, description, slogan')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, scheduled_tier, scheduled_at, logo, description, slogan')
     .eq('id', tenantId)
     .maybeSingle()
 

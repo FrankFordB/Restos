@@ -369,13 +369,21 @@ export default function SuperAdminDashboard() {
         })
         break
       case 'activate':
-        try {
-          await adminSetAccountStatus({ userId, status: 'active' })
-          setSuccessMsg('Usuario reactivado correctamente')
-          await loadData()
-        } catch (e) {
-          setError(e?.message)
-        }
+        setConfirmModal({
+          title: 'Reactivar Usuario',
+          message: `¿Reactivar la cuenta de ${user.email}? El usuario podrá volver a acceder a la plataforma.`,
+          variant: 'success',
+          onConfirm: async () => {
+            try {
+              await adminSetAccountStatus({ userId, status: 'active' })
+              setSuccessMsg('Usuario reactivado correctamente')
+              await loadData()
+            } catch (e) {
+              setError(e?.message)
+            }
+            setConfirmModal(null)
+          }
+        })
         break
       case 'delete':
         // Si tiene tienda, preguntar qué hacer
@@ -926,15 +934,6 @@ export default function SuperAdminDashboard() {
                           <CheckCircle size={16} />
                         </button>
                       ) : null}
-                      {user.account_status !== 'blocked' && (
-                        <button 
-                          className="superAdmin__actionBtn superAdmin__actionBtn--warning" 
-                          title="Bloquear"
-                          onClick={() => handleUserAction(user.user_id, 'block')}
-                        >
-                          <ShieldOff size={16} />
-                        </button>
-                      )}
                       <button 
                         className="superAdmin__actionBtn superAdmin__actionBtn--danger" 
                         title="Eliminar"
@@ -2035,7 +2034,7 @@ export default function SuperAdminDashboard() {
                           <div className="superAdmin__linkItemInfo">
                             <span>{p.full_name || 'Sin nombre'}</span>
                             <span className="superAdmin__linkItemEmail">{p.email}</span>
-                            {userTenant && <span className="superAdmin__linkItemTenant">📦 {userTenant.name}</span>}
+                            {userTenant && <span className="superAdmin__linkItemTenant"><Package size={14} /> {userTenant.name}</span>}
                           </div>
                         </button>
                       )

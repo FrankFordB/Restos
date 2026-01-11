@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import './PaymentSuccessModal.css'
 import { formatAmount } from '../../../lib/mercadopago'
+import { Check, Mail, PartyPopper, Heart } from 'lucide-react'
 
 /**
  * Modal profesional de agradecimiento por compra exitosa
@@ -102,7 +103,7 @@ export default function PaymentSuccessModal({
           </div>
 
           <div className="paymentSuccessModal__iconWrapper">
-            <span className="paymentSuccessModal__icon">✓</span>
+            <span className="paymentSuccessModal__icon"><Check size={32} /></span>
           </div>
           
           <h2 className="paymentSuccessModal__title">{content.title}</h2>
@@ -149,7 +150,7 @@ export default function PaymentSuccessModal({
 
           {/* Info adicional */}
           <div className="paymentSuccessModal__info">
-            <span className="paymentSuccessModal__infoIcon">📧</span>
+            <span className="paymentSuccessModal__infoIcon"><Mail size={20} /></span>
             <p className="paymentSuccessModal__infoText">
               {content.info}
             </p>
@@ -161,7 +162,7 @@ export default function PaymentSuccessModal({
               className="paymentSuccessModal__primaryBtn"
               onClick={handlePrimaryAction}
             >
-              <span>🎉</span>
+              <PartyPopper size={18} />
               {content.primaryLabel}
             </button>
             
@@ -179,7 +180,7 @@ export default function PaymentSuccessModal({
         {/* Footer */}
         <div className="paymentSuccessModal__footer">
           <p className="paymentSuccessModal__footerText">
-            Hecho con <span className="paymentSuccessModal__footerHeart">❤️</span> para ti
+            Hecho con <span className="paymentSuccessModal__footerHeart"><Heart size={14} fill="currentColor" /></span> para ti
           </p>
         </div>
       </div>

@@ -54,6 +54,12 @@ import {
   Bell,
   Volume2,
   ExternalLink,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  CheckCircle,
+  Loader,
+  PartyPopper,
 } from 'lucide-react'
 
 function slugify(value) {
@@ -584,7 +590,7 @@ export default function UserDashboardPage() {
         {globalNewOrdersCount > 0 && (
           <span className="dash__globalNotificationCount">{globalNewOrdersCount}</span>
         )}
-        {!soundEnabled && <span className="dash__globalNotificationMuted">✕</span>}
+        {!soundEnabled && <span className="dash__globalNotificationMuted"><X size={12} /></span>}
       </div>
       
       <Sidebar 
@@ -924,6 +930,25 @@ export default function UserDashboardPage() {
                   fetchTenantById(currentTenant.id).then(setCurrentTenant)
                 }
               }}
+              onTenantUpdate={async () => {
+                // Capturamos el ID en el momento de la llamada
+                const tenantId = currentTenant?.id
+                console.log('onTenantUpdate llamado, tenantId:', tenantId)
+                if (tenantId) {
+                  try {
+                    // Pequeño delay para asegurar que la BD se actualizó
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    const updated = await fetchTenantById(tenantId)
+                    console.log('Tenant actualizado:', updated)
+                    console.log('scheduled_tier:', updated?.scheduled_tier)
+                    if (updated) {
+                      setCurrentTenant(updated)
+                    }
+                  } catch (err) {
+                    console.error('Error recargando tenant:', err)
+                  }
+                }
+              }}
             />
             
             <SubscriptionCheckout
@@ -1052,15 +1077,15 @@ function ReportsSection({ tenantId }) {
         <Card title="Tipos de Entrega">
           <div className="reports__breakdown">
             <div className="reports__breakdownItem">
-              <span>🍴 Mostrador</span>
+              <span><UtensilsCrossed size={16} /> Mostrador</span>
               <span className="reports__breakdownValue">{stats.byDeliveryType.mostrador}</span>
             </div>
             <div className="reports__breakdownItem">
-              <span>🚚 A Domicilio</span>
+              <span><Truck size={16} /> A Domicilio</span>
               <span className="reports__breakdownValue">{stats.byDeliveryType.domicilio}</span>
             </div>
             <div className="reports__breakdownItem">
-              <span>🏠 En Mesa</span>
+              <span><Home size={16} /> En Mesa</span>
               <span className="reports__breakdownValue">{stats.byDeliveryType.mesa}</span>
             </div>
           </div>
@@ -1070,7 +1095,7 @@ function ReportsSection({ tenantId }) {
           <div className="reports__breakdown">
             {Object.entries(stats.byPayment).map(([method, count]) => (
               <div key={method} className="reports__breakdownItem">
-                <span>{method === 'efectivo' ? '💵' : method === 'tarjeta' ? '💳' : '📱'} {method === 'efectivo' ? 'Efectivo' : method === 'tarjeta' ? 'Tarjeta' : 'QR'}</span>
+                <span>{method === 'efectivo' ? <Banknote size={16} /> : method === 'tarjeta' ? <CreditCard size={16} /> : <Smartphone size={16} />} {method === 'efectivo' ? 'Efectivo' : method === 'tarjeta' ? 'Tarjeta' : 'QR'}</span>
                 <span className="reports__breakdownValue">{count}</span>
               </div>
             ))}
@@ -1086,7 +1111,7 @@ function ReportsSection({ tenantId }) {
               <span className="reports__tableCell">{order.customer_name}</span>
               <span className="reports__tableCell">${Number(order.total).toFixed(2)}</span>
               <span className={`reports__tableCell reports__status reports__status--${order.status}`}>
-                {order.status === 'completed' ? '✓' : order.status === 'pending' ? '⏳' : '⚙️'} {order.status}
+                {order.status === 'completed' ? <CheckCircle size={14} /> : order.status === 'pending' ? <Loader size={14} /> : <Settings size={14} />} {order.status}
               </span>
             </div>
           ))}
@@ -1141,7 +1166,7 @@ function PendingOrdersModal({ orders, tenantId, onClose }) {
     <div className="pendingModal__overlay">
       <div className="pendingModal">
         <div className="pendingModal__header">
-          <h3>🔔 Pedidos Pendientes ({orders.length})</h3>
+          <h3><Bell size={18} /> Pedidos Pendientes ({orders.length})</h3>
           <button className="pendingModal__close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -1150,7 +1175,7 @@ function PendingOrdersModal({ orders, tenantId, onClose }) {
         <div className="pendingModal__content">
           {orders.length === 0 ? (
             <div className="pendingModal__empty">
-              <p>🎉 No hay pedidos pendientes</p>
+              <p><PartyPopper size={20} /> No hay pedidos pendientes</p>
               <p className="muted">Los nuevos pedidos aparecerán aquí</p>
             </div>
           ) : (
@@ -1197,14 +1222,14 @@ function PendingOrdersModal({ orders, tenantId, onClose }) {
                       disabled={processingOrder === order.id}
                       onClick={() => handleDeleteOrder(order.id)}
                     >
-                      {processingOrder === order.id ? '...' : '❌ Rechazar'}
+                      {processingOrder === order.id ? '...' : <><X size={14} /> Rechazar</>}
                     </Button>
                     <Button
                       size="sm"
                       disabled={processingOrder === order.id}
                       onClick={() => handleAcceptOrder(order.id)}
                     >
-                      {processingOrder === order.id ? '...' : '✅ Aceptar'}
+                      {processingOrder === order.id ? '...' : <><CheckCircle size={14} /> Aceptar</>}
                     </Button>
                   </div>
                 </div>

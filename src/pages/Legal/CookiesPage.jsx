@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './LegalPages.css'
-import { Cookie, ChevronLeft, Mail, Settings, BarChart3, Target, Clock, ToggleLeft } from 'lucide-react'
+import { Cookie, ChevronLeft, Mail, Settings, BarChart3, Target, Clock, ToggleLeft, Lock } from 'lucide-react'
 
 export default function CookiesPage() {
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function CookiesPage() {
           </h2>
           
           <div className="legalPage__cookieType">
-            <h3 className="legalPage__sectionSubtitle">🔒 Cookies Estrictamente Necesarias</h3>
+            <h3 className="legalPage__sectionSubtitle"><Lock size={18} /> Cookies Estrictamente Necesarias</h3>
             <p className="legalPage__text">
               Estas cookies son esenciales para que el sitio funcione correctamente. No pueden ser 
               desactivadas en nuestros sistemas.
@@ -97,7 +97,7 @@ export default function CookiesPage() {
           </div>
 
           <div className="legalPage__cookieType">
-            <h3 className="legalPage__sectionSubtitle">⚙️ Cookies de Funcionalidad</h3>
+            <h3 className="legalPage__sectionSubtitle"><Settings size={18} /> Cookies de Funcionalidad</h3>
             <p className="legalPage__text">
               Permiten funciones mejoradas y personalización, como recordar su idioma preferido 
               o la región en la que se encuentra.
@@ -131,7 +131,7 @@ export default function CookiesPage() {
           </div>
 
           <div className="legalPage__cookieType">
-            <h3 className="legalPage__sectionSubtitle">📊 Cookies de Análisis</h3>
+            <h3 className="legalPage__sectionSubtitle"><BarChart3 size={18} /> Cookies de Análisis</h3>
             <p className="legalPage__text">
               Nos ayudan a entender cómo los visitantes interactúan con el sitio recopilando 
               información de forma anónima.
@@ -165,7 +165,7 @@ export default function CookiesPage() {
           </div>
 
           <div className="legalPage__cookieType">
-            <h3 className="legalPage__sectionSubtitle">🎯 Cookies de Marketing</h3>
+            <h3 className="legalPage__sectionSubtitle"><Target size={18} /> Cookies de Marketing</h3>
             <p className="legalPage__text">
               Se utilizan para rastrear visitantes en los sitios web con la intención de mostrar 
               anuncios relevantes y atractivos.

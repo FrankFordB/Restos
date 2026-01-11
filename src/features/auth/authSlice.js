@@ -291,6 +291,10 @@ const authSlice = createSlice({
       state.bannedInfo = null
       persist(state)
     },
+    setBannedInfo(state, action) {
+      state.bannedInfo = action.payload
+      persist(state)
+    },
     clearWelcomeInfo(state) {
       state.welcomeInfo = null
       persist(state)
@@ -433,6 +437,7 @@ export const {
   setUserRole,
   setAdminManagedTenantId,
   clearBannedInfo,
+  setBannedInfo,
   clearWelcomeInfo,
   setMFARequired,
   completeMFAVerification,

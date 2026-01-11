@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './WelcomeModal.css'
-import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle, Store, Utensils, ShoppingBag, ChefHat, AlertCircle } from 'lucide-react'
+import { X, ArrowRight, MapPin, Clock, Star, Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift, CheckCircle, Store, Utensils, ShoppingBag, ChefHat, AlertCircle, Pizza, UtensilsCrossed, Salad } from 'lucide-react'
 import Button from '../../ui/Button/Button'
 
 // Iconos disponibles para features
@@ -30,8 +30,15 @@ const DEFAULT_FEATURES = [
   { id: '3', icon: 'mapPin', text: 'Delivery disponible' },
 ]
 
-// Decoraciones flotantes con emojis de comida
-const FLOATING_ITEMS = ['🍕', '🍔', '🍣', '🥗', '🌮', '☕']
+// Decoraciones flotantes con iconos de comida
+const FLOATING_ITEMS = [
+  { icon: Pizza, key: 'pizza' },
+  { icon: UtensilsCrossed, key: 'burger' },
+  { icon: ChefHat, key: 'chef' },
+  { icon: Salad, key: 'salad' },
+  { icon: Utensils, key: 'taco' },
+  { icon: Coffee, key: 'coffee' }
+]
 
 export default function WelcomeModal({ 
   isOpen, 
@@ -159,14 +166,17 @@ export default function WelcomeModal({
 
           {/* Floating Food Decorations */}
           <div className="welcomeModal__floatingElements">
-            {FLOATING_ITEMS.map((emoji, i) => (
-              <div 
-                key={i} 
-                className={`welcomeModal__floatingItem welcomeModal__floatingItem--${i + 1}`}
-              >
-                {emoji}
-              </div>
-            ))}
+            {FLOATING_ITEMS.map((item, i) => {
+              const IconComponent = item.icon
+              return (
+                <div 
+                  key={item.key} 
+                  className={`welcomeModal__floatingItem welcomeModal__floatingItem--${i + 1}`}
+                >
+                  <IconComponent size={24} />
+                </div>
+              )
+            })}
           </div>
 
           {/* Logo and Store Info */}

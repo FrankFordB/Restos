@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import './PaymentFailureModal.css'
+import { X, Search, Lightbulb, RefreshCw } from 'lucide-react'
 
 /**
  * Modal profesional para pago fallido/rechazado
@@ -54,7 +55,7 @@ export default function PaymentFailureModal({
         {/* Header */}
         <div className="paymentFailureModal__header">
           <div className="paymentFailureModal__iconWrapper">
-            <span className="paymentFailureModal__icon">✕</span>
+            <span className="paymentFailureModal__icon"><X size={32} /></span>
           </div>
           
           <h2 className="paymentFailureModal__title">Pago No Procesado</h2>
@@ -76,7 +77,7 @@ export default function PaymentFailureModal({
           {/* Razones posibles */}
           <div className="paymentFailureModal__reasons">
             <h4 className="paymentFailureModal__reasonsTitle">
-              <span>🔍</span>
+              <Search size={18} />
               Posibles causas
             </h4>
             <ul className="paymentFailureModal__reasonsList">
@@ -90,7 +91,7 @@ export default function PaymentFailureModal({
 
           {/* Ayuda */}
           <div className="paymentFailureModal__help">
-            <span className="paymentFailureModal__helpIcon">💡</span>
+            <span className="paymentFailureModal__helpIcon"><Lightbulb size={20} /></span>
             <p className="paymentFailureModal__helpText">
               Verifica los datos de tu medio de pago e intenta nuevamente. 
               Si el problema persiste, contacta a tu banco o prueba con otro método de pago.
@@ -103,7 +104,7 @@ export default function PaymentFailureModal({
               className="paymentFailureModal__retryBtn"
               onClick={handleRetry}
             >
-              <span>🔄</span>
+              <RefreshCw size={18} />
               Intentar Nuevamente
             </button>
             

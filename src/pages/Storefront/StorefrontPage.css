@@ -160,7 +160,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 20px;
 }
 
@@ -805,6 +805,23 @@
   border-color: var(--accent);
 }
 
+/* Botón "Todas" - mismo estilo que las demás categorías */
+.store__categoryTab--all {
+  font-weight: 600;
+}
+
+.store__categoryTab--all.store__categoryTab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb, 0, 0, 0), 0.3);
+}
+
+.store__categoryTab--all.store__categoryTab--active .store__categoryCount {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
 .store__categoryTab--unassigned {
   border-style: dashed;
   color: var(--text-muted);
@@ -1168,7 +1185,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 20px;
 }
 

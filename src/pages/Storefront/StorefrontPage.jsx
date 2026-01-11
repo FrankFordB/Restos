@@ -86,6 +86,18 @@ import {
   ArrowLeft,
   Minus,
   RotateCcw,
+  ShoppingCart,
+  ClipboardList,
+  User,
+  Phone,
+  Truck,
+  UtensilsCrossed,
+  Armchair,
+  Banknote,
+  CreditCard,
+  MapPin,
+  FileText,
+  CheckCircle,
 } from 'lucide-react'
 import StoreFooter from '../../components/storefront/StoreFooter/StoreFooter'
 import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
@@ -286,16 +298,17 @@ export default function StorefrontPage() {
     }
   }, [globalStockStatus.stockByCategory, globalStockStatus.hasGlobalStock])
 
-  // Default selected category to first one if null
+  // Default selected category to "all" (null = todas)
   const effectiveSelectedCategory = useMemo(() => {
     if (selectedCategory !== null) return selectedCategory
-    if (sortedCategories.length > 0) return sortedCategories[0].name
-    if (hasUnassignedProducts) return '__unassigned__'
-    return null
+    // Por defecto mostrar "Todas"
+    return '__all__'
   }, [selectedCategory, sortedCategories, hasUnassignedProducts])
 
   // Filter products by selected category
   const filteredProducts = useMemo(() => {
+    // "Todas" muestra todos los productos
+    if (effectiveSelectedCategory === '__all__') return visible
     if (effectiveSelectedCategory === '__unassigned__') {
       return visible.filter((p) => !p.category)
     }
@@ -1579,6 +1592,16 @@ export default function StorefrontPage() {
 
           {/* Category Navigation Tabs */}
           <div className="store__categoryTabs">
+            {/* Botón "Todas" fijo al inicio */}
+            <button
+              type="button"
+              className={`store__categoryTab store__categoryTab--all ${effectiveSelectedCategory === '__all__' ? 'store__categoryTab--active' : ''}`}
+              onClick={() => setSelectedCategory('__all__')}
+            >
+              Todas
+              <span className="store__categoryCount">{visible.length}</span>
+            </button>
+            
             {sortedCategories.map((cat) => (
               <div key={cat.id} className="store__categoryTabWrapper">
                 {editingCategoryId === cat.id && isAdmin ? (
@@ -2618,7 +2641,7 @@ export default function StorefrontPage() {
                 type="button"
                 onClick={() => setShowProductModal(false)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             
@@ -2831,7 +2854,7 @@ export default function StorefrontPage() {
                 type="button"
                 onClick={() => setShowExtrasManagerModal(false)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <div className="store__extrasManagerBody">
@@ -2943,7 +2966,7 @@ export default function StorefrontPage() {
             </p>
             {!globalStockStatus.allEmpty && (
               <p className="store__pausedRealtimeInfo">
-                ¡Pero puedes ver otros de nuestros productos! 🛒
+                ¡Pero puedes ver otros de nuestros productos! <ShoppingCart size={16} />
               </p>
             )}
             {globalStockStatus.allEmpty && (
@@ -3181,21 +3204,21 @@ function CheckoutPage({
   }
 
   const deliveryTypes = [
-    { key: 'mostrador', label: 'Retiro en Local', icon: '🍴', desc: 'Paso a buscar mi pedido' },
-    { key: 'domicilio', label: 'Delivery', icon: '🚚', desc: 'Enviar a mi dirección' },
-    { key: 'mesa', label: 'Comer Aquí', icon: '🪑', desc: 'Para consumir en el lugar' },
+    { key: 'mostrador', label: 'Retiro en Local', icon: <UtensilsCrossed size={20} />, desc: 'Paso a buscar mi pedido' },
+    { key: 'domicilio', label: 'Delivery', icon: <Truck size={20} />, desc: 'Enviar a mi dirección' },
+    { key: 'mesa', label: 'Comer Aquí', icon: <Armchair size={20} />, desc: 'Para consumir en el lugar' },
   ]
 
   // Filtrar métodos de pago - solo mostrar MP si está configurado
   const paymentMethods = useMemo(() => {
     const methods = [
-      { key: 'efectivo', label: 'Efectivo', icon: '💵' },
-      { key: 'tarjeta', label: 'Tarjeta (en local)', icon: '💳' },
+      { key: 'efectivo', label: 'Efectivo', icon: <Banknote size={20} /> },
+      { key: 'tarjeta', label: 'Tarjeta (en local)', icon: <CreditCard size={20} /> },
     ]
     
     // Solo agregar MercadoPago si está configurado
     if (mpConfigured && !mpLoading) {
-      methods.push({ key: 'qr', label: 'Mercado Pago', icon: '📱', highlight: true })
+      methods.push({ key: 'qr', label: 'Mercado Pago', icon: <Smartphone size={20} />, highlight: true })
     }
     
     return methods
@@ -3225,7 +3248,7 @@ function CheckoutPage({
           <span className="checkoutPage__backText">Volver</span>
         </button>
         <h2 className="checkoutPage__title">
-          <span className="checkoutPage__titleIcon">🛒</span>
+          <span className="checkoutPage__titleIcon"><ShoppingCart size={24} /></span>
           Finalizar Pedido
         </h2>
       </div>
@@ -3235,7 +3258,7 @@ function CheckoutPage({
         <details className="checkoutPage__orderSummary" open>
           <summary className="checkoutPage__orderSummaryHeader">
             <span className="checkoutPage__orderSummaryTitle">
-              📋 Tu Pedido ({cartItems?.length || 0} items)
+              <ClipboardList size={18} /> Tu Pedido ({cartItems?.length || 0} items)
             </span>
             <span className="checkoutPage__orderSummaryTotal">{formatPrice(cartTotal)}</span>
           </summary>
@@ -3271,7 +3294,7 @@ function CheckoutPage({
               <div className="checkoutPage__fieldGroup">
                 <div className="checkoutPage__field">
                   <label className="checkoutPage__label">
-                    <span className="checkoutPage__labelIcon">👤</span>
+                    <span className="checkoutPage__labelIcon"><User size={16} /></span>
                     Nombre
                   </label>
                   <input
@@ -3287,7 +3310,7 @@ function CheckoutPage({
 
                 <div className="checkoutPage__field">
                   <label className="checkoutPage__label">
-                    <span className="checkoutPage__labelIcon">📱</span>
+                    <span className="checkoutPage__labelIcon"><Phone size={16} /></span>
                     Teléfono / WhatsApp
                   </label>
                   <input
@@ -3324,7 +3347,7 @@ function CheckoutPage({
                       <span className="checkoutPage__deliveryIcon">{type.icon}</span>
                       <span className="checkoutPage__deliveryLabel">{type.label}</span>
                       <span className="checkoutPage__deliveryDesc">{type.desc}</span>
-                      {isSelected && <span className="checkoutPage__deliveryCheck">✓</span>}
+                      {isSelected && <span className="checkoutPage__deliveryCheck"><CheckCircle size={16} /></span>}
                       {!isEnabled && <span className="checkoutPage__deliveryDisabled">No disponible</span>}
                     </button>
                   )
@@ -3336,7 +3359,7 @@ function CheckoutPage({
                 <div className="checkoutPage__addressSection">
                   <div className="checkoutPage__field">
                     <label className="checkoutPage__label">
-                      <span className="checkoutPage__labelIcon">📍</span>
+                      <span className="checkoutPage__labelIcon"><MapPin size={16} /></span>
                       Dirección de entrega
                     </label>
                     <input
@@ -3350,7 +3373,7 @@ function CheckoutPage({
                   </div>
                   <div className="checkoutPage__field">
                     <label className="checkoutPage__label">
-                      <span className="checkoutPage__labelIcon">📝</span>
+                      <span className="checkoutPage__labelIcon"><FileText size={16} /></span>
                       Indicaciones (opcional)
                     </label>
                     <textarea
@@ -3386,7 +3409,7 @@ function CheckoutPage({
                     >
                       <span className="checkoutPage__paymentIcon">{method.icon}</span>
                       <span className="checkoutPage__paymentLabel">{method.label}</span>
-                      {isSelected && <span className="checkoutPage__paymentCheck">✓</span>}
+                      {isSelected && <span className="checkoutPage__paymentCheck"><CheckCircle size={16} /></span>}
                     </button>
                   )
                 })}
@@ -3398,14 +3421,14 @@ function CheckoutPage({
         {/* Errores */}
         {checkoutError && (
           <div className="checkoutPage__error">
-            <span className="checkoutPage__errorIcon">⚠️</span>
+            <span className="checkoutPage__errorIcon"><AlertTriangle size={18} /></span>
             <span>{checkoutError}</span>
           </div>
         )}
 
         {!stockValidation.isValid && (
           <div className="checkoutPage__stockError">
-            <span className="checkoutPage__stockErrorIcon">📦</span>
+            <span className="checkoutPage__stockErrorIcon"><Package size={18} /></span>
             <div>
               <strong>Stock insuficiente</strong>
               <p>{stockValidation.error}</p>

@@ -15,7 +15,7 @@ import {
   COLOR_PALETTES,
   isFeatureAvailable,
 } from '../../../shared/subscriptions'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Star, Crown, Palette, AlertTriangle, Sparkles, Pencil, ImageIcon, Upload, Eye, Type } from 'lucide-react'
 
 export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION_TIERS.FREE, isSuperAdmin = false }) {
   const dispatch = useAppDispatch()
@@ -107,14 +107,14 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
     if (tier === SUBSCRIPTION_TIERS.FREE) return null
     return (
       <span className={`tierBadge tierBadge--${tier}`} style={{ marginLeft: '8px', fontSize: '0.7rem' }}>
-        {tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+        {tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
       </span>
     )
   }
 
   return (
     <Card
-      title="🎨 Diseño y Personalización"
+      title={<><Palette size={18} style={{display: 'inline', verticalAlign: 'middle', marginRight: '6px'}} /> Diseño y Personalización</>}
       actions={
         <div className="theme__actions">
           {hasChanges && (
@@ -135,7 +135,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
     >
       {hasChanges && (
         <div className="theme__unsavedBanner">
-          ⚠️ Tienes cambios sin guardar
+          <AlertTriangle size={16} /> Tienes cambios sin guardar
         </div>
       )}
       
@@ -147,7 +147,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
             onClick={() => toggleSection('colors')}
             type="button"
           >
-            <span>🎨 Paleta de Colores</span>
+            <span><Palette size={16} style={{marginRight: '6px'}} /> Paleta de Colores</span>
             {openSection === 'colors' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
           {openSection === 'colors' && (
@@ -182,7 +182,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
                         {palette.label}
                         {!available && (
                           <span className="theme__paletteTier">
-                            {palette.tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'}
+                            {palette.tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
                           </span>
                         )}
                       </span>
@@ -243,7 +243,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
             onClick={() => toggleSection('typography')}
             type="button"
           >
-            <span>🔤 Tipografía</span>
+            <span><Type size={16} style={{marginRight: '6px'}} /> Tipografía</span>
             {openSection === 'typography' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
           {openSection === 'typography' && (
@@ -286,7 +286,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
             onClick={() => toggleSection('styles')}
             type="button"
           >
-            <span>✨ Estilos</span>
+            <span><Sparkles size={16} style={{marginRight: '6px'}} /> Estilos</span>
             {openSection === 'styles' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
           {openSection === 'styles' && (
@@ -356,13 +356,13 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
             href={`/store/${tenantId}`}
             className="theme__cardEditLink"
           >
-            ✏️ Editar Cards de Productos aquí
+            <Pencil size={14} style={{marginRight: '6px'}} /> Editar Cards de Productos aquí
           </a>
         </div>
 
         {/* LOGO E IMÁGENES */}
         <div className="theme__section">
-          <div className="theme__sectionTitle">🖼️ Logo e Imágenes</div>
+          <div className="theme__sectionTitle"><ImageIcon size={16} style={{marginRight: '6px'}} /> Logo e Imágenes</div>
           
           <div className="theme__row">
             <span className="theme__label">Logo</span>
@@ -375,7 +375,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
               </div>
             ) : (
               <div className="theme__uploadBox">
-                <div className="theme__uploadIcon">📤</div>
+                <div className="theme__uploadIcon"><Upload size={20} /></div>
                 <div className="theme__uploadText">Subir logo (PNG, JPG)</div>
               </div>
             )}
@@ -384,7 +384,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
 
         {/* PREVIEW */}
         <div className="theme__section">
-          <div className="theme__sectionTitle">👁️ Vista Previa</div>
+          <div className="theme__sectionTitle"><Eye size={16} style={{marginRight: '6px'}} /> Vista Previa</div>
           
           <div className="theme__previewBox">
             <div className="theme__previewTitle">Así se verá tu tienda</div>
@@ -419,7 +419,7 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
           Los cambios se aplican automáticamente a tu tienda pública.
           {effectiveTier === SUBSCRIPTION_TIERS.FREE && (
             <span style={{ display: 'block', marginTop: '8px', color: '#8b5cf6' }}>
-              ⭐ Actualiza a Premium para acceder a más fuentes, estilos y opciones.
+              <Star size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Actualiza a Premium para acceder a más fuentes, estilos y opciones.
             </span>
           )}
         </p>

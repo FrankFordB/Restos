@@ -10,6 +10,9 @@ export default function ProductDetailModal({
   onClose,
   onAddToCart,
   initialQuantity = 1,
+  initialExtras = [],
+  initialComment = '',
+  isEditing = false,
   currentCartQuantity = 0, // Cantidad actual en el carrito para este producto
   stockLimit = null, // Límite efectivo de stock (mínimo entre producto y categoría)
   categoryName = null, // Nombre de la categoría para el mensaje
@@ -22,16 +25,43 @@ export default function ProductDetailModal({
   const isOutOfStock = effectiveStock !== null && effectiveStock === 0
   
   // Calcular stock máximo disponible (restando lo que ya hay en carrito)
+  // Si estamos editando, no restamos porque ya lo contamos
   const maxStock = effectiveStock !== null 
-    ? Math.max(0, effectiveStock - currentCartQuantity)
+    ? Math.max(0, effectiveStock - (isEditing ? 0 : currentCartQuantity))
     : Infinity
   
   const [quantity, setQuantity] = useState(Math.min(initialQuantity, maxStock || 1))
-  // State for simple extras: { extraId: true/false }
-  const [selectedExtras, setSelectedExtras] = useState({})
-  // State for extras with options: { extraId: { optionId: string, option: object } }
-  const [selectedOptions, setSelectedOptions] = useState({})
-  const [comment, setComment] = useState('')
+  
+  // Initialize selectedExtras from initialExtras (for editing)
+  const [selectedExtras, setSelectedExtras] = useState(() => {
+    const initial = {}
+    if (initialExtras && initialExtras.length > 0) {
+      initialExtras.forEach(ext => {
+        if (!ext.selectedOption) {
+          initial[ext.id] = true
+        }
+      })
+    }
+    return initial
+  })
+  
+  // Initialize selectedOptions from initialExtras (for editing)
+  const [selectedOptions, setSelectedOptions] = useState(() => {
+    const initial = {}
+    if (initialExtras && initialExtras.length > 0) {
+      initialExtras.forEach(ext => {
+        if (ext.selectedOption) {
+          initial[ext.id] = {
+            optionId: ext.selectedOption.id,
+            option: ext.selectedOption,
+          }
+        }
+      })
+    }
+    return initial
+  })
+  
+  const [comment, setComment] = useState(initialComment || '')
 
   // Get sorted active groups
   const sortedGroups = useMemo(() => {
@@ -490,7 +520,7 @@ export default function ProductDetailModal({
               </>
             ) : allGroupsValid ? (
               <>
-                Agregar al carrito
+                {isEditing ? 'Actualizar' : 'Agregar al carrito'}
                 <span className="productModal__addPrice">{formatPrice(totalPrice)}</span>
               </>
             ) : (

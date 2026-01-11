@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import './PageBuilder.css'
 import Card from '../../ui/Card/Card'
 import Button from '../../ui/Button/Button'
+import { Star, Crown, Palette, Monitor, Smartphone, FileText, Package, Pencil, Eye, EyeOff, Trash2, ImageIcon, MessageSquare, Megaphone, Play, Carousel, Drama, X } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import {
   fetchWidgets,
@@ -94,7 +95,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
     if (tier === SUBSCRIPTION_TIERS.FREE) return null
     return (
       <span className={`tierBadge tierBadge--${tier}`}>
-        {tier === SUBSCRIPTION_TIERS.PREMIUM ? '⭐' : '👑'} {TIER_LABELS[tier]}
+        {tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />} {TIER_LABELS[tier]}
       </span>
     )
   }
@@ -189,7 +190,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
           {activeTab === 'templates' && (
             <div className="pageBuilder__section">
               <div className="pageBuilder__sectionHeader">
-                🎭 Plantillas
+                <Drama size={16} style={{marginRight: '6px'}} /> Plantillas
               </div>
               <div className="pageBuilder__sectionBody">
                 {templates.map((tpl) => {
@@ -200,7 +201,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
                       className={`pageBuilder__widgetBtn ${!isAvailable ? 'pageBuilder__widgetBtn--locked' : ''}`}
                       disabled={!isAvailable}
                     >
-                      <span className="pageBuilder__widgetIcon">🎨</span>
+                      <span className="pageBuilder__widgetIcon"><Palette size={18} /></span>
                       <div className="pageBuilder__widgetInfo">
                         <div className="pageBuilder__widgetLabel">
                           {tpl.name}
@@ -225,15 +226,15 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
               Tu página ({widgets.length} widgets)
             </span>
             <div className="pageBuilder__previewMode">
-              <button className="pageBuilder__previewBtn pageBuilder__previewBtn--active">💻 Desktop</button>
-              <button className="pageBuilder__previewBtn">📱 Móvil</button>
+              <button className="pageBuilder__previewBtn pageBuilder__previewBtn--active"><Monitor size={14} /> Desktop</button>
+              <button className="pageBuilder__previewBtn"><Smartphone size={14} /> Móvil</button>
             </div>
           </div>
           
           <div className="pageBuilder__canvasBody">
             {widgets.length === 0 ? (
               <div className="pageBuilder__emptyCanvas">
-                <div className="pageBuilder__emptyIcon">📄</div>
+                <div className="pageBuilder__emptyIcon"><FileText size={32} /></div>
                 <p>Tu página está vacía</p>
                 <p className="muted">Arrastra widgets desde la izquierda para comenzar</p>
               </div>
@@ -250,7 +251,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
                   >
                     <div className="pageBuilder__widgetItemHeader">
                       <div className="pageBuilder__widgetItemTitle">
-                        <span>{WIDGET_CONFIG[widget.widget_type]?.icon || '📦'}</span>
+                        <span>{WIDGET_CONFIG[widget.widget_type]?.icon || <Package size={16} />}</span>
                         <span>{widget.title || WIDGET_CONFIG[widget.widget_type]?.label}</span>
                       </div>
                       <div className="pageBuilder__widgetItemActions">
@@ -259,20 +260,20 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
                           onClick={() => setEditingWidget(widget)}
                           title="Editar"
                         >
-                          ✏️
+                          <Pencil size={14} />
                         </button>
                         <button
                           className="pageBuilder__widgetItemBtn"
                           title="Visibilidad"
                         >
-                          {widget.is_visible ? '👁️' : '🙈'}
+                          {widget.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
                         <button
                           className="pageBuilder__widgetItemBtn pageBuilder__widgetItemBtn--danger"
                           onClick={() => handleDeleteWidget(widget.id)}
                           title="Eliminar"
                         >
-                          🗑️
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -313,7 +314,7 @@ function WidgetPreview({ widget }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
         {[1, 2, 3].map(i => (
           <div key={i} style={{ height: '60px', background: '#f1f5f9', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-            📦
+            <Package size={24} />
           </div>
         ))}
       </div>
@@ -322,7 +323,7 @@ function WidgetPreview({ widget }) {
       <div style={{ display: 'flex', gap: '8px', overflow: 'hidden' }}>
         {[1, 2, 3, 4].map(i => (
           <div key={i} style={{ minWidth: '80px', height: '60px', background: '#fef3c7', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            🎠
+            <Carousel size={20} />
           </div>
         ))}
       </div>
@@ -338,14 +339,14 @@ function WidgetPreview({ widget }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
         {[1, 2, 3, 4].map(i => (
           <div key={i} style={{ height: '40px', background: '#ddd6fe', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            🖼️
+            <ImageIcon size={16} />
           </div>
         ))}
       </div>
     ),
     testimonials: (
       <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '6px', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.5rem' }}>💬</div>
+        <div style={{ fontSize: '1.5rem' }}><MessageSquare size={24} /></div>
         <div style={{ fontSize: '0.8rem', color: '#15803d', marginTop: '4px' }}>Testimonios de clientes</div>
       </div>
     ),
@@ -358,12 +359,12 @@ function WidgetPreview({ widget }) {
     ),
     banner: (
       <div style={{ padding: '16px', background: 'linear-gradient(90deg, #1e293b 0%, #334155 100%)', borderRadius: '6px', color: '#fff', textAlign: 'center' }}>
-        🎨 Banner Promocional
+        <Megaphone size={18} style={{marginRight: '6px'}} /> Banner Promocional
       </div>
     ),
     video: (
       <div style={{ height: '80px', background: '#1e1b4b', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-        ▶️ Video
+        <Play size={20} style={{marginRight: '6px'}} /> Video
       </div>
     ),
   }
@@ -389,7 +390,7 @@ function WidgetEditor({ widget, onSave, onClose }) {
       <Card
         className="products__modal"
         title={`Editar: ${WIDGET_CONFIG[widget.widget_type]?.label}`}
-        actions={<Button variant="secondary" size="sm" onClick={onClose}>✕</Button>}
+        actions={<Button variant="secondary" size="sm" onClick={onClose}><X size={16} /></Button>}
       >
         <div style={{ display: 'grid', gap: '16px' }}>
           <div className="input">

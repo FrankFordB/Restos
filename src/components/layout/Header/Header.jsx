@@ -12,7 +12,7 @@ import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/su
 import { fetchTenantPauseStatus } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import { loadJson } from '../../../shared/storage'
-import { Menu, X, Shield } from 'lucide-react'
+import { Menu, X, Shield, UtensilsCrossed, User, Crown, Star, ClipboardList, CreditCard, FileText, Sparkles, Monitor, Headphones, Lightbulb, ScrollText, LogOut } from 'lucide-react'
 
 export default function Header({ sidebarCollapsed = false, onTabChange }) {
   const user = useAppSelector(selectUser)
@@ -214,7 +214,7 @@ FrankFood
                         className="header__userMenuLogo"
                       />
                     ) : (
-                      <span className="header__userMenuDefaultLogo">🍔</span>
+                      <span className="header__userMenuDefaultLogo"><UtensilsCrossed size={20} /></span>
                     )}
                     <span className="header__userMenuEmail">{user.email}</span>
                     <span className={`header__userMenuArrow ${showUserMenu ? 'open' : ''}`}>▼</span>
@@ -230,7 +230,7 @@ FrankFood
                             className="header__userMenuHeaderLogo"
                           />
                         ) : (
-                          <span className="header__userMenuHeaderDefaultLogo">🍔</span>
+                          <span className="header__userMenuHeaderDefaultLogo"><UtensilsCrossed size={24} /></span>
                         )}
                         <div className="header__userMenuHeaderInfo">
                           <span className="header__userMenuHeaderName">{currentTenant?.name || 'My Burger'}</span>
@@ -245,19 +245,19 @@ FrankFood
 
                       <div className="header__userMenuSection">
                         <button className="header__userMenuItem" onClick={() => handleMenuTabClick('account')}>
-                          <span className="header__userMenuItemIcon">👤</span>
+                          <span className="header__userMenuItemIcon"><User size={16} /></span>
                           Mi cuenta
                         </button>
                         <button className="header__userMenuItem header__userMenuItem--plan" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                          <span className="header__userMenuItemIcon">{isPremiumUser ? (currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '👑' : '⭐') : '📋'}</span>
+                          <span className="header__userMenuItemIcon">{isPremiumUser ? (currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? <Crown size={16} /> : <Star size={16} />) : <ClipboardList size={16} />}</span>
                           Mi Plan
                         </button>
                         <button className="header__userMenuItem" onClick={() => handleMenuTabClick('account')}>
-                          <span className="header__userMenuItemIcon">💳</span>
+                          <span className="header__userMenuItemIcon"><CreditCard size={16} /></span>
                           Método de pago
                         </button>
                         <button className="header__userMenuItem" onClick={() => handleMenuTabClick('invoices')}>
-                          <span className="header__userMenuItemIcon">📄</span>
+                          <span className="header__userMenuItemIcon"><FileText size={16} /></span>
                           Facturas
                         </button>
                       </div>
@@ -267,13 +267,13 @@ FrankFood
                       <div className="header__userMenuSection">
                         {!isPremiumUser && (
                           <button className="header__userMenuItem header__userMenuItem--highlight" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                            <span className="header__userMenuItemIcon">✨</span>
+                            <span className="header__userMenuItemIcon"><Sparkles size={16} /></span>
                             Hazte Premium
                           </button>
                         )}
                         {isPremiumUser && currentTier !== SUBSCRIPTION_TIERS.PREMIUM_PRO && (
                           <button className="header__userMenuItem header__userMenuItem--highlight" onClick={() => { setShowUserMenu(false); setShowPremiumModal(true); }}>
-                            <span className="header__userMenuItemIcon">👑</span>
+                            <span className="header__userMenuItemIcon"><Crown size={16} /></span>
                             Actualiza a Premium Pro
                           </button>
                         )}
@@ -283,19 +283,19 @@ FrankFood
 
                       <div className="header__userMenuSection">
                         <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); }}>
-                          <span className="header__userMenuItemIcon">💻</span>
+                          <span className="header__userMenuItemIcon"><Monitor size={16} /></span>
                           Descargar App de escritorio
                         </button>
                         <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); }}>
-                          <span className="header__userMenuItemIcon">🎧</span>
+                          <span className="header__userMenuItemIcon"><Headphones size={16} /></span>
                           Soporte
                         </button>
                         <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); }}>
-                          <span className="header__userMenuItemIcon">💡</span>
+                          <span className="header__userMenuItemIcon"><Lightbulb size={16} /></span>
                           Sugerir una idea
                         </button>
                         <button className="header__userMenuItem" onClick={() => { setShowUserMenu(false); }}>
-                          <span className="header__userMenuItemIcon">📜</span>
+                          <span className="header__userMenuItemIcon"><ScrollText size={16} /></span>
                           Términos y condiciones
                         </button>
                       </div>
@@ -307,7 +307,7 @@ FrankFood
                           className="header__userMenuItem header__userMenuItem--logout"
                           onClick={() => { setShowUserMenu(false); setShowLogoutModal(true); }}
                         >
-                          <span className="header__userMenuItemIcon">🚪</span>
+                          <span className="header__userMenuItemIcon"><LogOut size={16} /></span>
                           Cerrar sesión
                         </button>
                       </div>

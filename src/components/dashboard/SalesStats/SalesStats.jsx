@@ -28,6 +28,17 @@ import {
   BarChart3,
   Calendar,
   Filter,
+  CheckCircle,
+  Ban,
+  Truck,
+  Store,
+  Medal,
+  Trophy,
+  Flame,
+  Sunrise,
+  Sun,
+  CloudSun,
+  Moon,
 } from 'lucide-react'
 
 // Períodos de tiempo para filtrar
@@ -649,7 +660,7 @@ export default function SalesStats({ tenantId }) {
                   {deliveryStats.map(delivery => (
                     <div key={delivery.type} className="salesStats__deliveryItem">
                       <div className="salesStats__deliveryIcon">
-                        {delivery.type === 'domicilio' ? '🛵' : '🏪'}
+                        {delivery.type === 'domicilio' ? <Truck size={20} /> : <Store size={20} />}
                       </div>
                       <div className="salesStats__deliveryInfo">
                         <span className="salesStats__deliveryLabel">{delivery.label}</span>
@@ -757,7 +768,7 @@ export default function SalesStats({ tenantId }) {
                 {productStats.topProducts.map((product, idx) => (
                   <div key={product.id} className="salesStats__productRow">
                     <span className="salesStats__productRank">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                      {idx === 0 ? <Medal size={16} color="#FFD700" /> : idx === 1 ? <Medal size={16} color="#C0C0C0" /> : idx === 2 ? <Medal size={16} color="#CD7F32" /> : `#${idx + 1}`}
                     </span>
                     <span className="salesStats__productName">{product.name}</span>
                     <span className="salesStats__productQty">{product.quantity} uds</span>
@@ -815,7 +826,7 @@ export default function SalesStats({ tenantId }) {
                 {customerStats.topCustomers.map((customer, idx) => (
                   <div key={customer.phone} className="salesStats__customerRow">
                     <span className="salesStats__customerRank">
-                      {idx === 0 ? '🏆' : `#${idx + 1}`}
+                      {idx === 0 ? <Trophy size={16} color="#FFD700" /> : `#${idx + 1}`}
                     </span>
                     <div className="salesStats__customerInfo">
                       <span className="salesStats__customerName">{customer.name}</span>
@@ -879,7 +890,7 @@ export default function SalesStats({ tenantId }) {
 
           {/* Top productos vendidos */}
           {inventoryStats.topSelling.length > 0 && (
-            <Card title="🔥 Más Vendidos (con stock limitado)" className="salesStats__card salesStats__card--full">
+            <Card title={<><Flame size={16} /> Más Vendidos (con stock limitado)</>} className="salesStats__card salesStats__card--full">
               <div className="salesStats__inventoryList">
                 {inventoryStats.topSelling.map((product, idx) => (
                   <div key={product.id} className="salesStats__inventoryItem salesStats__inventoryItem--selling">
@@ -898,7 +909,7 @@ export default function SalesStats({ tenantId }) {
           )}
 
           {inventoryStats.lowStock.length > 0 && (
-            <Card title="⚠️ Productos con Stock Bajo" className="salesStats__card salesStats__card--full">
+            <Card title={<><AlertTriangle size={16} /> Productos con Stock Bajo</>} className="salesStats__card salesStats__card--full">
               <div className="salesStats__inventoryList">
                 {inventoryStats.lowStock.map(product => (
                   <div key={product.id} className="salesStats__inventoryItem salesStats__inventoryItem--warning">
@@ -914,7 +925,7 @@ export default function SalesStats({ tenantId }) {
           )}
 
           {inventoryStats.outOfStock.length > 0 && (
-            <Card title="🚫 Productos Agotados" className="salesStats__card salesStats__card--full">
+            <Card title={<><Ban size={16} /> Productos Agotados</>} className="salesStats__card salesStats__card--full">
               <div className="salesStats__inventoryList">
                 {inventoryStats.outOfStock.map(product => (
                   <div key={product.id} className="salesStats__inventoryItem salesStats__inventoryItem--danger">
@@ -943,7 +954,7 @@ export default function SalesStats({ tenantId }) {
             <Card className="salesStats__card salesStats__card--full">
               <div className="salesStats__empty salesStats__empty--success">
                 <Package size={48} />
-                <h3>¡Inventario en orden! ✓</h3>
+                <h3>¡Inventario en orden! <CheckCircle size={20} style={{display: 'inline', verticalAlign: 'middle'}} /></h3>
                 <p>Todos los productos tienen stock suficiente.</p>
               </div>
             </Card>
@@ -989,10 +1000,10 @@ export default function SalesStats({ tenantId }) {
             <Card title="Resumen por Horario" className="salesStats__card">
               <div className="salesStats__timeSlots">
                 {[
-                  { label: 'Mañana (6-12)', start: 6, end: 12, icon: '🌅' },
-                  { label: 'Mediodía (12-15)', start: 12, end: 15, icon: '☀️' },
-                  { label: 'Tarde (15-19)', start: 15, end: 19, icon: '🌤️' },
-                  { label: 'Noche (19-23)', start: 19, end: 23, icon: '🌙' },
+                  { label: 'Mañana (6-12)', start: 6, end: 12, icon: <Sunrise size={18} /> },
+                  { label: 'Mediodía (12-15)', start: 12, end: 15, icon: <Sun size={18} /> },
+                  { label: 'Tarde (15-19)', start: 15, end: 19, icon: <CloudSun size={18} /> },
+                  { label: 'Noche (19-23)', start: 19, end: 23, icon: <Moon size={18} /> },
                 ].map(slot => {
                   const slotData = hourlySales
                     .filter(h => h.hour >= slot.start && h.hour < slot.end)

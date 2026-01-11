@@ -5,6 +5,7 @@ import {
   TIER_LABELS,
   getDowngradeLostFeatures,
 } from '../../../shared/subscriptions'
+import { Calendar, RefreshCw, Ban, X, AlertTriangle, CheckCircle, Check, Lightbulb } from 'lucide-react'
 
 /**
  * Modal de advertencia al hacer downgrade de suscripción
@@ -40,7 +41,7 @@ export default function DowngradeWarningModal({
       <div className="downgradeModal__card">
         {/* Header con icono de advertencia */}
         <div className="downgradeModal__header">
-          <div className="downgradeModal__icon">📅</div>
+          <div className="downgradeModal__icon"><Calendar size={32} /></div>
           <h2 className="downgradeModal__title">Programar cambio a {targetLabel}</h2>
         </div>
 
@@ -48,7 +49,7 @@ export default function DowngradeWarningModal({
         <div className="downgradeModal__content">
           {/* Info sobre el cambio programado */}
           <div className="downgradeModal__scheduledInfo">
-            <div className="downgradeModal__scheduledIcon">🔄</div>
+            <div className="downgradeModal__scheduledIcon"><RefreshCw size={24} /></div>
             <div className="downgradeModal__scheduledText">
               <strong>Tu plan actual seguirá activo</strong>
               <p>
@@ -68,12 +69,12 @@ export default function DowngradeWarningModal({
           {/* Lista de lo que se perderá */}
           <div className="downgradeModal__lostFeatures">
             <h4 className="downgradeModal__lostFeaturesTitle">
-              🚫 Perderás acceso a:
+              <Ban size={16} /> Perderás acceso a:
             </h4>
             <ul className="downgradeModal__featuresList">
               {lostFeatures.map((feature, idx) => (
                 <li key={idx} className="downgradeModal__featureItem">
-                  <span className="downgradeModal__featureX">✕</span>
+                  <span className="downgradeModal__featureX"><X size={14} /></span>
                   <span>{feature}</span>
                 </li>
               ))}
@@ -82,7 +83,7 @@ export default function DowngradeWarningModal({
 
           {/* Alerta de configuración */}
           <div className="downgradeModal__alert">
-            <span className="downgradeModal__alertIcon">⚠️</span>
+            <span className="downgradeModal__alertIcon"><AlertTriangle size={20} /></span>
             <div className="downgradeModal__alertContent">
               <strong>Las configuraciones se resetearán al expirar</strong>
               <p>
@@ -95,19 +96,19 @@ export default function DowngradeWarningModal({
           {/* Lo que conservarás */}
           <div className="downgradeModal__keepFeatures">
             <h4 className="downgradeModal__keepFeaturesTitle">
-              ✅ Conservarás:
+              <CheckCircle size={16} /> Conservarás:
             </h4>
             <ul className="downgradeModal__featuresList downgradeModal__featuresList--keep">
               <li className="downgradeModal__featureItem">
-                <span className="downgradeModal__featureCheck">✓</span>
+                <span className="downgradeModal__featureCheck"><Check size={14} /></span>
                 <span>Tus productos (hasta el límite del plan {targetLabel})</span>
               </li>
               <li className="downgradeModal__featureItem">
-                <span className="downgradeModal__featureCheck">✓</span>
+                <span className="downgradeModal__featureCheck"><Check size={14} /></span>
                 <span>Tu tienda pública</span>
               </li>
               <li className="downgradeModal__featureItem">
-                <span className="downgradeModal__featureCheck">✓</span>
+                <span className="downgradeModal__featureCheck"><Check size={14} /></span>
                 <span>Historial de pedidos</span>
               </li>
             </ul>
@@ -134,7 +135,7 @@ export default function DowngradeWarningModal({
 
         {/* Nota */}
         <div className="downgradeModal__note">
-          💡 <strong>Importante:</strong> Podrás cancelar este cambio programado en cualquier 
+          <Lightbulb size={16} /> <strong>Importante:</strong> Podrás cancelar este cambio programado en cualquier 
           momento antes de que expire tu suscripción actual.
         </div>
       </div>

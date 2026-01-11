@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './StoreCheckout.css'
+import { X, MapPin, AlertTriangle, Lock, Check } from 'lucide-react'
 import {
   createStoreOrderPreference,
   formatAmount,
@@ -164,7 +165,7 @@ export default function StoreCheckout({
               {step === 1 ? 'Tus Datos' : 'Método de Pago'}
             </h2>
             <button className="storeCheckout__closeBtn" onClick={onClose}>
-              ✕
+              <X size={20} />
             </button>
           </div>
           <p className="storeCheckout__storeName">{tenant?.name}</p>
@@ -310,7 +311,7 @@ export default function StoreCheckout({
                 </div>
 
                 <div className="storeCheckout__deliveryInfo">
-                  <span className="storeCheckout__deliveryIcon">📍</span>
+                  <span className="storeCheckout__deliveryIcon"><MapPin size={18} /></span>
                   <p className="storeCheckout__deliveryText">
                     Te contactaremos al <strong>{customerPhone}</strong> para confirmar tu pedido y coordinar la entrega.
                   </p>
@@ -321,7 +322,7 @@ export default function StoreCheckout({
             {/* Error */}
             {error && (
               <div className="storeCheckout__error">
-                <span>⚠️</span>
+                <span><AlertTriangle size={18} /></span>
                 {error}
               </div>
             )}
@@ -332,13 +333,13 @@ export default function StoreCheckout({
                 type="submit"
                 className={`storeCheckout__submitBtn ${paymentMethod === 'mercadopago' && step === 2 ? 'storeCheckout__submitBtn--mp' : ''}`}
                 disabled={loading}
-              >
+              >>
                 {step === 1 ? (
                   <>Continuar</>
                 ) : paymentMethod === 'mercadopago' ? (
-                  <>🔒 Pagar con MercadoPago</>
+                  <><Lock size={16} /> Pagar con MercadoPago</>
                 ) : (
-                  <>✓ Confirmar Pedido</>
+                  <><Check size={16} /> Confirmar Pedido</>
                 )}
               </button>
               

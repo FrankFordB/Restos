@@ -882,7 +882,7 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
             </label>
             {footerData.use_site_terms && (
               <p className="footerEditor__hint footerEditor__hint--success">
-                ✓ Se mostrará un enlace "Términos y condiciones" que llevará a una página con las políticas de Restos dentro de tu tienda.
+                <CheckCircle size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Se mostrará un enlace "Términos y condiciones" que llevará a una página con las políticas de Restos dentro de tu tienda.
               </p>
             )}
             <SectionSaveButton

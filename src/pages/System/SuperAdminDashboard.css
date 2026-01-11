@@ -2168,15 +2168,6 @@
   box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
 }
 
-/* Block button style */
-.superAdmin__actionBtn--warning {
-  color: #d97706;
-}
-
-.superAdmin__actionBtn--warning:hover {
-  background: #fef3c7;
-}
-
 /* Form tier select with badge and button */
 .superAdmin__formTierSelect {
   display: flex;

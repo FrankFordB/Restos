@@ -534,8 +534,8 @@ export default function AdminSubscriptionsPage() {
                 value={giftForm.planTier}
                 onChange={(e) => setGiftForm(prev => ({ ...prev, planTier: e.target.value }))}
               >
-                <option value="premium">⭐ Premium</option>
-                <option value="premium_pro">👑 Premium Pro</option>
+                <option value="premium">Premium</option>
+                <option value="premium_pro">Premium Pro</option>
               </select>
             </div>
 

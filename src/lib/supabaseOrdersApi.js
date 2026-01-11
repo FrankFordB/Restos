@@ -34,7 +34,8 @@ export async function listOrdersByTenantId(tenantId) {
         unit_price,
         qty,
         line_total,
-        extras
+        extras,
+        comment
       )
     `)
     .eq('tenant_id', tenantId)
@@ -66,6 +67,7 @@ export async function listOrdersByTenantId(tenantId) {
       quantity: item.qty,
       line_total: Number(item.line_total),
       extras: item.extras || [],
+      comment: item.comment || null,
     })),
   }))
 }
@@ -118,6 +120,7 @@ export async function createOrderWithItems({ tenantId, items, total, customer, d
     qty: it.qty || it.quantity,
     line_total: it.lineTotal,
     extras: it.extras || [],
+    comment: it.comment || null,
   }))
 
   const { error: itemsError } = await supabase.from('order_items').insert(rows)
@@ -176,7 +179,8 @@ export async function updateOrderStatus(orderId, newStatus) {
         unit_price,
         qty,
         line_total,
-        extras
+        extras,
+        comment
       )
     `)
     .single()
@@ -203,6 +207,8 @@ export async function updateOrderStatus(orderId, newStatus) {
       unit_price: Number(item.unit_price),
       qty: item.qty,
       line_total: Number(item.line_total),
+      extras: item.extras || [],
+      comment: item.comment || null,
     })),
   }
 }

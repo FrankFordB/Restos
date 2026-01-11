@@ -12,7 +12,8 @@ import {
   CreditCard,
   Gift,
   Zap,
-  Shield
+  Shield,
+  ArrowRight
 } from 'lucide-react'
 import Button from '../Button/Button'
 import './SubscriptionPanel.css'
@@ -25,6 +26,7 @@ import {
   formatSubscriptionDate,
   getSubscriptionStatusColor,
 } from '../../../lib/supabaseSubscriptionApi'
+import { cancelScheduledTierChange } from '../../../lib/supabaseMercadopagoApi'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, TIER_COLORS } from '../../../shared/subscriptions'
 
 export default function SubscriptionPanel({ 
@@ -40,6 +42,7 @@ export default function SubscriptionPanel({
   const [cancelImmediate, setCancelImmediate] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [togglingAutoRenew, setTogglingAutoRenew] = useState(false)
+  const [cancellingScheduled, setCancellingScheduled] = useState(false)
 
   useEffect(() => {
     loadSubscription()
@@ -94,6 +97,19 @@ export default function SubscriptionPanel({
     }
   }
 
+  const handleCancelScheduledChange = async () => {
+    try {
+      setCancellingScheduled(true)
+      await cancelScheduledTierChange(tenantId)
+      await loadSubscription()
+    } catch (err) {
+      console.error('Error cancelando cambio programado:', err)
+      setError(err.message)
+    } finally {
+      setCancellingScheduled(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="subscriptionPanel subscriptionPanel--loading">
@@ -127,9 +143,17 @@ export default function SubscriptionPanel({
   const isExpired = !isFree && subscription.days_remaining <= 0
   const isExpiringSoon = !isFree && subscription.days_remaining > 0 && subscription.days_remaining <= 7
   const isCancelled = subscription.subscription_status === 'cancelled'
+  const hasScheduledChange = !!subscription.scheduled_tier
   
   const tierColor = TIER_COLORS[subscription.subscription_tier] || TIER_COLORS[SUBSCRIPTION_TIERS.FREE]
   const statusColor = getSubscriptionStatusColor(subscription.days_remaining)
+
+  // Obtener el ícono del tier programado
+  const getScheduledTierIcon = (tier) => {
+    if (tier === 'premium_pro') return <Crown size={16} />
+    if (tier === 'premium') return <Star size={16} />
+    return <Zap size={16} />
+  }
 
   return (
     <div className="subscriptionPanel">
@@ -158,6 +182,17 @@ export default function SubscriptionPanel({
                   Válido hasta el <strong>{formatSubscriptionDate(subscription.premium_until)}</strong>
                 </span>
               )}
+            </div>
+          )}
+          
+          {/* Información de cambio programado */}
+          {hasScheduledChange && !isExpired && (
+            <div className="subscriptionPanel__scheduledChange">
+              <ArrowRight size={14} />
+              <span>
+                Cambio a <strong>{TIER_LABELS[subscription.scheduled_tier]}</strong> programado
+                {getScheduledTierIcon(subscription.scheduled_tier)}
+              </span>
             </div>
           )}
         </div>
@@ -208,6 +243,29 @@ export default function SubscriptionPanel({
             <strong>Suscripción cancelada</strong>
             <p>Conservarás los beneficios hasta el {formatSubscriptionDate(subscription.premium_until)}.</p>
           </div>
+        </div>
+      )}
+
+      {/* Alerta de cambio programado */}
+      {hasScheduledChange && !isExpired && (
+        <div className="subscriptionPanel__alert subscriptionPanel__alert--scheduled">
+          <Calendar size={20} />
+          <div>
+            <strong>Cambio de plan programado</strong>
+            <p>
+              Tu plan cambiará a <strong>{TIER_LABELS[subscription.scheduled_tier]}</strong> el{' '}
+              {formatSubscriptionDate(subscription.premium_until)}.
+              Hasta entonces, conservas todos los beneficios de tu plan actual.
+            </p>
+          </div>
+          <Button 
+            size="sm" 
+            variant="ghost"
+            onClick={handleCancelScheduledChange}
+            disabled={cancellingScheduled}
+          >
+            {cancellingScheduled ? 'Cancelando...' : 'Cancelar cambio'}
+          </Button>
         </div>
       )}
 

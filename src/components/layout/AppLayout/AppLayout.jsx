@@ -1,20 +1,23 @@
-import { Outlet, useLocation, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import './AppLayout.css'
 import Header from '../Header/Header'
 import Footer from '../Footer/Footer'
 import ThemeApplier from '../../theme/ThemeApplier'
-import ConfirmModal from '../../ui/ConfirmModal/ConfirmModal'
+import BannedAccountModal from '../../ui/BannedAccountModal/BannedAccountModal'
 import LoginWelcomeModal from '../../ui/LoginWelcomeModal/LoginWelcomeModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
-import { clearBannedInfo, clearWelcomeInfo, selectAuth, signOut } from '../../../features/auth/authSlice'
+import { clearBannedInfo, clearWelcomeInfo, selectAuth, signOut, setBannedInfo } from '../../../features/auth/authSlice'
 import { selectTenants } from '../../../features/tenants/tenantsSlice'
 import { DashboardProvider, useDashboard } from '../../../contexts/DashboardContext'
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient'
 
 function AppLayoutContent() {
   const dispatch = useAppDispatch()
   const auth = useAppSelector(selectAuth)
   const tenants = useAppSelector(selectTenants)
   const location = useLocation()
+  const navigate = useNavigate()
   const dashboard = useDashboard()
 
   const user = auth.user
@@ -24,6 +27,65 @@ function AppLayoutContent() {
   const showBannedModal = Boolean(bannedInfo || accountCancelled)
   const welcomeInfo = auth.welcomeInfo
   const showWelcomeModal = auth.status === 'authenticated' && !showBannedModal && Boolean(welcomeInfo)
+
+  // Verificación inicial del estado de la cuenta al cargar
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return
+
+    const checkAccountStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('account_status')
+          .eq('user_id', user.id)
+          .single()
+
+        if (!error && data) {
+          if (data.account_status === 'cancelled' || data.account_status === 'blocked') {
+            dispatch(setBannedInfo({
+              email: user.email,
+              message: 'Tu cuenta ha sido suspendida por no respetar nuestros términos y condiciones.',
+            }))
+          }
+        }
+      } catch (e) {
+        console.error('Error checking account status:', e)
+      }
+    }
+
+    checkAccountStatus()
+  }, [user?.id, user?.email, dispatch])
+
+  // Suscripción realtime para detectar suspensión de cuenta
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return
+
+    const channel = supabase
+      .channel(`profile-status-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newStatus = payload.new?.account_status
+          if (newStatus === 'cancelled' || newStatus === 'blocked') {
+            dispatch(setBannedInfo({
+              email: user.email,
+              message: 'Tu cuenta ha sido suspendida por el administrador.',
+            }))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id, user?.email, dispatch])
 
   // Get current tenant slug from user
   const userTenant = tenantId ? tenants.find(t => t.id === tenantId) : null
@@ -54,17 +116,18 @@ function AppLayoutContent() {
 
   const bannedEmail = bannedInfo?.email || user?.email || null
 
+  const handleSignOut = () => {
+    dispatch(clearBannedInfo())
+    dispatch(signOut())
+  }
+
   return (
     <div className={`app ${isDashboardPage ? 'app--withSidebar' : ''}`}>
-      <ConfirmModal
+      <BannedAccountModal
         open={showBannedModal}
-        title="Cuenta baneada"
-        message={bannedEmail ? `${bannedMessage}
-Cuenta: ${bannedEmail}` : bannedMessage}
-        confirmLabel={null}
-        cancelLabel={null}
-        onConfirm={null}
-        onCancel={null}
+        email={bannedEmail}
+        message={bannedMessage}
+        onSignOut={handleSignOut}
       />
       <LoginWelcomeModal
         open={showWelcomeModal}

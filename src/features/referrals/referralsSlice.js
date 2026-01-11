@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, createSelector } from '@reduxjs/toolkit'
 import {
   getReferralConfig,
   getOrCreateReferralCode,
@@ -362,17 +362,25 @@ export const selectReferralUrl = (state) => {
   return code ? generateReferralUrl(code) : null
 }
 
-export const selectPendingRewards = (state) => 
-  state.referrals.rewards.filter(r => r.status === REWARD_STATUS.PENDING)
+export const selectPendingRewards = createSelector(
+  [(state) => state.referrals.rewards],
+  (rewards) => rewards.filter(r => r.status === REWARD_STATUS.PENDING)
+)
 
-export const selectAppliedRewards = (state) => 
-  state.referrals.rewards.filter(r => r.status === REWARD_STATUS.APPLIED)
+export const selectAppliedRewards = createSelector(
+  [(state) => state.referrals.rewards],
+  (rewards) => rewards.filter(r => r.status === REWARD_STATUS.APPLIED)
+)
 
-export const selectPendingReferrals = (state) =>
-  state.referrals.referrals.filter(r => r.status === REFERRAL_STATUS.PENDING)
+export const selectPendingReferrals = createSelector(
+  [(state) => state.referrals.referrals],
+  (referrals) => referrals.filter(r => r.status === REFERRAL_STATUS.PENDING)
+)
 
-export const selectConvertedReferrals = (state) =>
-  state.referrals.referrals.filter(r => r.status === REFERRAL_STATUS.CONVERTED)
+export const selectConvertedReferrals = createSelector(
+  [(state) => state.referrals.referrals],
+  (referrals) => referrals.filter(r => r.status === REFERRAL_STATUS.CONVERTED)
+)
 
 export const selectReferralLoadingStates = (state) => ({
   config: state.referrals.configStatus,
@@ -393,46 +401,46 @@ export const selectApplyingRewardId = (state) =>
 export const selectValidatedCode = (state) => state.referrals.validatedCode
 
 // Selector para progreso hacia próxima recompensa
-export const selectReferralProgress = (state) => {
-  const stats = state.referrals.stats
-  const config = state.referrals.config
-  
-  if (!stats || !config) return null
-  
-  const converted = stats.converted_referrals || 0
-  const nextTierReferrals = config.tier_1_referrals || 5
-  
-  // Calcular progreso hacia el próximo umbral
-  const currentInTier = converted % nextTierReferrals
-  const progress = (currentInTier / nextTierReferrals) * 100
-  const remaining = nextTierReferrals - currentInTier
-  
-  // Determinar próximo tier especial
-  let nextSpecialTier = null
-  if (converted < config.tier_2_referrals) {
-    nextSpecialTier = { 
-      tier: 2, 
-      referrals: config.tier_2_referrals, 
-      remaining: config.tier_2_referrals - converted,
-      reward: `${config.tier_2_reward_months} mes de ${config.tier_2_reward_plan}`
+export const selectReferralProgress = createSelector(
+  [(state) => state.referrals.stats, (state) => state.referrals.config],
+  (stats, config) => {
+    if (!stats || !config) return null
+    
+    const converted = stats.converted_referrals || 0
+    const nextTierReferrals = config.tier_1_referrals || 5
+    
+    // Calcular progreso hacia el próximo umbral
+    const currentInTier = converted % nextTierReferrals
+    const progress = (currentInTier / nextTierReferrals) * 100
+    const remaining = nextTierReferrals - currentInTier
+    
+    // Determinar próximo tier especial
+    let nextSpecialTier = null
+    if (converted < config.tier_2_referrals) {
+      nextSpecialTier = { 
+        tier: 2, 
+        referrals: config.tier_2_referrals, 
+        remaining: config.tier_2_referrals - converted,
+        reward: `${config.tier_2_reward_months} mes de ${config.tier_2_reward_plan}`
+      }
+    } else if (converted < config.tier_3_referrals) {
+      nextSpecialTier = { 
+        tier: 3, 
+        referrals: config.tier_3_referrals, 
+        remaining: config.tier_3_referrals - converted,
+        reward: `${config.tier_3_reward_months} meses de ${config.tier_3_reward_plan}`
+      }
     }
-  } else if (converted < config.tier_3_referrals) {
-    nextSpecialTier = { 
-      tier: 3, 
-      referrals: config.tier_3_referrals, 
-      remaining: config.tier_3_referrals - converted,
-      reward: `${config.tier_3_reward_months} meses de ${config.tier_3_reward_plan}`
+    
+    return {
+      converted,
+      currentInTier,
+      nextTierReferrals,
+      progress,
+      remaining,
+      nextSpecialTier,
     }
   }
-  
-  return {
-    converted,
-    currentInTier,
-    nextTierReferrals,
-    progress,
-    remaining,
-    nextSpecialTier,
-  }
-}
+)
 
 export default referralsSlice.reducer

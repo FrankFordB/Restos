@@ -23,7 +23,10 @@ import {
   FileText,
   Shield,
   Palette,
-  X,
+  X as XIcon,
+  Flame,
+  AlertTriangle,
+  Check,
 } from 'lucide-react'
 import {
   createSubscriptionPreference,
@@ -364,7 +367,7 @@ export default function PremiumModal({
                 variant={selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? 'primary' : 'secondary'}
                 className="premiumModal__selectBtn"
               >
-                {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? '✓ Seleccionado' : 'Seleccionar'}
+                {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM ? <><Check size={16} /> Seleccionado</> : 'Seleccionar'}
               </Button>
             )}
           </div>
@@ -404,7 +407,7 @@ export default function PremiumModal({
                 variant={selectedPlan === SUBSCRIPTION_TIERS.PREMIUM_PRO ? 'primary' : 'secondary'}
                 className="premiumModal__selectBtn"
               >
-                {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM_PRO ? '✓ Seleccionado' : 'Seleccionar'}
+                {selectedPlan === SUBSCRIPTION_TIERS.PREMIUM_PRO ? <><Check size={16} /> Seleccionado</> : 'Seleccionar'}
               </Button>
             )}
           </div>

@@ -31,6 +31,7 @@ import {
   Gift,
   Star,
   Gem,
+  AlertTriangle,
 } from 'lucide-react'
 
 const MENU_ITEMS = [
@@ -358,7 +359,7 @@ export default function Sidebar({
               
               {planInfo.isExpired && (
                 <div className="sidebar__planExpiry sidebar__planExpiry--expired">
-                  <span>⚠️ Plan expirado</span>
+                  <span><AlertTriangle size={14} /> Plan expirado</span>
                 </div>
               )}
               

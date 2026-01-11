@@ -17,7 +17,7 @@ import {
 import { signInWithGoogle } from '../../lib/supabaseAuth'
 import { fetchProfile } from '../../lib/supabaseApi'
 import { ROLES } from '../../shared/constants'
-import { Store, Utensils, ShoppingBag, ChefHat, Lock, Mail, ArrowRight, Loader2 } from 'lucide-react'
+import { Store, Utensils, ShoppingBag, ChefHat, Lock, Mail, ArrowRight, Loader2, Pizza, Salad, Coffee } from 'lucide-react'
 import TwoFactorChallenge from './TwoFactorChallenge'
 
 // Google icon component
@@ -178,16 +178,16 @@ export default function LoginPage() {
         {/* Decoraciones flotantes */}
         <div className="authPage__floatingElements">
           <div className="authPage__floatingCard authPage__floatingCard--1">
-            <span>🍕</span>
+            <Pizza size={24} />
           </div>
           <div className="authPage__floatingCard authPage__floatingCard--2">
-            <span>🍔</span>
+            <Utensils size={24} />
           </div>
           <div className="authPage__floatingCard authPage__floatingCard--3">
-            <span>🍣</span>
+            <ChefHat size={24} />
           </div>
           <div className="authPage__floatingCard authPage__floatingCard--4">
-            <span>🥗</span>
+            <Salad size={24} />
           </div>
         </div>
       </div>

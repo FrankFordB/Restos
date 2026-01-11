@@ -1,0 +1,486 @@
+.bannedModal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: bannedFadeIn 0.3s ease;
+}
+
+@keyframes bannedFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.bannedModal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.bannedModal__content {
+  position: relative;
+  background: var(--bg, white);
+  border-radius: 24px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: bannedSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes bannedSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.bannedModal__header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 35%, #f093fb 70%, #f5576c 100%);
+  background-size: 300% 300%;
+  animation: bannedGradientShift 8s ease infinite;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+}
+
+@keyframes bannedGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.bannedModal__iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.bannedModal__headerText {
+  flex: 1;
+}
+
+.bannedModal__title {
+  color: white;
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 0.15rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.bannedModal__subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+.bannedModal__closeBtn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bannedModal__closeBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+/* Body */
+.bannedModal__body {
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+}
+
+/* Mensaje principal - full width */
+.bannedModal__message {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0;
+}
+
+/* Account info - full width */
+.bannedModal__accountInfo {
+  grid-column: 1 / -1;
+}
+
+.bannedModal__messageIcon {
+  color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bannedModal__messageText {
+  color: #991b1b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Account info */
+.bannedModal__accountInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface, #f9fafb);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.bannedModal__accountEmail {
+  font-weight: 500;
+  color: var(--text, #1f2937);
+}
+
+/* Razones */
+.bannedModal__reasons {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.bannedModal__reasonsTitle {
+  font-weight: 600;
+  color: #9a3412;
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bannedModal__reasonsList {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #c2410c;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+/* Términos y condiciones */
+.bannedModal__terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.bannedModal__termsIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bannedModal__termsText {
+  color: #1e40af;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.bannedModal__termsLink {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s ease;
+}
+
+.bannedModal__termsLink:hover {
+  color: #1e3a8a;
+}
+
+/* Contacto */
+.bannedModal__contact {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--surface, #f9fafb);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.bannedModal__contactIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.bannedModal__contactContent {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text, #374151);
+}
+
+.bannedModal__contactContent strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text, #1f2937);
+}
+
+.bannedModal__contactContent p {
+  margin: 0;
+  color: var(--text-muted, #6b7280);
+}
+
+.bannedModal__contactLink {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.bannedModal__contactLink:hover {
+  color: #1d4ed8;
+}
+
+/* Contact buttons */
+.bannedModal__contactButtons {
+  display: flex;
+justify-content: center;
+align-content: center;
+align-self: center;
+  height: 1rem;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bannedModal__contactBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.bannedModal__contactBtn--email {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.bannedModal__contactBtn--email:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.bannedModal__contactBtn--whatsapp {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.bannedModal__contactBtn--whatsapp:hover {
+  background: #bbf7d0;
+  border-color: #4ade80;
+}
+
+/* Acciones */
+.bannedModal__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+.bannedModal__signOutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  background: var(--surface, #f3f4f6);
+  color: var(--text, #374151);
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bannedModal__signOutBtn:hover {
+  background: var(--surface-hover, #e5e7eb);
+  border-color: var(--border-hover, #9ca3af);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .bannedModal__content {
+    background: #1f2937;
+  }
+
+  .bannedModal__message {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .bannedModal__messageText {
+    color: #fca5a5;
+  }
+
+  .bannedModal__reasons {
+    background: rgba(251, 146, 60, 0.1);
+    border-color: rgba(251, 146, 60, 0.3);
+  }
+
+  .bannedModal__reasonsTitle {
+    color: #fdba74;
+  }
+
+  .bannedModal__reasonsList {
+    color: #fb923c;
+  }
+
+  .bannedModal__terms {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .bannedModal__termsText {
+    color: #93c5fd;
+  }
+
+  .bannedModal__termsLink {
+    color: #60a5fa;
+  }
+
+  .bannedModal__accountInfo,
+  .bannedModal__contact {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .bannedModal__contactContent {
+    color: #d1d5db;
+  }
+
+  .bannedModal__contactBtn--email {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+  }
+
+  .bannedModal__contactBtn--whatsapp {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+  }
+
+  .bannedModal__signOutBtn {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+
+  .bannedModal__signOutBtn:hover {
+    background: #4b5563;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 680px) {
+  .bannedModal {
+    padding: 0.5rem;
+  }
+
+  .bannedModal__content {
+    border-radius: 20px;
+    max-height: 95vh;
+  }
+
+  .bannedModal__header {
+    padding: 1rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .bannedModal__iconWrapper {
+    width: 48px;
+    height: 48px;
+  }
+
+  .bannedModal__iconWrapper svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .bannedModal__title {
+    font-size: 1.25rem;
+  }
+
+  .bannedModal__body {
+    padding: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  .bannedModal__accountInfo {
+    grid-column: 1;
+  }
+
+  .bannedModal__reasonsList {
+    padding-left: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .bannedModal__contactButtons {
+    flex-direction: column;
+  }
+
+  .bannedModal__contactBtn {
+    justify-content: center;
+  }
+}

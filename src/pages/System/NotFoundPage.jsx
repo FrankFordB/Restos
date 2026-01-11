@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import Button from '../../components/ui/Button/Button'
+import { UtensilsCrossed } from 'lucide-react'
 import './NotFoundPage.css'
 
 export default function NotFoundPage() {
@@ -8,7 +9,7 @@ export default function NotFoundPage() {
   return (
     <div className="notFound">
       <div className="notFound__content">
-        <span className="notFound__emoji">🍔</span>
+        <span className="notFound__emoji"><UtensilsCrossed size={64} /></span>
         <h1 className="notFound__title">404</h1>
         <h2 className="notFound__subtitle">Página no encontrada</h2>
         <p className="notFound__description">

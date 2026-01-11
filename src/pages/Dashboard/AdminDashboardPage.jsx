@@ -36,7 +36,10 @@ import {
   Ban,
   Utensils,
   Lock,
-  Users
+  Users,
+  Palette,
+  Check,
+  Loader
 } from 'lucide-react'
 
 const ITEMS_PER_PAGE = 10
@@ -303,7 +306,7 @@ export default function AdminDashboardPage() {
                 className={`dash__tab ${activeTab === 'theme' ? 'active' : ''}`}
                 onClick={() => setActiveTab('theme')}
               >
-                <span className="tab-icon"><span style={{ fontSize: '1rem' }}>🎨</span></span>
+                <span className="tab-icon"><Palette size={16} /></span>
                 Tema
               </button>
               <button 
@@ -567,7 +570,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              <Package size={14} /> Free {tier === 'free' && '✓'}
+                              <Package size={14} /> Free {tier === 'free' && <Check size={14} />}
                             </button>
                             
                             <button
@@ -578,7 +581,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              <Star size={14} /> Premium... {tier === 'premium' && '✓'}
+                              <Star size={14} /> Premium... {tier === 'premium' && <Check size={14} />}
                             </button>
                             
                             <button
@@ -589,7 +592,7 @@ export default function AdminDashboardPage() {
                                 setOpenDropdown(null)
                               }}
                             >
-                              <Crown size={14} /> Premium Pro... {tier === 'premium_pro' && '✓'}
+                              <Crown size={14} /> Premium Pro... {tier === 'premium_pro' && <Check size={14} />}
                             </button>
                             
                             <div className="admin__menuDivider" />
@@ -625,7 +628,7 @@ export default function AdminDashboardPage() {
 
             {loadingTenants && (
               <div className="admin__emptyState">
-                <span className="admin__emptyIcon">⏳</span>
+                <span className="admin__emptyIcon"><Loader size={24} /></span>
                 <span className="admin__emptyText">Cargando...</span>
               </div>
             )}

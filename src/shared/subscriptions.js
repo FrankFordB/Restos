@@ -919,6 +919,8 @@ export function getSubscriptionStatus(tenant) {
     isExpiringSoon,
     hasExpired,
     expiresAt: tenant.premium_until,
+    scheduledTier: tenant.scheduled_tier || null,
+    scheduledAt: tenant.scheduled_at || null,
   }
 }
 

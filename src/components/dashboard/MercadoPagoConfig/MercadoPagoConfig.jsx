@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './MercadoPagoConfig.css'
+import { FlaskConical, Rocket, CreditCard, CheckCircle, AlertTriangle, Eye, EyeOff, Trash2, Lightbulb, Save, Loader2 } from 'lucide-react'
 import {
   getTenantMPCredentials,
   saveTenantMPCredentials,
@@ -92,7 +93,7 @@ export default function MercadoPagoConfig({ tenantId }) {
         ...credentials,
         isSandbox: mode === 'sandbox',
       })
-      showToast('✅ Configuración guardada correctamente', 'success')
+      showToast('Configuración guardada correctamente', 'success')
     } catch (error) {
       console.error('Error guardando credenciales:', error)
       showToast('Error al guardar la configuración', 'error')
@@ -154,7 +155,7 @@ export default function MercadoPagoConfig({ tenantId }) {
       <div className="mpConfig__header">
         <div className="mpConfig__headerTop">
           <h2 className="mpConfig__title">
-            <span className="mpConfig__titleIcon">💳</span>
+            <span className="mpConfig__titleIcon"><CreditCard size={20} /></span>
             Configuración de MercadoPago
           </h2>
           <PageTutorialButton sectionId="tutorial-mercadopago" hasVideo={!!tutorialVideo.url} />
@@ -167,7 +168,7 @@ export default function MercadoPagoConfig({ tenantId }) {
       {/* Estado actual */}
       <div className={`mpConfig__status ${isConfigured ? 'mpConfig__status--configured' : 'mpConfig__status--notConfigured'}`}>
         <span className="mpConfig__statusIcon">
-          {isConfigured ? '✅' : '⚠️'}
+          {isConfigured ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
         </span>
         <div className="mpConfig__statusText">
           <h4>{isConfigured ? 'MercadoPago Configurado' : 'MercadoPago No Configurado'}</h4>
@@ -186,13 +187,13 @@ export default function MercadoPagoConfig({ tenantId }) {
           className={`mpConfig__modeBtn mpConfig__modeBtn--sandbox ${mode === 'sandbox' ? 'mpConfig__modeBtn--active' : ''}`}
           onClick={() => setMode('sandbox')}
         >
-          🧪 Pruebas (Sandbox)
+          <FlaskConical size={16} /> Pruebas (Sandbox)
         </button>
         <button
           className={`mpConfig__modeBtn mpConfig__modeBtn--production ${mode === 'production' ? 'mpConfig__modeBtn--active' : ''}`}
           onClick={() => setMode('production')}
         >
-          🚀 Producción
+          <Rocket size={16} /> Producción
         </button>
       </div>
 
@@ -223,7 +224,7 @@ export default function MercadoPagoConfig({ tenantId }) {
                   type={showTokens.publicKey ? 'text' : 'password'}
                   className="mpConfig__input"
                   placeholder={mode === 'sandbox' ? 'TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' : 'APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
-                  value={mode === 'sandbox' ? credentials.sandboxPublicKey : credentials.publicKey}
+                  value={(mode === 'sandbox' ? credentials.sandboxPublicKey : credentials.publicKey) || ''}
                   onChange={(e) => handleChange(
                     mode === 'sandbox' ? 'sandboxPublicKey' : 'publicKey',
                     e.target.value
@@ -234,7 +235,7 @@ export default function MercadoPagoConfig({ tenantId }) {
                   className="mpConfig__toggleVisibility"
                   onClick={() => toggleVisibility('publicKey')}
                 >
-                  {showTokens.publicKey ? '🙈' : '👁️'}
+                  {showTokens.publicKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <span className="mpConfig__hint">
@@ -248,7 +249,7 @@ export default function MercadoPagoConfig({ tenantId }) {
                   Access Token
                 </label>
                 <InfoTooltip 
-                  text="⚠️ Token secreto. Nunca lo compartas. Se usa para procesar pagos de forma segura."
+                  text="Token secreto. Nunca lo compartas. Se usa para procesar pagos de forma segura."
                   position="right"
                   size={14}
                 />
@@ -258,7 +259,7 @@ export default function MercadoPagoConfig({ tenantId }) {
                   type={showTokens.accessToken ? 'text' : 'password'}
                   className="mpConfig__input"
                   placeholder={mode === 'sandbox' ? 'TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : 'APP_USR-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-                  value={mode === 'sandbox' ? credentials.sandboxAccessToken : credentials.accessToken}
+                  value={(mode === 'sandbox' ? credentials.sandboxAccessToken : credentials.accessToken) || ''}
                   onChange={(e) => handleChange(
                     mode === 'sandbox' ? 'sandboxAccessToken' : 'accessToken',
                     e.target.value
@@ -269,11 +270,11 @@ export default function MercadoPagoConfig({ tenantId }) {
                   className="mpConfig__toggleVisibility"
                   onClick={() => toggleVisibility('accessToken')}
                 >
-                  {showTokens.accessToken ? '🙈' : '👁️'}
+                  {showTokens.accessToken ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <span className="mpConfig__hint">
-                ⚠️ Mantén este token seguro. Se usa para crear preferencias de pago.
+                <AlertTriangle size={12} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Mantén este token seguro. Se usa para crear preferencias de pago.
               </span>
             </div>
           </div>
@@ -287,9 +288,9 @@ export default function MercadoPagoConfig({ tenantId }) {
             disabled={saving}
           >
             {saving ? (
-              <>⏳ Guardando...</>
+              <><Loader2 size={16} className="spinning" /> Guardando...</>
             ) : (
-              <>💾 Guardar Configuración</>
+              <><Save size={16} /> Guardar Configuración</>
             )}
           </button>
           
@@ -300,7 +301,7 @@ export default function MercadoPagoConfig({ tenantId }) {
               onClick={handleClear}
               disabled={saving}
             >
-              🗑️ Eliminar
+              <Trash2 size={14} /> Eliminar
             </button>
           )}
         </div>
@@ -309,7 +310,7 @@ export default function MercadoPagoConfig({ tenantId }) {
       {/* Ayuda */}
       <div className="mpConfig__help">
         <h4 className="mpConfig__helpTitle">
-          💡 ¿Cómo obtener tus credenciales?
+          <Lightbulb size={16} /> ¿Cómo obtener tus credenciales?
         </h4>
         <ol className="mpConfig__helpSteps">
           <li>

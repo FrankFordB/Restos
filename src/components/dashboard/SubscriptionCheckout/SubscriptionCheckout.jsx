@@ -3,7 +3,8 @@ import './SubscriptionCheckout.css'
 import SubscriptionPlans from '../SubscriptionPlans/SubscriptionPlans'
 import PaymentSuccessModal from '../../ui/PaymentSuccessModal/PaymentSuccessModal'
 import DowngradeWarningModal from '../../ui/DowngradeWarningModal/DowngradeWarningModal'
-import { Star, Crown } from 'lucide-react'
+import ScheduledChangeModal from '../../ui/ScheduledChangeModal/ScheduledChangeModal'
+import { Star, Crown, FlaskConical } from 'lucide-react'
 import { Lock } from 'lucide-react'
 import {
   SUBSCRIPTION_TIERS,
@@ -47,6 +48,10 @@ export default function SubscriptionCheckout({
   const [showDowngradeModal, setShowDowngradeModal] = useState(false)
   const [downgradeTier, setDowngradeTier] = useState(null)
   const [downgradeLoading, setDowngradeLoading] = useState(false)
+  
+  // Scheduled change modal state
+  const [showScheduledModal, setShowScheduledModal] = useState(false)
+  const [scheduledChangeData, setScheduledChangeData] = useState(null)
 
   const mpConfigured = isPlatformMPConfigured()
 
@@ -84,17 +89,13 @@ export default function SubscriptionCheckout({
       setShowDowngradeModal(false)
       setDowngradeTier(null)
       
-      // Mostrar mensaje de éxito
-      const expiryDate = premiumUntil ? new Date(premiumUntil).toLocaleDateString('es-AR') : 'que expire'
-      alert(`✅ Cambio programado exitosamente.\n\nTu plan actual seguirá activo hasta el ${expiryDate}.\nDespués de esa fecha, cambiarás a ${TIER_LABELS[downgradeTier]}.`)
-      
-      // Notify parent and reload to reflect changes
-      if (onSubscriptionComplete) {
-        onSubscriptionComplete(downgradeTier)
-      }
-      
-      // Reload page to update UI
-      window.location.reload()
+      // Guardar datos para el modal de confirmación
+      setScheduledChangeData({
+        currentTier: currentTier,
+        newTier: downgradeTier,
+        effectiveDate: premiumUntil,
+      })
+      setShowScheduledModal(true)
     } catch (err) {
       console.error('Error scheduling tier change:', err)
       console.error('Error details:', err.message, err.code, err.details)
@@ -102,6 +103,19 @@ export default function SubscriptionCheckout({
     } finally {
       setDowngradeLoading(false)
     }
+  }
+
+  const handleScheduledModalClose = () => {
+    setShowScheduledModal(false)
+    setScheduledChangeData(null)
+    
+    // Notify parent and reload to reflect changes
+    if (onSubscriptionComplete) {
+      onSubscriptionComplete(scheduledChangeData?.newTier)
+    }
+    
+    // Reload page to update UI
+    window.location.reload()
   }
 
   const handleCloseCheckout = () => {
@@ -233,7 +247,7 @@ export default function SubscriptionCheckout({
           color: '#92400e',
           fontSize: '0.9rem',
         }}>
-          🧪 <strong>Modo Demo:</strong> MercadoPago no está configurado. 
+          <FlaskConical size={16} /> <strong>Modo Demo:</strong> MercadoPago no está configurado. 
           Los pagos se simularán para pruebas.
         </div>
       )}
@@ -389,6 +403,15 @@ export default function SubscriptionCheckout({
         primaryActionLabel="Ir a Mi Dashboard"
         onSecondaryAction={handleSuccessClose}
         secondaryActionLabel="Cerrar"
+      />
+
+      {/* Modal de cambio programado */}
+      <ScheduledChangeModal
+        isOpen={showScheduledModal}
+        onClose={handleScheduledModalClose}
+        currentTier={scheduledChangeData?.currentTier}
+        newTier={scheduledChangeData?.newTier}
+        effectiveDate={scheduledChangeData?.effectiveDate}
       />
     </div>
   )

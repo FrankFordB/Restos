@@ -148,6 +148,8 @@ export const getActiveSubscription = async (tenantId) => {
       subscription_status: tenant.subscription_status || 'active',
       days_remaining: calculateDaysRemaining(tenant.premium_until),
       is_active: isSubscriptionActive(tenant.subscription_tier, tenant.premium_until),
+      scheduled_tier: tenant.scheduled_tier || null,
+      scheduled_at: tenant.scheduled_at || null,
     }
   }
 
@@ -161,7 +163,9 @@ export const getActiveSubscription = async (tenantId) => {
       premium_until,
       auto_renew,
       orders_limit,
-      orders_remaining
+      orders_remaining,
+      scheduled_tier,
+      scheduled_at
     `)
     .eq('id', tenantId)
     .single()
@@ -181,6 +185,8 @@ export const getActiveSubscription = async (tenantId) => {
     orders_remaining: data.orders_remaining,
     days_remaining: calculateDaysRemaining(data.premium_until),
     is_active: isSubscriptionActive(data.subscription_tier, data.premium_until),
+    scheduled_tier: data.scheduled_tier || null,
+    scheduled_at: data.scheduled_at || null,
   }
 }
 
@@ -923,4 +929,249 @@ export const getSubscriptionStatusColor = (daysRemaining) => {
   if (daysRemaining <= 3) return '#f97316' // orange
   if (daysRemaining <= 7) return '#eab308' // yellow
   return '#22c55e' // green
+}
+
+// ============================================================================
+// MERCADOPAGO SUBSCRIPTIONS API
+// Funciones para manejar suscripciones con débito automático
+// ============================================================================
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+
+/**
+ * Crea una nueva suscripción y retorna la URL para autorizar el pago
+ * El usuario será redirigido a MercadoPago para aceptar el débito automático
+ * @param {string} tenantId 
+ * @param {'premium'|'premium_pro'} plan 
+ * @returns {Promise<{success: boolean, init_point?: string, error?: string}>}
+ */
+export async function createMPSubscription(tenantId, plan) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      return { success: false, error: 'No authenticated session' }
+    }
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tenant_id: tenantId, plan }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Error creating subscription' }
+    }
+
+    return {
+      success: true,
+      init_point: data.init_point,
+      preapproval_id: data.preapproval_id,
+    }
+  } catch (error) {
+    console.error('Error creating MP subscription:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+}
+
+/**
+ * Cancela la suscripción activa del tenant
+ * @param {string} tenantId 
+ * @param {boolean} immediate - Si es true, cancela inmediatamente
+ * @returns {Promise<{success: boolean, message?: string, error?: string}>}
+ */
+export async function cancelMPSubscription(tenantId, immediate = false) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      return { success: false, error: 'No authenticated session' }
+    }
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tenant_id: tenantId, immediate }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Error cancelling subscription' }
+    }
+
+    return {
+      success: true,
+      message: data.message,
+    }
+  } catch (error) {
+    console.error('Error cancelling MP subscription:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+}
+
+/**
+ * Obtiene la información de la suscripción MP activa del tenant
+ * @param {string} tenantId 
+ * @returns {Promise<Object|null>}
+ */
+export async function getActiveMPSubscription(tenantId) {
+  try {
+    const { data, error } = await supabase
+      .from('mp_subscriptions')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .in('status', ['active', 'authorized', 'pending', 'paused', 'payment_failed'])
+      .single()
+
+    if (error || !data) {
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error fetching MP subscription:', error)
+    return null
+  }
+}
+
+/**
+ * Obtiene el historial de pagos del tenant
+ * @param {string} tenantId 
+ * @param {number} limit 
+ * @returns {Promise<Array>}
+ */
+export async function getMPPaymentHistory(tenantId, limit = 10) {
+  try {
+    const { data, error } = await supabase
+      .from('mp_payments')
+      .select('id, amount, status, payment_date, mp_payment_id')
+      .eq('tenant_id', tenantId)
+      .order('payment_date', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      console.error('Error fetching payment history:', error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Error fetching payment history:', error)
+    return []
+  }
+}
+
+/**
+ * Obtiene el mensaje de estado para mostrar al usuario
+ * @param {Object} subscription 
+ * @returns {{status: string, title: string, message: string}}
+ */
+export function getMPSubscriptionStatusMessage(subscription) {
+  if (!subscription) {
+    return {
+      status: 'info',
+      title: 'Sin Suscripción',
+      message: 'No tienes una suscripción activa con débito automático',
+    }
+  }
+
+  switch (subscription.status) {
+    case 'active':
+      return {
+        status: 'success',
+        title: 'Suscripción Activa',
+        message: subscription.next_billing_date
+          ? `Próximo cobro: ${formatSubscriptionDate(subscription.next_billing_date)}`
+          : 'Tu suscripción está activa',
+      }
+
+    case 'authorized':
+      return {
+        status: 'info',
+        title: 'Suscripción Autorizada',
+        message: 'Tu suscripción ha sido autorizada y el primer cobro será procesado pronto',
+      }
+
+    case 'pending':
+      return {
+        status: 'warning',
+        title: 'Pendiente de Autorización',
+        message: 'Completa el proceso en MercadoPago para activar tu suscripción',
+      }
+
+    case 'payment_failed':
+      return {
+        status: 'error',
+        title: 'Pago Fallido',
+        message: subscription.grace_period_ends
+          ? `Tienes hasta el ${formatSubscriptionDate(subscription.grace_period_ends)} para actualizar tu método de pago`
+          : 'Por favor actualiza tu método de pago',
+      }
+
+    case 'paused':
+      return {
+        status: 'warning',
+        title: 'Suscripción Pausada',
+        message: 'Tu suscripción está pausada',
+      }
+
+    case 'cancelled':
+      return {
+        status: 'warning',
+        title: 'Suscripción Cancelada',
+        message: subscription.end_date
+          ? `Tus beneficios continúan hasta el ${formatSubscriptionDate(subscription.end_date)}`
+          : 'Tu suscripción ha sido cancelada',
+      }
+
+    default:
+      return {
+        status: 'info',
+        title: 'Estado Desconocido',
+        message: 'Estado de suscripción no reconocido',
+      }
+  }
+}
+
+/**
+ * Configuración de planes para MP
+ */
+export const MP_PLANS = {
+  premium: {
+    id: 'premium',
+    name: 'Premium',
+    price: 4990,
+    features: [
+      '80 pedidos mensuales',
+      'Personalización de colores',
+      'Logo personalizado',
+      'Sin marca de agua',
+    ],
+  },
+  premium_pro: {
+    id: 'premium_pro',
+    name: 'PRO',
+    price: 7990,
+    features: [
+      'Pedidos ilimitados',
+      'Todas las personalizaciones',
+      'Soporte prioritario',
+      'Análisis avanzados',
+    ],
+  },
 }

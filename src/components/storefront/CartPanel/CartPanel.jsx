@@ -1,6 +1,6 @@
 import './CartPanel.css'
 import Button from '../../ui/Button/Button'
-import { ShoppingBag, Trash2, Plus, Minus, Package, Sparkles, ArrowRight, Clock, Pencil } from 'lucide-react'
+import { ShoppingBag, Trash2, Plus, Minus, Package, Sparkles, ArrowRight, Clock, Pencil, MessageSquare } from 'lucide-react'
 
 export default function CartPanel({ items, total, onClear, onCheckout, onAdd, onRemove, onEdit, storeStatus }) {
   // Format price helper
@@ -124,7 +124,7 @@ export default function CartPanel({ items, total, onClear, onCheckout, onAdd, on
                 {/* Comment */}
                 {hasComment && (
                   <div className="cart__commentBadge">
-                    💬 {it.comment}
+                    <MessageSquare size={14} /> {it.comment}
                   </div>
                 )}
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './SubscriptionsAdmin.css'
 import { getAllPlatformSubscriptions, getSubscriptionsSummary } from '../../../lib/supabaseMercadopagoApi'
 import { TIER_LABELS } from '../../../shared/subscriptions'
+import { XCircle, BarChart2, RefreshCw, Users, Star, Crown, AlertTriangle, Ban, Check, X } from 'lucide-react'
 
 /**
  * Panel de administración de suscripciones para super_admin
@@ -66,7 +67,7 @@ export default function SubscriptionsAdmin() {
     return (
       <div className="subscriptionsAdmin">
         <div className="subscriptionsAdmin__error">
-          <p>❌ Error: {error}</p>
+          <p><XCircle size={16} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Error: {error}</p>
           <button onClick={loadSubscriptions}>Reintentar</button>
         </div>
       </div>
@@ -78,19 +79,19 @@ export default function SubscriptionsAdmin() {
   return (
     <div className="subscriptionsAdmin">
       <div className="subscriptionsAdmin__header">
-        <h2>📊 Gestión de Suscripciones</h2>
+        <h2><BarChart2 size={20} style={{display: 'inline', verticalAlign: 'middle', marginRight: '8px'}} /> Gestión de Suscripciones</h2>
         <button 
           className="subscriptionsAdmin__refreshBtn"
           onClick={loadSubscriptions}
         >
-          🔄 Actualizar
+          <RefreshCw size={14} /> Actualizar
         </button>
       </div>
 
       {/* Summary Cards */}
       <div className="subscriptionsAdmin__summary">
         <div className="subscriptionsAdmin__card">
-          <div className="subscriptionsAdmin__cardIcon">👥</div>
+          <div className="subscriptionsAdmin__cardIcon"><Users size={20} /></div>
           <div className="subscriptionsAdmin__cardContent">
             <span className="subscriptionsAdmin__cardValue">{summary?.total || 0}</span>
             <span className="subscriptionsAdmin__cardLabel">Total Suscritos</span>
@@ -98,7 +99,7 @@ export default function SubscriptionsAdmin() {
         </div>
 
         <div className="subscriptionsAdmin__card subscriptionsAdmin__card--premium">
-          <div className="subscriptionsAdmin__cardIcon">⭐</div>
+          <div className="subscriptionsAdmin__cardIcon"><Star size={20} /></div>
           <div className="subscriptionsAdmin__cardContent">
             <span className="subscriptionsAdmin__cardValue">{summary?.premium || 0}</span>
             <span className="subscriptionsAdmin__cardLabel">Premium</span>
@@ -106,7 +107,7 @@ export default function SubscriptionsAdmin() {
         </div>
 
         <div className="subscriptionsAdmin__card subscriptionsAdmin__card--pro">
-          <div className="subscriptionsAdmin__cardIcon">👑</div>
+          <div className="subscriptionsAdmin__cardIcon"><Crown size={20} /></div>
           <div className="subscriptionsAdmin__cardContent">
             <span className="subscriptionsAdmin__cardValue">{summary?.premiumPro || 0}</span>
             <span className="subscriptionsAdmin__cardLabel">Premium Pro</span>
@@ -114,7 +115,7 @@ export default function SubscriptionsAdmin() {
         </div>
 
         <div className="subscriptionsAdmin__card subscriptionsAdmin__card--warning">
-          <div className="subscriptionsAdmin__cardIcon">⚠️</div>
+          <div className="subscriptionsAdmin__cardIcon"><AlertTriangle size={20} /></div>
           <div className="subscriptionsAdmin__cardContent">
             <span className="subscriptionsAdmin__cardValue">{summary?.expiringSoon || 0}</span>
             <span className="subscriptionsAdmin__cardLabel">Por Vencer (7 días)</span>
@@ -122,7 +123,7 @@ export default function SubscriptionsAdmin() {
         </div>
 
         <div className="subscriptionsAdmin__card subscriptionsAdmin__card--danger">
-          <div className="subscriptionsAdmin__cardIcon">🚫</div>
+          <div className="subscriptionsAdmin__cardIcon"><Ban size={20} /></div>
           <div className="subscriptionsAdmin__cardContent">
             <span className="subscriptionsAdmin__cardValue">{summary?.expired || 0}</span>
             <span className="subscriptionsAdmin__cardLabel">Expirados</span>
@@ -142,13 +143,13 @@ export default function SubscriptionsAdmin() {
           className={`subscriptionsAdmin__filterBtn ${filter === 'expiring' ? 'active' : ''}`}
           onClick={() => setFilter('expiring')}
         >
-          ⚠️ Por Vencer ({summary?.expiringSoon || 0})
+          <AlertTriangle size={12} /> Por Vencer ({summary?.expiringSoon || 0})
         </button>
         <button
           className={`subscriptionsAdmin__filterBtn ${filter === 'expired' ? 'active' : ''}`}
           onClick={() => setFilter('expired')}
         >
-          🚫 Expirados ({summary?.expired || 0})
+          <Ban size={12} /> Expirados ({summary?.expired || 0})
         </button>
       </div>
 
@@ -181,7 +182,7 @@ export default function SubscriptionsAdmin() {
                 </div>
                 
                 <div className={`subscriptionsAdmin__tier subscriptionsAdmin__tier--${sub.subscription_tier}`}>
-                  {sub.subscription_tier === 'premium_pro' ? '👑' : '⭐'}
+                  {sub.subscription_tier === 'premium_pro' ? <Crown size={14} /> : <Star size={14} />}
                   {TIER_LABELS[sub.subscription_tier] || sub.subscription_tier}
                 </div>
                 
@@ -198,9 +199,9 @@ export default function SubscriptionsAdmin() {
                 
                 <div className="subscriptionsAdmin__autoRenew">
                   {sub.auto_renew ? (
-                    <span className="subscriptionsAdmin__autoRenew--on">✅ Activa</span>
+                    <span className="subscriptionsAdmin__autoRenew--on"><Check size={14} /> Activa</span>
                   ) : (
-                    <span className="subscriptionsAdmin__autoRenew--off">❌ Inactiva</span>
+                    <span className="subscriptionsAdmin__autoRenew--off"><X size={14} /> Inactiva</span>
                   )}
                 </div>
               </div>

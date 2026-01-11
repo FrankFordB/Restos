@@ -7,11 +7,13 @@ import Input from '../../ui/Input/Input'
 import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
 import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
 import TutorialSection from '../TutorialSection/TutorialSection'
+import ProductDetailModal from '../../storefront/ProductDetailModal/ProductDetailModal'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { selectUser } from '../../../features/auth/authSlice'
 import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrder, deleteOrder } from '../../../features/orders/ordersSlice'
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
 import { fetchCategoriesForTenant, selectCategoriesForTenant, patchCategory } from '../../../features/categories/categoriesSlice'
+import { fetchExtrasForTenant, selectExtrasForTenant, fetchExtraGroupsForTenant, selectExtraGroupsForTenant } from '../../../features/extras/extrasSlice'
 import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus, fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
@@ -44,6 +46,16 @@ import {
   Infinity,
   Edit2,
   Settings,
+  Check,
+  Trash2,
+  Printer,
+  Banknote,
+  XCircle,
+  MessageSquare,
+  Building2,
+  CreditCard,
+  Smartphone,
+  Wallet,
 } from 'lucide-react'
 
 const DELIVERY_TYPES = {
@@ -79,6 +91,8 @@ export default function OrdersManager({ tenantId }) {
   const orders = useAppSelector(selectOrdersForTenant(tenantId))
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
+  const extras = useAppSelector(selectExtrasForTenant(tenantId))
+  const extraGroups = useAppSelector(selectExtraGroupsForTenant(tenantId))
   const visibleProducts = useMemo(() => products.filter((p) => p.active), [products])
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -95,7 +109,7 @@ export default function OrdersManager({ tenantId }) {
   
   // Modo tienda embebida para crear pedido
   const [showCreateStore, setShowCreateStore] = useState(false)
-  const [cart, setCart] = useState({}) // { productId: quantity }
+  const [cart, setCart] = useState({}) // { cartItemId: { productId, product, quantity, extras, extrasTotal, unitPrice, totalPrice, comment } }
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [checkoutData, setCheckoutData] = useState({
     customerName: '',
@@ -107,6 +121,14 @@ export default function OrdersManager({ tenantId }) {
   })
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState(null)
+  
+  // Modal de detalle de producto (para extras)
+  const [showProductDetailModal, setShowProductDetailModal] = useState(false)
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState(null)
+  const [editingCartItemId, setEditingCartItemId] = useState(null)
+  
+  // Categoría seleccionada para filtrar productos (null = "Todos")
+  const [selectedCategory, setSelectedCategory] = useState(null)
   
   // Selección múltiple de pedidos
   const [selectedOrderIds, setSelectedOrderIds] = useState(new Set())
@@ -199,6 +221,8 @@ export default function OrdersManager({ tenantId }) {
       dispatch(fetchOrdersForTenant(tenantId))
       dispatch(fetchProductsForTenant(tenantId))
       dispatch(fetchCategoriesForTenant(tenantId))
+      dispatch(fetchExtrasForTenant(tenantId))
+      dispatch(fetchExtraGroupsForTenant(tenantId))
     }
   }, [tenantId, dispatch])
 
@@ -232,54 +256,175 @@ export default function OrdersManager({ tenantId }) {
     }
   }, [tenantId, dispatch])
 
-  // Funciones del carrito para tienda embebida
-  const addToCart = useCallback((productId) => {
-    setCart((prev) => ({ ...prev, [productId]: (prev[productId] || 0) + 1 }))
+  // Funciones del carrito para tienda embebida (con soporte de extras)
+  const openProductDetail = useCallback((product) => {
+    setSelectedProductForDetail(product)
+    setEditingCartItemId(null)
+    setShowProductDetailModal(true)
   }, [])
 
-  const removeFromCart = useCallback((productId) => {
-    setCart((prev) => {
-      const newQty = (prev[productId] || 0) - 1
-      if (newQty <= 0) {
-        const { [productId]: _, ...rest } = prev
-        return rest
+  const addItemToCart = useCallback(({ product, quantity, selectedExtras, extrasTotal, unitPrice, totalPrice, comment }) => {
+    const cartItemId = `${product.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setCart((c) => ({
+      ...c,
+      [cartItemId]: {
+        productId: product.id,
+        product,
+        quantity,
+        extras: selectedExtras || [],
+        extrasTotal: extrasTotal || 0,
+        unitPrice,
+        totalPrice,
+        comment: comment || null,
+      },
+    }))
+    setShowProductDetailModal(false)
+    setSelectedProductForDetail(null)
+  }, [])
+
+  const updateCartItem = useCallback((cartItemId, { quantity, selectedExtras, extrasTotal, unitPrice, totalPrice, comment }) => {
+    setCart((c) => {
+      if (!c[cartItemId]) return c
+      return {
+        ...c,
+        [cartItemId]: {
+          ...c[cartItemId],
+          quantity,
+          extras: selectedExtras || [],
+          extrasTotal: extrasTotal || 0,
+          unitPrice,
+          totalPrice,
+          comment: comment || null,
+        },
       }
-      return { ...prev, [productId]: newQty }
+    })
+    setShowProductDetailModal(false)
+    setSelectedProductForDetail(null)
+    setEditingCartItemId(null)
+  }, [])
+
+  const removeCartItem = useCallback((cartItemId) => {
+    setCart((c) => {
+      const { [cartItemId]: _, ...rest } = c
+      return rest
     })
   }, [])
+
+  const incrementCartItem = useCallback((cartItemId) => {
+    setCart((c) => {
+      if (!c[cartItemId]) return c
+      const item = c[cartItemId]
+      const newQty = item.quantity + 1
+      const newTotal = (item.unitPrice + (item.extrasTotal || 0)) * newQty
+      return {
+        ...c,
+        [cartItemId]: {
+          ...item,
+          quantity: newQty,
+          totalPrice: newTotal,
+        },
+      }
+    })
+  }, [])
+
+  const decrementCartItem = useCallback((cartItemId) => {
+    setCart((c) => {
+      if (!c[cartItemId]) return c
+      const item = c[cartItemId]
+      const newQty = item.quantity - 1
+      if (newQty <= 0) {
+        const { [cartItemId]: _, ...rest } = c
+        return rest
+      }
+      const newTotal = (item.unitPrice + (item.extrasTotal || 0)) * newQty
+      return {
+        ...c,
+        [cartItemId]: {
+          ...item,
+          quantity: newQty,
+          totalPrice: newTotal,
+        },
+      }
+    })
+  }, [])
+
+  const editCartItem = useCallback((cartItemId) => {
+    const item = cart[cartItemId]
+    if (!item) return
+    setSelectedProductForDetail(item.product)
+    setEditingCartItemId(cartItemId)
+    setShowProductDetailModal(true)
+  }, [cart])
 
   const clearCart = useCallback(() => {
     setCart({})
   }, [])
 
-  // Calcular items del carrito
+  // Calcular items del carrito (nuevo formato)
   const cartItems = useMemo(() => {
     return Object.entries(cart)
-      .map(([productId, qty]) => {
-        const product = products.find((p) => p.id === productId)
-        if (!product) return null
+      .map(([cartItemId, item]) => {
+        if (typeof item !== 'object' || !item.product) return null
         return {
-          product,
-          qty,
-          lineTotal: product.price * qty,
+          ...item,
+          cartItemId,
+          qty: item.quantity,
+          lineTotal: item.totalPrice,
         }
       })
       .filter(Boolean)
-  }, [cart, products])
+      .sort((a, b) => b.lineTotal - a.lineTotal)
+  }, [cart])
 
-  const cartTotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.lineTotal, 0), [cartItems])
+  const cartTotal = useMemo(() => {
+    const total = cartItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+    return Math.round(total * 100) / 100
+  }, [cartItems])
   const cartCount = useMemo(() => cartItems.reduce((sum, item) => sum + item.qty, 0), [cartItems])
 
-  // Payload para crear orden
+  // Calcular cantidad en carrito por producto
+  const getProductCartQuantity = useCallback((productId) => {
+    return Object.values(cart).reduce((sum, item) => {
+      if (typeof item === 'object' && item.productId === productId) {
+        return sum + item.quantity
+      }
+      return sum
+    }, 0)
+  }, [cart])
+
+  // Payload para crear orden (con extras)
   const orderItemsPayload = useMemo(() => {
     return cartItems.map((item) => ({
       productId: item.product.id,
+      product_name: item.product.name,
       name: item.product.name,
-      unitPrice: item.product.price,
-      qty: item.qty,
-      lineTotal: item.lineTotal,
+      unitPrice: Number(item.unitPrice),
+      qty: item.quantity,
+      quantity: item.quantity,
+      lineTotal: item.totalPrice,
+      price: item.unitPrice,
+      extras: item.extras?.map((e) => ({ 
+        id: e.id, 
+        name: e.name, 
+        price: e.price,
+        quantity: e.quantity || 1,
+        selectedOption: e.selectedOption || null,
+      })) || [],
+      extrasTotal: item.extrasTotal || 0,
+      comment: item.comment || null,
     }))
   }, [cartItems])
+
+  // Productos filtrados por categoría
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === null) {
+      return visibleProducts
+    }
+    if (selectedCategory === '__unassigned__') {
+      return visibleProducts.filter((p) => !p.category)
+    }
+    return visibleProducts.filter((p) => p.category === selectedCategory)
+  }, [visibleProducts, selectedCategory])
 
   // Manejar checkout desde tienda embebida
   const handleEmbeddedCheckout = async () => {
@@ -342,7 +487,12 @@ export default function OrdersManager({ tenantId }) {
 
   // Filtrar pedidos
   const filteredOrders = useMemo(() => {
-    let result = orders.filter((o) => {
+    // Eliminar duplicados por ID
+    const uniqueOrders = Array.from(
+      new Map(orders.map(o => [o.id, o])).values()
+    )
+    
+    let result = uniqueOrders.filter((o) => {
       const matchesSearch =
         o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -362,19 +512,25 @@ export default function OrdersManager({ tenantId }) {
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   }, [orders, searchTerm, filterType, filterStatus, filterDelivery])
 
+  // Pedidos únicos para conteos
+  const uniqueOrders = useMemo(() => 
+    Array.from(new Map(orders.map(o => [o.id, o])).values()),
+    [orders]
+  )
+
   // Contar estados por tipo de envío
   const counts = useMemo(
     () => ({
-      all: orders.length,
-      pending: orders.filter((o) => o.status === 'pending').length,
-      in_progress: orders.filter((o) => o.status === 'in_progress').length,
-      completed: orders.filter((o) => o.status === 'completed').length,
-      cancelled: orders.filter((o) => o.status === 'cancelled').length,
-      mostrador: orders.filter((o) => o.delivery_type === 'mostrador').length,
-      domicilio: orders.filter((o) => o.delivery_type === 'domicilio').length,
-      mesa: orders.filter((o) => o.delivery_type === 'mesa').length,
+      all: uniqueOrders.length,
+      pending: uniqueOrders.filter((o) => o.status === 'pending').length,
+      in_progress: uniqueOrders.filter((o) => o.status === 'in_progress').length,
+      completed: uniqueOrders.filter((o) => o.status === 'completed').length,
+      cancelled: uniqueOrders.filter((o) => o.status === 'cancelled').length,
+      mostrador: uniqueOrders.filter((o) => o.delivery_type === 'mostrador').length,
+      domicilio: uniqueOrders.filter((o) => o.delivery_type === 'domicilio').length,
+      mesa: uniqueOrders.filter((o) => o.delivery_type === 'mesa').length,
     }),
-    [orders],
+    [uniqueOrders],
   )
 
   // Calcular estadísticas de stock y ventas por producto
@@ -756,8 +912,24 @@ export default function OrdersManager({ tenantId }) {
                 <h4>Resumen del Pedido</h4>
                 <div className="embeddedStore__items">
                   {cartItems.map((item) => (
-                    <div key={item.product.id} className="embeddedStore__item">
-                      <span className="embeddedStore__itemName">{item.product.name}</span>
+                    <div key={item.cartItemId} className="embeddedStore__item">
+                      <div className="embeddedStore__itemDetails">
+                        <span className="embeddedStore__itemName">{item.product.name}</span>
+                        {item.extras && item.extras.length > 0 && (
+                          <div className="embeddedStore__itemExtras">
+                            {item.extras.map((extra, idx) => (
+                              <span key={idx} className="embeddedStore__itemExtra">
+                                + {extra.name} {extra.quantity > 1 ? `(x${extra.quantity})` : ''} ${extra.price.toFixed(2)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {item.comment && (
+                          <span className="embeddedStore__itemComment">
+                            <MessageSquare size={12} /> {item.comment}
+                          </span>
+                        )}
+                      </div>
                       <span className="embeddedStore__itemQty">x{item.qty}</span>
                       <span className="embeddedStore__itemPrice">${item.lineTotal.toFixed(2)}</span>
                     </div>
@@ -772,7 +944,7 @@ export default function OrdersManager({ tenantId }) {
               {/* Formulario de checkout */}
               <div className="embeddedStore__form">
                 <div className="embeddedStore__section">
-                  <h4>👤 Datos del Cliente</h4>
+                  <h4><User size={18} /> Datos del Cliente</h4>
                   <Input
                     label="Nombre *"
                     value={checkoutData.customerName}
@@ -788,7 +960,7 @@ export default function OrdersManager({ tenantId }) {
                 </div>
 
                 <div className="embeddedStore__section">
-                  <h4>🚚 Tipo de Entrega</h4>
+                  <h4><Truck size={18} /> Tipo de Entrega</h4>
                   <div className="embeddedStore__deliveryTypes">
                     {Object.entries(DELIVERY_TYPES).map(([key, { label, icon }]) => {
                       const isEnabled = deliveryConfig[key] !== false
@@ -825,7 +997,7 @@ export default function OrdersManager({ tenantId }) {
                 )}
 
                 <div className="embeddedStore__section">
-                  <h4>💵 Forma de Pago</h4>
+                  <h4><Wallet size={18} /> Forma de Pago</h4>
                   <div className="embeddedStore__paymentMethods">
                     {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
                       <button
@@ -833,7 +1005,7 @@ export default function OrdersManager({ tenantId }) {
                         className={`embeddedStore__paymentMethod ${checkoutData.paymentMethod === key ? 'embeddedStore__paymentMethod--active' : ''}`}
                         onClick={() => setCheckoutData({ ...checkoutData, paymentMethod: key })}
                       >
-                        {key === 'efectivo' ? '💵' : key === 'tarjeta' ? '💳' : key === 'qr' ? '📱' : '🏦'}
+                        {key === 'efectivo' ? <Banknote size={18} /> : key === 'tarjeta' ? <CreditCard size={18} /> : key === 'qr' ? <Smartphone size={18} /> : <Building2 size={18} />}
                         <span>{label}</span>
                       </button>
                     ))}
@@ -842,7 +1014,7 @@ export default function OrdersManager({ tenantId }) {
 
                 {checkoutError && (
                   <div className="embeddedStore__error">
-                    ⚠️ {checkoutError}
+                    <AlertTriangle size={16} /> {checkoutError}
                   </div>
                 )}
 
@@ -859,72 +1031,157 @@ export default function OrdersManager({ tenantId }) {
           ) : (
             /* Vista de productos */
             <div className="embeddedStore__products">
-              <div className="embeddedStore__productsGrid">
-                {visibleProducts.length === 0 ? (
-                  <div className="embeddedStore__empty">
-                    <p>No hay productos disponibles</p>
-                    <p className="muted">Agrega productos desde la sección de Productos</p>
-                  </div>
-                ) : (
-                  visibleProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      quantity={cart[product.id] || 0}
-                      onAdd={() => addToCart(product.id)}
-                      onRemove={() => removeFromCart(product.id)}
-                      layout="classic"
-                      isEditable={false}
-                    />
-                  ))
+              {/* Navegación por categorías */}
+              <div className="embeddedStore__categories">
+                <button
+                  className={`embeddedStore__categoryBtn ${selectedCategory === null ? 'embeddedStore__categoryBtn--active' : ''}`}
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  Todos ({visibleProducts.length})
+                </button>
+                {categories.map((cat) => {
+                  const count = visibleProducts.filter((p) => p.category === cat.name).length
+                  if (count === 0) return null
+                  return (
+                    <button
+                      key={cat.id}
+                      className={`embeddedStore__categoryBtn ${selectedCategory === cat.name ? 'embeddedStore__categoryBtn--active' : ''}`}
+                      onClick={() => setSelectedCategory(cat.name)}
+                    >
+                      {cat.name} ({count})
+                    </button>
+                  )
+                })}
+                {/* Categoría "Sin asignar" si hay productos sin categoría */}
+                {visibleProducts.some((p) => !p.category) && (
+                  <button
+                    className={`embeddedStore__categoryBtn ${selectedCategory === '__unassigned__' ? 'embeddedStore__categoryBtn--active' : ''}`}
+                    onClick={() => setSelectedCategory('__unassigned__')}
+                  >
+                    Sin asignar ({visibleProducts.filter((p) => !p.category).length})
+                  </button>
                 )}
               </div>
 
-              {/* Carrito lateral */}
-              <div className="embeddedStore__cart">
-                <div className="embeddedStore__cartHeader">
-                  <h4>🛒 Carrito</h4>
-                  {cartCount > 0 && (
-                    <Button variant="secondary" size="sm" onClick={clearCart}>
-                      Vaciar
-                    </Button>
+              <div className="embeddedStore__mainContent">
+                <div className="embeddedStore__productsGrid">
+                  {filteredProducts.length === 0 ? (
+                    <div className="embeddedStore__empty">
+                      <p>No hay productos disponibles</p>
+                      <p className="muted">Agrega productos desde la sección de Productos</p>
+                    </div>
+                  ) : (
+                    filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        quantity={getProductCartQuantity(product.id)}
+                        onAdd={() => openProductDetail(product)}
+                        onRemove={() => {
+                          // Remover el primer item de este producto del carrito
+                          const cartItemId = Object.keys(cart).find((id) => {
+                            const item = cart[id]
+                            return typeof item === 'object' && item.productId === product.id
+                          })
+                          if (cartItemId) decrementCartItem(cartItemId)
+                        }}
+                        onClick={() => openProductDetail(product)}
+                        layout="classic"
+                        isEditable={false}
+                        hasExtras={extraGroups.length > 0 || (product.productExtras?.length > 0)}
+                        hasProductExtras={product.productExtras?.length > 0}
+                      />
+                    ))
                   )}
                 </div>
 
-                {cartItems.length === 0 ? (
-                  <div className="embeddedStore__cartEmpty">
-                    <p className="muted">Agrega productos al carrito</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="embeddedStore__cartItems">
-                      {cartItems.map((item) => (
-                        <div key={item.product.id} className="embeddedStore__cartItem">
-                          <div className="embeddedStore__cartItemInfo">
-                            <span className="embeddedStore__cartItemName">{item.product.name}</span>
-                            <span className="embeddedStore__cartItemPrice">${item.product.price.toFixed(2)}</span>
-                          </div>
-                          <div className="embeddedStore__cartItemControls">
-                            <button onClick={() => removeFromCart(item.product.id)}>−</button>
-                            <span>{item.qty}</span>
-                            <button onClick={() => addToCart(item.product.id)}>+</button>
-                          </div>
-                          <span className="embeddedStore__cartItemTotal">${item.lineTotal.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="embeddedStore__cartFooter">
-                      <div className="embeddedStore__cartTotal">
-                        <span>Total:</span>
-                        <strong>${cartTotal.toFixed(2)}</strong>
-                      </div>
-                      <Button onClick={() => setIsCheckingOut(true)}>
-                        Continuar al Checkout
+                {/* Carrito lateral */}
+                <div className="embeddedStore__cart">
+                  <div className="embeddedStore__cartHeader">
+                    <h4><ShoppingCart size={18} /> Carrito</h4>
+                    {cartCount > 0 && (
+                      <Button variant="secondary" size="sm" onClick={clearCart}>
+                        Vaciar
                       </Button>
+                    )}
+                  </div>
+
+                  {cartItems.length === 0 ? (
+                    <div className="embeddedStore__cartEmpty">
+                      <p className="muted">Agrega productos al carrito</p>
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <div className="embeddedStore__cartItems">
+                        {cartItems.map((item) => (
+                          <div key={item.cartItemId} className="embeddedStore__cartItem">
+                            {/* Fila superior: nombre y acciones */}
+                            <div className="embeddedStore__cartItemRow">
+                              <span className="embeddedStore__cartItemName">{item.product.name}</span>
+                              <div className="embeddedStore__cartItemActions">
+                                <button 
+                                  className="embeddedStore__cartItemEdit" 
+                                  onClick={() => editCartItem(item.cartItemId)}
+                                  title="Editar"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                <button 
+                                  className="embeddedStore__cartItemDelete" 
+                                  onClick={() => removeCartItem(item.cartItemId)}
+                                  title="Eliminar"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Extras y comentarios */}
+                            {(item.extras?.length > 0 || item.comment) && (
+                              <div className="embeddedStore__cartItemInfo">
+                                {item.extras && item.extras.length > 0 && (
+                                  <div className="embeddedStore__cartItemExtras">
+                                    {item.extras.map((extra, idx) => (
+                                      <span key={idx} className="embeddedStore__cartItemExtra">
+                                        + {extra.name} {extra.quantity > 1 ? `(x${extra.quantity})` : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {item.comment && (
+                                  <span className="embeddedStore__cartItemComment">
+                                    <MessageSquare size={12} /> {item.comment}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Fila inferior: precio, controles y total */}
+                            <div className="embeddedStore__cartItemRow">
+                              <span className="embeddedStore__cartItemPrice">${item.unitPrice.toFixed(2)} c/u</span>
+                              <div className="embeddedStore__cartItemControls">
+                                <button onClick={() => decrementCartItem(item.cartItemId)}>−</button>
+                                <span>{item.qty}</span>
+                                <button onClick={() => incrementCartItem(item.cartItemId)}>+</button>
+                              </div>
+                              <span className="embeddedStore__cartItemTotal">${item.lineTotal.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="embeddedStore__cartFooter">
+                        <div className="embeddedStore__cartTotal">
+                          <span>Total:</span>
+                          <strong>${cartTotal.toFixed(2)}</strong>
+                        </div>
+                        <Button onClick={() => setIsCheckingOut(true)}>
+                          Continuar al Checkout
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -941,7 +1198,7 @@ export default function OrdersManager({ tenantId }) {
                 <AlertTriangle size={24} />
               </div>
               <div className="ordersManager__stockAlertContent">
-                <strong>⚠️ ¡Atención! {categoryStockStats.outOfStock === 1 ? 'Una categoría sin stock' : `${categoryStockStats.outOfStock} categorías sin stock`}</strong>
+                <strong><AlertTriangle size={16} /> ¡Atención! {categoryStockStats.outOfStock === 1 ? 'Una categoría sin stock' : `${categoryStockStats.outOfStock} categorías sin stock`}</strong>
                 <p>
                   {categoryStockStats.categories.filter(c => c.isOut).map(c => c.name).join(', ')} 
                   {categoryStockStats.outOfStock === 1 ? ' está agotada' : ' están agotadas'}. 
@@ -1075,7 +1332,7 @@ export default function OrdersManager({ tenantId }) {
                 />
                 <span>{selectedOrderIds.size} pedido(s) seleccionado(s)</span>
                 <button className="ordersManager__bulkClear" onClick={clearSelection}>
-                  ✕ Limpiar
+                  <X size={14} /> Limpiar
                 </button>
               </div>
               <div className="ordersManager__bulkButtons">
@@ -1085,7 +1342,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={() => bulkChangeStatus('in_progress')}
                   disabled={isBulkActionLoading}
                 >
-                  ✅ Aceptar
+                  <Play size={14} /> Aceptar
                 </Button>
                 <Button
                   size="sm"
@@ -1093,7 +1350,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={() => bulkChangeStatus('completed')}
                   disabled={isBulkActionLoading}
                 >
-                  ✔️ Finalizar
+                  <Check size={14} /> Finalizar
                 </Button>
                 <Button
                   size="sm"
@@ -1101,7 +1358,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={bulkMarkAsPaid}
                   disabled={isBulkActionLoading}
                 >
-                  💵 Marcar Pagado
+                  <Banknote size={14} /> Marcar Pagado
                 </Button>
                 <Button
                   size="sm"
@@ -1109,7 +1366,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={bulkPrintOrders}
                   disabled={isBulkActionLoading}
                 >
-                  🖨️ Imprimir
+                  <Printer size={14} /> Imprimir
                 </Button>
                 <Button
                   size="sm"
@@ -1117,7 +1374,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={() => bulkChangeStatus('cancelled')}
                   disabled={isBulkActionLoading}
                 >
-                  ❌ Cancelar
+                  <XCircle size={14} /> Cancelar
                 </Button>
                 <Button
                   size="sm"
@@ -1125,7 +1382,7 @@ export default function OrdersManager({ tenantId }) {
                   onClick={bulkDeleteOrders}
                   disabled={isBulkActionLoading}
                 >
-                  🗑️ Eliminar
+                  <Trash2 size={14} /> Eliminar
                 </Button>
               </div>
             </div>
@@ -1172,7 +1429,7 @@ export default function OrdersManager({ tenantId }) {
             
             {filteredOrders.length === 0 ? (
               <div className="ordersManager__empty">
-                <div className="ordersManager__emptyIcon">📦</div>
+                <div className="ordersManager__emptyIcon"><Package size={48} /></div>
                 <p>No hay pedidos en esta categoría</p>
                 <p className="muted">Los pedidos aparecerán aquí cuando se realicen desde la tienda</p>
               </div>
@@ -1262,6 +1519,32 @@ export default function OrdersManager({ tenantId }) {
           onSaveVideo={handleSaveTutorial}
         />
       </div>
+
+      {/* Modal de detalle de producto para extras */}
+      {showProductDetailModal && selectedProductForDetail && (
+        <ProductDetailModal
+          product={selectedProductForDetail}
+          groups={extraGroups}
+          extras={extras}
+          onClose={() => {
+            setShowProductDetailModal(false)
+            setSelectedProductForDetail(null)
+            setEditingCartItemId(null)
+          }}
+          onAddToCart={(itemData) => {
+            if (editingCartItemId) {
+              updateCartItem(editingCartItemId, itemData)
+            } else {
+              addItemToCart(itemData)
+            }
+          }}
+          currentCartQuantity={selectedProductForDetail ? getProductCartQuantity(selectedProductForDetail.id) : 0}
+          initialQuantity={editingCartItemId && cart[editingCartItemId] ? cart[editingCartItemId].quantity : 1}
+          initialExtras={editingCartItemId && cart[editingCartItemId] ? cart[editingCartItemId].extras : []}
+          initialComment={editingCartItemId && cart[editingCartItemId] ? cart[editingCartItemId].comment : ''}
+          isEditing={!!editingCartItemId}
+        />
+      )}
     </div>
   )
 }
@@ -1287,6 +1570,14 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
   const markAsPaid = (e) => {
     if (e) e.stopPropagation()
     const newPaidOrders = { ...paidOrders, [order.id]: true }
+    setPaidOrders(newPaidOrders)
+    saveJson(paidOrdersKey, newPaidOrders)
+  }
+
+  const markAsUnpaid = (e) => {
+    if (e) e.stopPropagation()
+    const newPaidOrders = { ...paidOrders }
+    delete newPaidOrders[order.id]
     setPaidOrders(newPaidOrders)
     saveJson(paidOrdersKey, newPaidOrders)
   }
@@ -1381,83 +1672,103 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
   const isPaid = isOrderCompleted || isPaymentConfirmed
 
   return (
-    <div className={`orderCard orderCard--compact ${isSelected ? 'orderCard--selected' : ''}`} onClick={() => onOpenDetail(order)}>
-      {/* Checkbox de selección */}
-      <div className="orderCard__selectBox" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          className="orderCard__checkbox"
-        />
-      </div>
+    <div className={`orderCard orderCard--redesign ${isSelected ? 'orderCard--selected' : ''}`} onClick={() => onOpenDetail(order)}>
+      {/* Barra de estado lateral */}
+      <div className="orderCard__statusBar" style={{ backgroundColor: status.color }} />
       
-      {/* Header compacto */}
-      <div className="orderCard__header">
-        <div className="orderCard__status" style={{ borderLeftColor: status.color }}>
-          <div className="orderCard__statusIcon" style={{ color: status.color }}>
-            {status.icon}
-          </div>
-          <div className="orderCard__info">
-            <div className="orderCard__title">
-              #{order.id?.slice(0, 8).toUpperCase()}
-            </div>
-            <span className="orderCard__badge" style={{ backgroundColor: status.color + '20', color: status.color }}>
+      {/* Contenido principal */}
+      <div className="orderCard__main">
+        {/* Fila superior: ID + Estado + Tiempo + Checkbox */}
+        <div className="orderCard__topRow">
+          <div className="orderCard__idSection">
+            <span className="orderCard__orderId">#{order.id?.slice(0, 8).toUpperCase()}</span>
+            <span className="orderCard__statusBadge" style={{ backgroundColor: status.color + '18', color: status.color }}>
+              {status.icon}
               {status.label}
             </span>
           </div>
-        </div>
-
-        <div className="orderCard__summary">
-          <div className="orderCard__customer">
-            <User size={14} />
-            <span>{order.customer_name || 'Cliente'}</span>
-          </div>
-          {/* Tipo de envío */}
-          <div className="orderCard__deliveryTag">
-            {deliveryType.icon}
-            <span>{deliveryType.label}</span>
-          </div>
-          {/* Método de pago */}
-          <div className={`orderCard__paymentTag ${needsManualPayment && !isPaid ? 'orderCard__paymentTag--cash' : ''} ${isPaid && needsManualPayment ? 'orderCard__paymentTag--paid' : ''}`}>
-            {order.payment_method === 'efectivo' ? '💵' : order.payment_method === 'transferencia' ? '🏦' : '💳'}
-            <span>{paymentMethod}</span>
-            {needsManualPayment && !isPaid && <span className="orderCard__paymentWarning">COBRAR</span>}
-            {needsManualPayment && isPaid && <span className="orderCard__paymentPaid">PAGADO</span>}
-          </div>
-          <div className="orderCard__total">
-            <span className="orderCard__amount">${Number(order.total).toFixed(2)}</span>
-          </div>
-          <div className="orderCard__time">
-            <Clock size={12} />
+          {/* Fila de comentarios (si hay) */}
+        {(() => {
+          const itemsWithComments = order.items?.filter(item => item.comment && item.comment.trim() !== '') || []
+          if (itemsWithComments.length === 0) return null
+          const firstComment = itemsWithComments[0].comment
+          const truncated = firstComment.length > 50 ? firstComment.slice(0, 50) + '...' : firstComment
+          return (
+            <div className="orderCard__commentRow">
+              <div className="orderCard__commentPreview" title={itemsWithComments.map(i => `${i.product_name || i.name}: ${i.comment}`).join('\n')}>
+                <MessageSquare size={14} />
+                <span className="orderCard__commentText">{truncated}</span>
+                {itemsWithComments.length > 1 && (
+                  <span className="orderCard__commentMore">+{itemsWithComments.length - 1} más</span>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+          <div className="orderCard__timeSection">
+            <Clock size={14} />
             <span>{getTimeAgo(order.created_at)}</span>
           </div>
+          <div className="orderCard__selectBox" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggleSelect}
+              className="orderCard__checkbox"
+            />
+          </div>
         </div>
 
-        {/* Actions inline */}
-        <div className="orderCard__actions">
-          {/* Botón marcar como pagado - solo para efectivo/transferencia y pedidos no completados */}
-          {needsManualPayment && !isPaid && !isOrderCompleted && (
-            <Button 
-              size="sm" 
-              variant="secondary"
-              disabled={isUpdating}
-              onClick={(e) => {
-                e.stopPropagation()
-                markAsPaid(e)
-              }}
-              title="Marcar como pagado"
-            >
-              💰 Pagó
-            </Button>
-          )}
+        {/* Fila central: Info del cliente y detalles */}
+        <div className="orderCard__middleRow">
+          {/* Columna izquierda: Cliente */}
+          <div className="orderCard__customerSection">
+            <div className="orderCard__customerName">
+              <User size={16} />
+              <span>{order.customer_name || 'Cliente'}</span>
+            </div>
+            {order.customer_phone && (
+              <div className="orderCard__customerPhone">
+                <Phone size={14} />
+                <span>{order.customer_phone}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Columna central: Tags (Delivery + Pago) */}
+          <div className="orderCard__tagsSection">
+            <div className="orderCard__deliveryTag">
+              {deliveryType.icon}
+              <span>{deliveryType.label}</span>
+            </div>
+            <div className={`orderCard__paymentTag ${needsManualPayment && !isPaid ? 'orderCard__paymentTag--cash' : ''} ${isPaid && needsManualPayment ? 'orderCard__paymentTag--paid' : ''}`}>
+              {order.payment_method === 'efectivo' ? <Banknote size={14} /> : order.payment_method === 'transferencia' ? <Building2 size={14} /> : <CreditCard size={14} />}
+              <span>{paymentMethod}</span>
+              {needsManualPayment && !isPaid && <span className="orderCard__paymentWarning">COBRAR</span>}
+              {needsManualPayment && isPaid && <span className="orderCard__paymentPaid">PAGADO</span>}
+            </div>
+          </div>
+
+          {/* Columna derecha: Total prominente */}
+          <div className="orderCard__totalSection">
+            <span className="orderCard__totalLabel">Total</span>
+            <span className="orderCard__totalAmount">${Number(order.total).toFixed(2)}</span>
+          </div>
+        </div>
+
+        
+
+        {/* Fila inferior: Acciones */}
+        <div className="orderCard__actionsRow" onClick={(e) => e.stopPropagation()}>
+          {/* Botón principal de estado */}
           {order.status === 'pending' && (
             <Button 
               size="sm" 
               disabled={isUpdating}
               onClick={(e) => handleStatusChange(e, 'in_progress')}
+              className="orderCard__primaryAction"
             >
-              ✅ Tomar
+              <Check size={16} /> Tomar pedido
             </Button>
           )}
           {order.status === 'in_progress' && (
@@ -1465,35 +1776,76 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
               size="sm"
               disabled={isUpdating}
               onClick={handleCompleteOrder}
+              className="orderCard__primaryAction"
             >
-              ✔️ Finalizar
+              <Play size={16} /> Finalizar
             </Button>
           )}
-          <Button 
-            size="sm" 
-            variant="secondary"
-            onClick={(e) => {
-              e.stopPropagation()
-              printOrder(order)
-            }}
-          >
-            🖨️
-          </Button>
-          {/* Botón eliminar pedido */}
-          <Button 
-            size="sm" 
-            variant="danger"
-            disabled={isUpdating}
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowDeleteConfirm(true)
-            }}
-          >
-            🗑️
-          </Button>
+          
+          {/* Botones de pago - doble acción para efectivo/transferencia */}
+          {needsManualPayment && !isOrderCompleted && (
+            <div className="orderCard__paymentActions">
+              {!isPaid ? (
+                <Button 
+                  size="sm" 
+                  variant="success"
+                  disabled={isUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    markAsPaid(e)
+                  }}
+                  title="Marcar como pagado"
+                  className="orderCard__paidBtn"
+                >
+                  <DollarSign size={16} /> Pagó
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="secondary"
+                  disabled={isUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    markAsUnpaid(e)
+                  }}
+                  title="Desmarcar pago (error)"
+                  className="orderCard__unpaidBtn"
+                >
+                  <XCircle size={16} /> No pagó
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Acciones secundarias */}
+          <div className="orderCard__secondaryActions">
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation()
+                printOrder(order)
+              }}
+              title="Imprimir pedido"
+            >
+              <Printer size={16} />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost"
+              disabled={isUpdating}
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowDeleteConfirm(true)
+              }}
+              title="Eliminar pedido"
+              className="orderCard__deleteBtn"
+            >
+              <Trash2 size={16} />
+            </Button>
+          </div>
         </div>
       </div>
-
       {/* Modal de confirmación de pago en efectivo - Renderizado en portal */}
       {showPaymentConfirm && createPortal(
         <div className="orderCard__deleteConfirm" onClick={(e) => {
@@ -1501,7 +1853,7 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
           setShowPaymentConfirm(false)
         }}>
           <div className="orderCard__deleteConfirmContent orderCard__paymentConfirmContent" onClick={(e) => e.stopPropagation()}>
-            <div className="orderCard__paymentIcon">💵</div>
+            <div className="orderCard__paymentIcon"><DollarSign size={16} /></div>
             <h4>¿El cliente pagó este pedido?</h4>
             <p className="orderCard__paymentAmount">Total: <strong>${Number(order.total).toFixed(2)}</strong></p>
             <p className="muted">Pago en efectivo - {isDelivery ? 'Delivery' : 'En el local'}</p>
@@ -1539,7 +1891,7 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
           setShowTransferConfirm(false)
         }}>
           <div className="orderCard__deleteConfirmContent orderCard__paymentConfirmContent" onClick={(e) => e.stopPropagation()}>
-            <div className="orderCard__paymentIcon">🏦</div>
+            <div className="orderCard__paymentIcon"><Building2 size={32} /></div>
             <h4>¿Llegó la transferencia?</h4>
             <p className="orderCard__paymentAmount">Total: <strong>${Number(order.total).toFixed(2)}</strong></p>
             <p className="muted">Pago por transferencia - {isDelivery ? 'Delivery' : 'En el local'}</p>
@@ -1577,7 +1929,7 @@ function OrderCard({ order, tenantId, onOpenDetail, isSelected = false, onToggle
           setShowDeleteConfirm(false)
         }}>
           <div className="orderCard__deleteConfirmContent" onClick={(e) => e.stopPropagation()}>
-            <div className="orderCard__paymentIcon">🗑️</div>
+            <div className="orderCard__paymentIcon"><Trash2 size={32} /></div>
             <h4>¿Eliminar este pedido?</h4>
             <p className="muted">Se eliminará permanentemente de la base de datos</p>
             <div className="orderCard__deleteConfirmActions">
@@ -1631,7 +1983,7 @@ function PaymentModal({ order, onClose, onSuccess }) {
       <Card
         className="modal__card"
         title="Procesar Pago"
-        actions={<button className="modal__close" onClick={onClose}>✕</button>}
+        actions={<button className="modal__close" onClick={onClose}><X size={18} /></button>}
       >
         <div className="modal__content">
           <div className="modal__section">
@@ -1760,11 +2112,11 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                 {status.icon} {status.label}
               </span>
             </div>
-            <button className="orderDetailModal__close" onClick={onClose}>✕</button>
+            <button className="orderDetailModal__close" onClick={onClose}><X size={18} /></button>
           </div>
           <div className="orderDetailModal__meta">
-            <span>📅 {new Date(order.created_at).toLocaleString()}</span>
-            <span>⏱️ {getTimeAgo(order.created_at)}</span>
+            <span><Clock size={14} /> {new Date(order.created_at).toLocaleString()}</span>
+            <span><Clock size={14} /> {getTimeAgo(order.created_at)}</span>
           </div>
         </div>
 
@@ -1774,7 +2126,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
           <div className="orderDetailModal__left">
             {/* Cliente */}
             <div className="orderDetailModal__section">
-              <h4>👤 Cliente</h4>
+              <h4><User size={16} /> Cliente</h4>
               <div className="orderDetailModal__row">
                 <span>Nombre:</span>
                 <strong>{order.customer_name || 'N/A'}</strong>
@@ -1788,7 +2140,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                       className="orderDetailModal__whatsappBtn"
                       onClick={handleWhatsApp}
                     >
-                      💬 WhatsApp
+                      <Phone size={14} /> WhatsApp
                     </button>
                   )}
                 </div>
@@ -1803,7 +2155,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
 
             {/* Entrega */}
             <div className="orderDetailModal__section">
-              <h4>🚚 Entrega</h4>
+              <h4><Truck size={16} /> Entrega</h4>
               <div className="orderDetailModal__row">
                 <span>Tipo:</span>
                 <strong>{deliveryType.icon} {deliveryType.label}</strong>
@@ -1824,7 +2176,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
 
             {/* Comentario */}
             <div className="orderDetailModal__section">
-              <h4>💬 Comentario interno</h4>
+              <h4><MessageSquare size={16} /> Comentario interno</h4>
               <textarea
                 className="orderDetailModal__comment"
                 value={comment}
@@ -1840,7 +2192,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
             {/* Productos */}
             <div className="orderDetailModal__section">
               <div className="orderDetailModal__sectionHeader">
-                <h4>🛒 Productos ({order.items?.length || 0})</h4>
+                <h4><ShoppingCart size={16} /> Productos ({order.items?.length || 0})</h4>
                 <button 
                   className="orderDetailModal__addBtn"
                   onClick={() => setShowAddProduct(!showAddProduct)}
@@ -1889,6 +2241,13 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                         ))}
                       </div>
                     )}
+                    {/* Comentario del cliente para este producto */}
+                    {item.comment && (
+                      <div className="orderDetailModal__itemComment">
+                        <span className="orderDetailModal__itemCommentIcon"><MessageSquare size={12} /></span>
+                        <span className="orderDetailModal__itemCommentText">{item.comment}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1930,14 +2289,14 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('in_progress')}
                 >
-                  ✅ Tomar Pedido
+                  <Play size={16} /> Tomar Pedido
                 </Button>
                 <Button 
                   variant="danger"
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('cancelled')}
                 >
-                  ❌ Rechazar
+                  <XCircle size={16} /> Rechazar
                 </Button>
               </>
             )}
@@ -1947,22 +2306,22 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
                   disabled={isUpdating}
                   onClick={handleCompleteOrder}
                 >
-                  ✔️ Finalizar Pedido
+                  <Check size={16} /> Finalizar Pedido
                 </Button>
                 <Button 
                   variant="danger"
                   disabled={isUpdating}
                   onClick={() => handleStatusChange('cancelled')}
                 >
-                  ❌ Cancelar
+                  <XCircle size={16} /> Cancelar
                 </Button>
               </>
             )}
             {order.status === 'completed' && (
-              <span className="orderDetailModal__completedBadge">✅ Pedido Completado</span>
+              <span className="orderDetailModal__completedBadge"><CheckCircle size={16} /> Pedido Completado</span>
             )}
             {order.status === 'cancelled' && (
-              <span className="orderDetailModal__cancelledBadge">❌ Pedido Cancelado</span>
+              <span className="orderDetailModal__cancelledBadge"><XCircle size={16} /> Pedido Cancelado</span>
             )}
           </div>
           
@@ -1971,13 +2330,13 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
               variant="secondary" 
               onClick={() => printOrder(order)}
             >
-              🖨️ Imprimir
+              <Printer size={16} /> Imprimir
             </Button>
             <Button 
               variant="danger" 
               onClick={() => setShowDeleteConfirm(true)}
             >
-              🗑️ Eliminar
+              <Trash2 size={16} /> Eliminar
             </Button>
             <Button variant="secondary" onClick={onClose}>
               Cerrar
@@ -1992,7 +2351,7 @@ function OrderDetailModal({ order, tenantId, onClose, products = [] }) {
             setShowDeleteConfirm(false)
           }}>
             <div className="orderCard__deleteConfirmContent" onClick={(e) => e.stopPropagation()}>
-              <div className="orderCard__paymentIcon">🗑️</div>
+              <div className="orderCard__paymentIcon"><Trash2 size={32} /></div>
               <h4>¿Eliminar este pedido?</h4>
               <p className="orderCard__paymentAmount">Pedido #{order.id?.slice(0, 8).toUpperCase()}</p>
               <p className="muted">Esta acción eliminará el pedido de la base de datos permanentemente</p>
@@ -2057,7 +2416,7 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
       <Card
         className="modal__card"
         title="Configurar Tipos de Envío"
-        actions={<button className="modal__close" onClick={onClose}>✕</button>}
+        actions={<button className="modal__close" onClick={onClose}><X size={18} /></button>}
       >
         <div className="modal__content">
           <p className="muted" style={{ marginBottom: '20px' }}>
@@ -2091,7 +2450,7 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
 
           {enabledCount === 0 && (
             <div className="deliveryConfig__warning">
-              <p>⚠️ Debes habilitar al menos un tipo de envío</p>
+              <p><AlertTriangle size={16} /> Debes habilitar al menos un tipo de envío</p>
             </div>
           )}
 
@@ -2108,7 +2467,7 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
               e.stopPropagation()
               onClose()
             }}>
-              ✓ Guardar Configuración
+              <Check size={16} /> Guardar Configuración
             </Button>
           </div>
         </div>
@@ -2160,8 +2519,8 @@ function PauseStoreModal({ isPaused: initialIsPaused, pauseMessage: initialPause
         className="pauseModal__card"
       >
         <div className="pauseModal__header">
-          <h3>{localIsPaused ? '⏸️ Tienda Pausada' : '▶️ Tienda Activa'}</h3>
-          <button className="modal__close" onClick={handleClose} type="button">✕</button>
+          <h3>{localIsPaused ? <><Pause size={18} /> Tienda Pausada</> : <><Play size={18} /> Tienda Activa</>}</h3>
+          <button className="modal__close" onClick={handleClose} type="button"><X size={18} /></button>
         </div>
         <div className="pauseModal__body">
           <p className="muted" style={{ marginBottom: '20px' }}>
@@ -2229,7 +2588,7 @@ function PauseStoreModal({ isPaused: initialIsPaused, pauseMessage: initialPause
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={loading}>
-              {loading ? 'Guardando...' : '✓ Guardar Cambios'}
+              {loading ? 'Guardando...' : <><Check size={16} /> Guardar Cambios</>}
             </Button>
           </div>
         </div>
@@ -2391,7 +2750,7 @@ function StockGlobalModal({ categories, tenantId, onClose }) {
       <Card
         className="modal__card"
         title="Stock Global por Categoría"
-        actions={<button className="modal__close" onClick={onClose}>✕</button>}
+        actions={<button className="modal__close" onClick={onClose}><X size={18} /></button>}
       >
         <div className="modal__content">
           <p className="muted" style={{ marginBottom: '20px' }}>
@@ -2485,7 +2844,7 @@ function StockGlobalModal({ categories, tenantId, onClose }) {
               e.stopPropagation()
               handleSave()
             }} disabled={loading}>
-              {loading ? 'Guardando...' : '✓ Guardar Configuración'}
+              {loading ? 'Guardando...' : <><Check size={16} /> Guardar Configuración</>}
             </Button>
           </div>
         </div>
@@ -2496,8 +2855,8 @@ function StockGlobalModal({ categories, tenantId, onClose }) {
         <div className="modal__overlay stockFeedback__overlay">
           <Card
             className="modal__card stockFeedback__card"
-            title={feedbackModal.type === 'success' ? '✓ Guardado' : '✕ Error'}
-            actions={<button className="modal__close" onClick={handleCloseFeedback}>✕</button>}
+            title={feedbackModal.type === 'success' ? 'Guardado' : 'Error'}
+            actions={<button className="modal__close" onClick={handleCloseFeedback}><X size={18} /></button>}
           >
             <div className="modal__content">
               <div className={`stockFeedback__icon ${feedbackModal.type === 'success' ? 'stockFeedback__icon--success' : 'stockFeedback__icon--error'}`}>
@@ -2533,7 +2892,7 @@ function StockProductsModal({ stockStats, onClose }) {
       <div className="stockProductsModal">
         <div className="stockProductsModal__header">
           <h3>Stock de Productos</h3>
-          <button className="modal__close" onClick={onClose}>✕</button>
+          <button className="modal__close" onClick={onClose}><X size={18} /></button>
         </div>
         
         <div className="stockProductsModal__body">
@@ -3044,133 +3403,135 @@ function StockGlobalPanel({ categories, categoryStockStats, tenantId, dispatch }
                     </div>
                     <div className="ordersManager__stockCardBar">
                       <div 
-                    className="ordersManager__stockCardBarFill"
-                    style={{ width: `${Math.min(100, (cat.current / cat.max) * 100)}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="ordersManager__stockCardControls">
-                <button
-                  className="ordersManager__stockBtn ordersManager__stockBtn--reset"
-                  onClick={() => handleResetStock(cat.id, cat.name, cat.max)}
-                  disabled={saving || cat.current === cat.max}
-                  title="Reiniciar al máximo"
-                >
-                  <RefreshCw size={14} />
-                  Reiniciar
-                </button>
-                <button
-                  className="ordersManager__stockBtn ordersManager__stockBtn--edit"
-                  onClick={() => handleStartEdit(cat.id, cat.max)}
-                  disabled={saving}
-                  title="Editar máximo"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  className="ordersManager__stockBtn ordersManager__stockBtn--remove"
-                  onClick={() => handleRemoveStockLimit(cat.id, cat.name)}
-                  disabled={saving}
-                  title="Quitar límite (ilimitado)"
-                >
-                  <Infinity size={14} />
-                </button>
-              </div>
-
-              {/* Modal de edición inline */}
-              {editingCatId === cat.id && (
-                <div className="ordersManager__stockEditOverlay">
-                  <div className="ordersManager__stockEditBox">
-                    <label>Stock máximo para {cat.name}:</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, cat.id, cat.name)}
-                      autoFocus
-                      className="ordersManager__stockEditInput"
-                    />
-                    <div className="ordersManager__stockEditActions">
-                      <button 
-                        className="ordersManager__stockEditBtn ordersManager__stockEditBtn--save"
-                        onClick={() => handleSaveStock(cat.id, cat.name)}
-                        disabled={saving}
-                      >
-                        {saving ? 'Guardando...' : 'Guardar'}
-                      </button>
-                      <button 
-                        className="ordersManager__stockEditBtn ordersManager__stockEditBtn--cancel"
-                        onClick={handleCancelEdit}
-                        disabled={saving}
-                      >
-                        Cancelar
-                      </button>
+                        className="ordersManager__stockCardBarFill"
+                        style={{ width: `${Math.min(100, (cat.current / cat.max) * 100)}%` }}
+                      />
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Sección para categorías sin stock */}
-      {categoriesWithoutStock.length > 0 && (
-        <div className="ordersManager__stockAddSection">
-          <div className="ordersManager__stockAddTitle">
-            <Infinity size={16} />
-            <span>Categorías sin límite de stock ({categoriesWithoutStock.length})</span>
-          </div>
-          <div className="ordersManager__stockAddGrid">
-            {categoriesWithoutStock.map(cat => (
-              <div key={cat.id} className="ordersManager__stockAddCard">
-                <span className="ordersManager__stockAddName">{cat.name}</span>
-                {editingCatId === cat.id || (pendingSave && pendingSave.catId === cat.id) ? (
-                  <div className="ordersManager__stockAddInputGroup">
-                    {pendingSave && pendingSave.catId === cat.id ? (
-                      <span className="ordersManager__stockAddSaving">Guardando {pendingSave.value}...</span>
-                    ) : (
-                      <>
+                  <div className="ordersManager__stockCardControls">
+                    <button
+                      className="ordersManager__stockBtn ordersManager__stockBtn--reset"
+                      onClick={() => handleResetStock(cat.id, cat.name, cat.max)}
+                      disabled={saving || cat.current === cat.max}
+                      title="Reiniciar al máximo"
+                    >
+                      <RefreshCw size={14} />
+                      Reiniciar
+                    </button>
+                    <button
+                      className="ordersManager__stockBtn ordersManager__stockBtn--edit"
+                      onClick={() => handleStartEdit(cat.id, cat.max)}
+                      disabled={saving}
+                      title="Editar máximo"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      className="ordersManager__stockBtn ordersManager__stockBtn--remove"
+                      onClick={() => handleRemoveStockLimit(cat.id, cat.name)}
+                      disabled={saving}
+                      title="Quitar límite (ilimitado)"
+                    >
+                      <Infinity size={14} />
+                    </button>
+                  </div>
+
+                  {/* Modal de edición inline */}
+                  {editingCatId === cat.id && (
+                    <div className="ordersManager__stockEditOverlay">
+                      <div className="ordersManager__stockEditBox">
+                        <label>Stock máximo para {cat.name}:</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, cat.id, cat.name)}
                           autoFocus
-                          placeholder="Cantidad"
-                          className="ordersManager__stockAddInput"
+                          className="ordersManager__stockEditInput"
                         />
-                        <button 
-                          className="ordersManager__stockAddBtn ordersManager__stockAddBtn--save"
-                          onClick={() => handleSaveStock(cat.id, cat.name)}
-                          disabled={saving}
-                        >
-                          <CheckCircle size={14} />
-                        </button>
-                        <button 
-                          className="ordersManager__stockAddBtn ordersManager__stockAddBtn--cancel"
-                          onClick={handleCancelEdit}
-                        >
-                          <X size={14} />
-                        </button>
-                      </>
+                        <div className="ordersManager__stockEditActions">
+                          <button 
+                            className="ordersManager__stockEditBtn ordersManager__stockEditBtn--save"
+                            onClick={() => handleSaveStock(cat.id, cat.name)}
+                            disabled={saving}
+                          >
+                            {saving ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button 
+                            className="ordersManager__stockEditBtn ordersManager__stockEditBtn--cancel"
+                            onClick={handleCancelEdit}
+                            disabled={saving}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Sección para categorías sin stock */}
+          {categoriesWithoutStock.length > 0 && (
+            <div className="ordersManager__stockAddSection">
+              <div className="ordersManager__stockAddTitle">
+                <Infinity size={16} />
+                <span>Categorías sin límite de stock ({categoriesWithoutStock.length})</span>
+              </div>
+              <div className="ordersManager__stockAddGrid">
+                {categoriesWithoutStock.map(cat => (
+                  <div key={cat.id} className="ordersManager__stockAddCard">
+                    <span className="ordersManager__stockAddName">{cat.name}</span>
+                    {editingCatId === cat.id || (pendingSave && pendingSave.catId === cat.id) ? (
+                      <div className="ordersManager__stockAddInputGroup">
+                        {pendingSave && pendingSave.catId === cat.id ? (
+                          <span className="ordersManager__stockAddSaving">Guardando {pendingSave.value}...</span>
+                        ) : (
+                          <>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, cat.id, cat.name)}
+                              autoFocus
+                              placeholder="Cantidad"
+                              className="ordersManager__stockAddInput"
+                            />
+                            <button 
+                              className="ordersManager__stockAddBtn ordersManager__stockAddBtn--save"
+                              onClick={() => handleSaveStock(cat.id, cat.name)}
+                              disabled={saving}
+                            >
+                              <CheckCircle size={14} />
+                            </button>
+                            <button 
+                              className="ordersManager__stockAddBtn ordersManager__stockAddBtn--cancel"
+                              onClick={handleCancelEdit}
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <button 
+                        className="ordersManager__stockAddBtn ordersManager__stockAddBtn--add"
+                        onClick={() => handleStartEdit(cat.id, 100)}
+                      >
+                        <Plus size={14} />
+                        Agregar stock
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <button 
-                    className="ordersManager__stockAddBtn ordersManager__stockAddBtn--add"
-                    onClick={() => handleStartEdit(cat.id, 100)}
-                  >
-                    <Plus size={14} />
-                    Agregar stock
-                  </button>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3181,8 +3542,8 @@ function StockGlobalPanel({ categories, categoryStockStats, tenantId, dispatch }
           <span>Crea categorías en tu menú para gestionar el stock global</span>
         </div>
       )}
-        </div>
-      )}
     </div>
   )
 }
+
+// Helper components are defined below...

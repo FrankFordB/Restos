@@ -7,7 +7,7 @@ import {
   TIER_PRICES,
   getDowngradeLostFeatures,
 } from '../../../shared/subscriptions'
-import { Clock, AlertTriangle, Ban, RefreshCw, Lock, Lightbulb } from 'lucide-react'
+import { Clock, AlertTriangle, Ban, RefreshCw, Lock, Lightbulb, X } from 'lucide-react'
 
 /**
  * Modal de advertencia de renovación de suscripción
@@ -91,7 +91,7 @@ export default function RenewalWarningModal({
             <ul className="renewalModal__featuresList">
               {lostFeatures.slice(0, 5).map((feature, idx) => (
                 <li key={idx} className="renewalModal__featureItem">
-                  <span className="renewalModal__featureX">✕</span>
+                  <span className="renewalModal__featureX"><X size={14} /></span>
                   <span>{feature}</span>
                 </li>
               ))}

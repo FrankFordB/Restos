@@ -1,0 +1,197 @@
+/* ============================================================================
+   SUBSCRIPTION GUARD STYLES
+   ============================================================================ */
+
+/* Loading State */
+.subscription-guard__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 100px;
+}
+
+.subscription-guard__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-top-color: var(--primary-color, #6366f1);
+  border-radius: 50%;
+  animation: guard-spin 0.8s linear infinite;
+}
+
+@keyframes guard-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Fallback Card */
+.subscription-guard__fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8f9fc 0%, #eef2ff 100%);
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  max-width: 400px;
+  margin: 1rem auto;
+}
+
+.subscription-guard__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  color: white;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.subscription-guard__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.subscription-guard__description {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.5;
+}
+
+.subscription-guard__current {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin: 0 0 1.25rem 0;
+}
+
+.subscription-guard__current strong {
+  color: #6b7280;
+}
+
+.subscription-guard__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.subscription-guard__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* Overlay Mode */
+.subscription-guard__overlay-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.subscription-guard__blurred {
+  filter: blur(4px);
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+
+.subscription-guard__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  color: #4b5563;
+}
+
+.subscription-guard__overlay p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.subscription-guard__overlay-cta {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.subscription-guard__overlay-cta:hover {
+  transform: scale(1.02);
+}
+
+/* Premium Badge */
+.subscription-guard__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 20px;
+}
+
+.subscription-guard__badge--premium {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #78350f;
+}
+
+.subscription-guard__badge--pro {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  .subscription-guard__fallback {
+    background: linear-gradient(135deg, #1f2937 0%, #312e81 50%, #1f2937 100%);
+    border-color: #4338ca;
+  }
+
+  .subscription-guard__title {
+    color: #f3f4f6;
+  }
+
+  .subscription-guard__description {
+    color: #9ca3af;
+  }
+
+  .subscription-guard__current {
+    color: #6b7280;
+  }
+
+  .subscription-guard__current strong {
+    color: #9ca3af;
+  }
+
+  .subscription-guard__overlay {
+    background: rgba(17, 24, 39, 0.9);
+    color: #d1d5db;
+  }
+}

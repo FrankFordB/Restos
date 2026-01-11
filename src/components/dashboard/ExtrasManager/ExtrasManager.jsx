@@ -29,6 +29,7 @@ import {
   X,
   GripVertical,
   List,
+  UtensilsCrossed,
 } from 'lucide-react'
 
 export default function ExtrasManager({ tenantId }) {
@@ -335,7 +336,7 @@ export default function ExtrasManager({ tenantId }) {
       {/* Empty State */}
       {sortedGroups.length === 0 && (
         <div className="extrasManager__empty">
-          <div className="extrasManager__emptyIcon">🍔</div>
+          <div className="extrasManager__emptyIcon"><UtensilsCrossed size={48} /></div>
           <p>No hay grupos de extras configurados</p>
           <p className="muted">Crea un grupo como "Salsas" o "Toppings" para agregar extras a tus productos</p>
           <Button onClick={openCreateGroup} style={{ marginTop: '1rem' }}>

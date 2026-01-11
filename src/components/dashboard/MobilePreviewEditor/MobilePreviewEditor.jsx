@@ -11,7 +11,7 @@ import {
   Grid3X3, Rows3, Layers, Package, Newspaper, Camera, Tag, Sparkles,
   AlignLeft, AlignCenter, AlignRight, Image, Type, Maximize2, Minimize2,
   Square, RectangleHorizontal, CircleDot, Move, ZoomIn, ZoomOut, Check,
-  LayoutList
+  LayoutList, UtensilsCrossed, CameraIcon
 } from 'lucide-react'
 import { SUBSCRIPTION_TIERS, TIER_LABELS, isFeatureAvailable } from '../../../shared/subscriptions'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
@@ -823,7 +823,7 @@ function MobileHeaderPreview({ design, tenantName, tenantLogo }) {
               height: config.preview?.logoSize || '50px',
             }}
           >
-            🍔
+            <UtensilsCrossed size={24} />
           </div>
         )}
         <span className="mobilePreview__storeName">{tenantName}</span>
@@ -869,7 +869,7 @@ function MobileCardsPreview({ design, spacing, typography }) {
               paddingTop: config.preview?.imageRatio || '50%',
             }}
           >
-            <div className="mobilePreview__cardImagePlaceholder">📷</div>
+            <div className="mobilePreview__cardImagePlaceholder"><Camera size={20} /></div>
           </div>
           <div className="mobilePreview__cardBody">
             <span 

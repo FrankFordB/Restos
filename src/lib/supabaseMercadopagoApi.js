@@ -44,9 +44,9 @@ export const getTenantMPCredentials = async (tenantId) => {
     .from('tenant_mercadopago')
     .select('*')
     .eq('tenant_id', tenantId)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') {
+  if (error) {
     console.error('Error obteniendo credenciales MP:', error)
     throw error
   }
@@ -703,4 +703,188 @@ export const getSubscriptionsSummary = async () => {
   return summary
 }
 
+// ============================================================================
+// AUTO-RENOVACIÓN CON MERCADOPAGO
+// ============================================================================
 
+/**
+ * Obtiene suscripciones que necesitan renovarse (vencen en 1-2 días)
+ * @returns {Promise<Array>}
+ */
+export const getSubscriptionsToRenew = async () => {
+  if (!isSupabaseConfigured) {
+    // En modo mock, simular la búsqueda
+    const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
+    const tenants = tenantsData.tenants || []
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    return tenants.filter(t => {
+      if (!t.auto_renew || t.subscription_tier === 'free' || t.scheduled_tier) return false
+      if (!t.premium_until) return false
+      const expiry = new Date(t.premium_until)
+      const now = new Date()
+      const diffDays = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
+      return diffDays >= 0 && diffDays <= 2
+    }).map(t => ({
+      tenant_id: t.id,
+      tenant_name: t.name,
+      subscription_tier: t.subscription_tier,
+      premium_until: t.premium_until,
+    }))
+  }
+
+  const { data, error } = await supabase.rpc('get_subscriptions_to_renew')
+  
+  if (error) {
+    console.error('Error getting subscriptions to renew:', error)
+    throw error
+  }
+  
+  return data || []
+}
+
+/**
+ * Guarda un método de pago para renovación automática
+ * @param {string} tenantId 
+ * @param {Object} paymentMethod 
+ * @returns {Promise<Object>}
+ */
+export const savePaymentMethod = async (tenantId, paymentMethod) => {
+  if (!isSupabaseConfigured) {
+    // En modo mock
+    const key = 'tenant_payment_methods_mock'
+    const data = JSON.parse(localStorage.getItem(key) || '{}')
+    data[tenantId] = {
+      ...paymentMethod,
+      tenant_id: tenantId,
+      is_default: true,
+      created_at: new Date().toISOString(),
+    }
+    localStorage.setItem(key, JSON.stringify(data))
+    return data[tenantId]
+  }
+
+  const { data, error } = await supabase
+    .from('tenant_payment_methods')
+    .upsert({
+      tenant_id: tenantId,
+      mp_customer_id: paymentMethod.customerId,
+      mp_card_id: paymentMethod.cardId,
+      last_four_digits: paymentMethod.lastFourDigits,
+      card_brand: paymentMethod.cardBrand,
+      expiration_month: paymentMethod.expirationMonth,
+      expiration_year: paymentMethod.expirationYear,
+      is_default: true,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'tenant_id,mp_card_id',
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Obtiene el método de pago guardado de un tenant
+ * @param {string} tenantId 
+ * @returns {Promise<Object|null>}
+ */
+export const getSavedPaymentMethod = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    const key = 'tenant_payment_methods_mock'
+    const data = JSON.parse(localStorage.getItem(key) || '{}')
+    return data[tenantId] || null
+  }
+
+  const { data, error } = await supabase
+    .from('tenant_payment_methods')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('is_default', true)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return data
+}
+
+/**
+ * Elimina el método de pago guardado
+ * @param {string} tenantId 
+ * @returns {Promise<void>}
+ */
+export const deletePaymentMethod = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    const key = 'tenant_payment_methods_mock'
+    const data = JSON.parse(localStorage.getItem(key) || '{}')
+    delete data[tenantId]
+    localStorage.setItem(key, JSON.stringify(data))
+    return
+  }
+
+  const { error } = await supabase
+    .from('tenant_payment_methods')
+    .delete()
+    .eq('tenant_id', tenantId)
+
+  if (error) throw error
+}
+
+/**
+ * Registra un intento de renovación automática
+ * @param {string} tenantId 
+ * @param {Object} details 
+ * @returns {Promise<Object>}
+ */
+export const logRenewalAttempt = async (tenantId, details) => {
+  if (!isSupabaseConfigured) {
+    const key = 'auto_renewal_log_mock'
+    const logs = JSON.parse(localStorage.getItem(key) || '[]')
+    const log = {
+      id: `log_${Date.now()}`,
+      tenant_id: tenantId,
+      ...details,
+      attempted_at: new Date().toISOString(),
+    }
+    logs.push(log)
+    localStorage.setItem(key, JSON.stringify(logs))
+    return log
+  }
+
+  const { data, error } = await supabase.rpc('log_renewal_attempt', {
+    p_tenant_id: tenantId,
+    p_tier: details.tier,
+    p_amount: details.amount,
+    p_status: details.status,
+    p_payment_id: details.paymentId || null,
+    p_error: details.error || null,
+  })
+
+  if (error) throw error
+  return { id: data }
+}
+
+/**
+ * Obtiene el historial de renovaciones de un tenant
+ * @param {string} tenantId 
+ * @returns {Promise<Array>}
+ */
+export const getRenewalHistory = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    const key = 'auto_renewal_log_mock'
+    const logs = JSON.parse(localStorage.getItem(key) || '[]')
+    return logs.filter(l => l.tenant_id === tenantId)
+  }
+
+  const { data, error } = await supabase
+    .from('auto_renewal_log')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('attempted_at', { ascending: false })
+    .limit(10)
+
+  if (error) throw error
+  return data || []
+}

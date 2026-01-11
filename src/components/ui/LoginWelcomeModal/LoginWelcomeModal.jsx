@@ -11,7 +11,10 @@ import {
   BarChart3,
   Sparkles,
   ChefHat,
-  Rocket
+  Rocket,
+  Pizza,
+  UtensilsCrossed,
+  Coffee
 } from 'lucide-react'
 
 const FEATURES = [
@@ -21,7 +24,12 @@ const FEATURES = [
   { icon: BarChart3, title: 'Estadísticas', desc: 'Analiza ventas' },
 ]
 
-const FLOATING_ITEMS = ['🍕', '🍔', '🍣', '☕']
+const FLOATING_ITEMS = [
+  { icon: Pizza, key: 'pizza' },
+  { icon: UtensilsCrossed, key: 'utensils' },
+  { icon: ChefHat, key: 'chef' },
+  { icon: Coffee, key: 'coffee' }
+]
 
 export default function LoginWelcomeModal({ open, onClose, userName }) {
   const [visible, setVisible] = useState(false)

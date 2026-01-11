@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './LegalPages.css'
-import { RotateCcw, ChevronLeft, Mail, Store, AlertTriangle, Clock, CheckCircle } from 'lucide-react'
+import { RotateCcw, ChevronLeft, Mail, Store, AlertTriangle, Clock, CheckCircle, Pizza, Package } from 'lucide-react'
 
 export default function ReturnsPage() {
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function ReturnsPage() {
           </h2>
           
           <div className="legalPage__scenario">
-            <h3 className="legalPage__sectionSubtitle">🍕 Producto incorrecto o faltante</h3>
+            <h3 className="legalPage__sectionSubtitle"><Pizza size={18} /> Producto incorrecto o faltante</h3>
             <p className="legalPage__text">
               Si recibió un producto diferente al ordenado o falta algún artículo, el restaurante 
               generalmente ofrecerá:
@@ -127,7 +127,7 @@ export default function ReturnsPage() {
           </div>
 
           <div className="legalPage__scenario">
-            <h3 className="legalPage__sectionSubtitle">⏰ Demora excesiva en la entrega</h3>
+            <h3 className="legalPage__sectionSubtitle"><Clock size={18} /> Demora excesiva en la entrega</h3>
             <p className="legalPage__text">
               Si su pedido llegó significativamente tarde, el restaurante puede ofrecer:
             </p>
@@ -139,7 +139,7 @@ export default function ReturnsPage() {
           </div>
 
           <div className="legalPage__scenario">
-            <h3 className="legalPage__sectionSubtitle">📦 Producto dañado o en mal estado</h3>
+            <h3 className="legalPage__sectionSubtitle"><Package size={18} /> Producto dañado o en mal estado</h3>
             <p className="legalPage__text">
               Si el producto llegó dañado o no apto para consumo:
             </p>

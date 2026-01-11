@@ -8,7 +8,7 @@ import {
   getPendingSubscriptionByPreference,
 } from '../../lib/supabaseMercadopagoApi'
 import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
-import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper } from 'lucide-react'
+import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper, Check, Loader, X, RefreshCw, HelpCircle } from 'lucide-react'
 
 /**
  * Página de resultado de pago
@@ -241,7 +241,7 @@ export default function PaymentResult() {
         <div className="paymentResult__card">
           <div className="paymentResult__header paymentResult__header--failure">
             <div className="paymentResult__iconWrapper">
-              <span className="paymentResult__icon">❓</span>
+              <span className="paymentResult__icon"><HelpCircle size={48} /></span>
             </div>
             <h1 className="paymentResult__title">Estado Desconocido</h1>
             <p className="paymentResult__subtitle">No pudimos determinar el estado del pago</p>
@@ -261,7 +261,7 @@ export default function PaymentResult() {
   // Contenido según el estado
   const content = {
     success: {
-      icon: '✓',
+      icon: <Check size={32} />,
       title: result.type === 'subscription' ? '¡Bienvenido a Premium!' : '¡Pago Exitoso!',
       subtitle: 'Tu pago fue procesado correctamente',
       message: result.type === 'subscription'
@@ -272,14 +272,14 @@ export default function PaymentResult() {
         : 'Recibirás una notificación cuando tu pedido esté listo.',
     },
     pending: {
-      icon: '⏳',
+      icon: <Loader size={32} />,
       title: 'Pago en Proceso',
       subtitle: 'Estamos verificando tu pago',
       message: 'Tu pago está siendo procesado. Esto puede tomar unos minutos. Te notificaremos cuando se confirme.',
       info: 'Si pagaste en efectivo en un punto de pago, recuerda que puede tardar hasta 2 horas hábiles en acreditarse.',
     },
     failure: {
-      icon: '✕',
+      icon: <X size={32} />,
       title: 'Pago No Procesado',
       subtitle: 'No pudimos completar la transacción',
       message: 'Hubo un problema al procesar tu pago. No te preocupes, no se realizó ningún cargo a tu cuenta.',
@@ -397,7 +397,7 @@ export default function PaymentResult() {
                   className="paymentResult__btn paymentResult__btn--retry"
                   onClick={handleRetry}
                 >
-                  🔄 Intentar Nuevamente
+                  <RefreshCw size={16} /> Intentar Nuevamente
                 </button>
                 <button
                   className="paymentResult__btn paymentResult__btn--secondary"

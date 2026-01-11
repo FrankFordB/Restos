@@ -20,10 +20,13 @@ import {
   updateTenantSubscriptionTier,
   getTenantAutoRenew,
   setTenantAutoRenew,
+  cancelScheduledTierChange,
+  scheduleTierChange,
 } from '../../../lib/supabaseMercadopagoApi'
 import { fetchOrderLimitsStatus, subscribeToOrderLimits } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
-import { Star, Crown, Package, AlertTriangle, Clock, Calendar, RefreshCw, AlertCircle } from 'lucide-react'
+import ScheduledChangeModal from '../../ui/ScheduledChangeModal/ScheduledChangeModal'
+import { Star, Crown, Package, AlertTriangle, Clock, Calendar, RefreshCw, AlertCircle, ArrowRight, Pencil, X, Check, FlaskConical } from 'lucide-react'
 
 /**
  * Componente que muestra el estado actual de la suscripción
@@ -32,12 +35,18 @@ import { Star, Crown, Package, AlertTriangle, Clock, Calendar, RefreshCw, AlertC
 export default function SubscriptionStatus({
   tenant,
   onRenewalComplete,
+  onTenantUpdate,
 }) {
   const [autoRenew, setAutoRenew] = useState(false)
   const [loadingAutoRenew, setLoadingAutoRenew] = useState(false)
   const [showRenewalModal, setShowRenewalModal] = useState(false)
   const [renewalLoading, setRenewalLoading] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [cancellingSchedule, setCancellingSchedule] = useState(false)
+  const [showModifyModal, setShowModifyModal] = useState(false)
+  const [modifyingSchedule, setModifyingSchedule] = useState(false)
+  const [selectedNewTier, setSelectedNewTier] = useState(null)
   
   // Order limits state
   const [orderLimits, setOrderLimits] = useState({
@@ -123,8 +132,10 @@ export default function SubscriptionStatus({
         onRenewalComplete(tier)
       }
       
-      // Recargar para reflejar cambios
-      window.location.reload()
+      // Recargar datos del tenant
+      if (onTenantUpdate) {
+        await onTenantUpdate()
+      }
     } catch (err) {
       console.error('Error renewing subscription:', err)
       alert('Error al renovar. Por favor intenta nuevamente.')
@@ -136,6 +147,65 @@ export default function SubscriptionStatus({
   const handleDismissRenewal = () => {
     setShowRenewalModal(false)
     setDismissed(true)
+  }
+
+  const handleCancelScheduledChange = async () => {
+    if (!tenant?.id) return
+    
+    setCancellingSchedule(true)
+    try {
+      await cancelScheduledTierChange(tenant.id)
+      // Recargar datos del tenant
+      if (onTenantUpdate) {
+        await onTenantUpdate()
+      }
+    } catch (err) {
+      console.error('Error cancelando cambio programado:', err)
+      alert('Error al cancelar el cambio. Por favor intenta nuevamente.')
+    } finally {
+      setCancellingSchedule(false)
+    }
+  }
+
+  const handleModifyScheduledChange = () => {
+    // Abrir modal para seleccionar nuevo tier
+    setSelectedNewTier(status.scheduledTier)
+    setShowModifyModal(true)
+  }
+
+  const handleConfirmModify = async (newTier) => {
+    if (!tenant?.id || !newTier) return
+    
+    // Si es el mismo tier que ya está programado, solo cerrar
+    if (newTier === status.scheduledTier) {
+      setShowModifyModal(false)
+      return
+    }
+    
+    setModifyingSchedule(true)
+    try {
+      const result = await scheduleTierChange(tenant.id, newTier, status.expiresAt)
+      console.log('scheduleTierChange result:', result)
+      console.log('Nuevo tier programado:', newTier)
+      setShowModifyModal(false)
+      // Recargar datos del tenant
+      if (onTenantUpdate) {
+        console.log('Llamando onTenantUpdate...')
+        await onTenantUpdate()
+        console.log('onTenantUpdate completado')
+      }
+    } catch (err) {
+      console.error('Error modificando cambio programado:', err)
+      alert('Error al modificar el cambio. Por favor intenta nuevamente.')
+    } finally {
+      setModifyingSchedule(false)
+    }
+  }
+
+  // Obtener opciones de tier disponibles para modificar (excluyendo el actual)
+  const getAvailableTiers = () => {
+    const allTiers = ['free', 'premium', 'premium_pro']
+    return allTiers.filter(t => t !== status.tier) // No mostrar el tier actual
   }
 
   // Si es FREE, no mostrar estado de suscripción
@@ -212,6 +282,80 @@ export default function SubscriptionStatus({
                 </span>
               )}
             </div>
+            
+            {/* Cambio de plan programado - Info detallada */}
+            {status.scheduledTier && !status.hasExpired && (
+              <div className="subscriptionStatus__scheduledBox">
+                <div className="subscriptionStatus__scheduledSuccess">
+                  <span className="subscriptionStatus__scheduledSuccessText">
+                    <Check size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Cambio programado correctamente. Tu plan se actualizará a <strong>{TIER_LABELS[status.scheduledTier]}</strong>.
+                  </span>
+                  <div className="subscriptionStatus__scheduledActions">
+                    <button 
+                      className="subscriptionStatus__scheduledBtn subscriptionStatus__scheduledBtn--edit"
+                      onClick={handleModifyScheduledChange}
+                      title="Modificar cambio"
+                    >
+                      <Pencil size={14} /> Modificar
+                    </button>
+                    <button 
+                      className="subscriptionStatus__scheduledBtn subscriptionStatus__scheduledBtn--cancel"
+                      onClick={handleCancelScheduledChange}
+                      disabled={cancellingSchedule}
+                      title="Cancelar cambio"
+                    >
+                      <X size={14} /> {cancellingSchedule ? 'Cancelando...' : 'Cancelar'}
+                    </button>
+                  </div>
+                </div>
+                <div className="subscriptionStatus__scheduledHeader">
+                  <ArrowRight size={16} />
+                  <strong>Cambio de plan programado</strong>
+                </div>
+                <div className="subscriptionStatus__scheduledDetails">
+                  <div className="subscriptionStatus__scheduledRow">
+                    <span className="subscriptionStatus__scheduledLabel">Nuevo plan:</span>
+                    <span className="subscriptionStatus__scheduledValue">
+                      {TIER_LABELS[status.scheduledTier]}
+                    </span>
+                  </div>
+                  <div className="subscriptionStatus__scheduledRow">
+                    <span className="subscriptionStatus__scheduledLabel">Plan actual hasta:</span>
+                    <span className="subscriptionStatus__scheduledValue">
+                      {status.expiresAt ? new Date(status.expiresAt).toLocaleDateString('es-AR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      }) : '-'}
+                    </span>
+                  </div>
+                  <div className="subscriptionStatus__scheduledRow">
+                    <span className="subscriptionStatus__scheduledLabel">Nuevo plan comienza:</span>
+                    <span className="subscriptionStatus__scheduledValue">
+                      {status.expiresAt ? new Date(new Date(status.expiresAt).getTime() + 86400000).toLocaleDateString('es-AR', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        }) : '-'
+                      }
+                    </span>
+                  </div>
+                  <div className="subscriptionStatus__scheduledRow">
+                    <span className="subscriptionStatus__scheduledLabel">Comienza a pagar:</span>
+                    <span className="subscriptionStatus__scheduledValue">
+                      {status.scheduledTier === 'free' 
+                        ? 'Sin cargo (plan gratuito)'
+                        : status.expiresAt ? new Date(new Date(status.expiresAt).getTime() - 86400000).toLocaleDateString('es-AR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          }) : '-'
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Toggle de auto-renovación */}
@@ -221,7 +365,18 @@ export default function SubscriptionStatus({
                 <span className="subscriptionStatus__toggleTitle"><RefreshCw size={14} /> Renovación automática</span>
                 <span className="subscriptionStatus__toggleDesc">
                   {autoRenew 
-                    ? 'Tu suscripción se renovará automáticamente' 
+                    ? <>
+                        Se cobrará automáticamente el{' '}
+                        <strong>
+                          {status.expiresAt 
+                            ? new Date(new Date(status.expiresAt).getTime() - 86400000).toLocaleDateString('es-AR', {
+                                day: 'numeric',
+                                month: 'short'
+                              })
+                            : 'día antes de vencer'
+                          }
+                        </strong>
+                      </>
                     : 'Recibirás un aviso antes de que expire'}
                 </span>
               </div>
@@ -235,6 +390,26 @@ export default function SubscriptionStatus({
                 <span className="subscriptionStatus__toggleSlider"></span>
               </div>
             </label>
+            
+            {/* Info adicional cuando auto-renew está activo */}
+            {autoRenew && (
+              <div className="subscriptionStatus__autoRenewInfo">
+                <Calendar size={14} />
+                <span>
+                  Próximo cobro: <strong>
+                    {status.expiresAt 
+                      ? new Date(new Date(status.expiresAt).getTime() - 86400000).toLocaleDateString('es-AR', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })
+                      : '-'
+                    }
+                  </strong>
+                  {' '}• Se renovará por 30 días más
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Alerta si está por vencer */}
@@ -268,7 +443,7 @@ export default function SubscriptionStatus({
           {/* Nota sobre modo demo */}
           {!mpConfigured && (
             <div className="subscriptionStatus__demo">
-              🧪 Modo Demo: La renovación automática se simulará
+              <FlaskConical size={14} /> Modo Demo: La renovación automática se simulará
             </div>
           )}
         </div>
@@ -283,6 +458,77 @@ export default function SubscriptionStatus({
         onDismiss={handleDismissRenewal}
         loading={renewalLoading}
       />
+
+      {/* Modal para modificar cambio programado */}
+      <ScheduledChangeModal
+        isOpen={showScheduleModal}
+        currentTier={status.tier}
+        newTier={status.scheduledTier}
+        effectiveDate={status.expiresAt}
+        onClose={() => setShowScheduleModal(false)}
+        onCancelSchedule={async () => {
+          await handleCancelScheduledChange()
+          setShowScheduleModal(false)
+        }}
+      />
+
+      {/* Modal para modificar el tier programado */}
+      {showModifyModal && (
+        <div className="subscriptionStatus__modifyOverlay" onClick={() => setShowModifyModal(false)}>
+          <div className="subscriptionStatus__modifyModal" onClick={e => e.stopPropagation()}>
+            <div className="subscriptionStatus__modifyHeader">
+              <h3>Modificar cambio programado</h3>
+              <button 
+                className="subscriptionStatus__modifyClose"
+                onClick={() => setShowModifyModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p className="subscriptionStatus__modifyDesc">
+              Selecciona el nuevo plan al que deseas cambiar cuando termine tu suscripción actual:
+            </p>
+            
+            <div className="subscriptionStatus__modifyOptions">
+              {getAvailableTiers().map(tierOption => (
+                <button
+                  key={tierOption}
+                  className={`subscriptionStatus__modifyOption ${selectedNewTier === tierOption ? 'subscriptionStatus__modifyOption--selected' : ''}`}
+                  onClick={() => setSelectedNewTier(tierOption)}
+                  style={{ '--option-color': TIER_COLORS[tierOption] }}
+                >
+                  <span className="subscriptionStatus__modifyOptionIcon">
+                    {tierOption === 'premium_pro' ? <Crown size={20} /> : tierOption === 'premium' ? <Star size={20} /> : <Package size={20} />}
+                  </span>
+                  <span className="subscriptionStatus__modifyOptionLabel">
+                    {TIER_LABELS[tierOption]}
+                  </span>
+                  {selectedNewTier === tierOption && (
+                    <span className="subscriptionStatus__modifyOptionCheck"><Check size={16} /></span>
+                  )}
+                </button>
+              ))}
+            </div>
+            
+            <div className="subscriptionStatus__modifyActions">
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowModifyModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="primary"
+                onClick={() => handleConfirmModify(selectedNewTier)}
+                disabled={modifyingSchedule || !selectedNewTier}
+              >
+                {modifyingSchedule ? 'Guardando...' : 'Confirmar cambio'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

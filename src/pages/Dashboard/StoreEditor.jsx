@@ -19,7 +19,7 @@ import { uploadTenantLogo, uploadWelcomeImage } from '../../lib/supabaseStorage'
 import { loadJson, saveJson } from '../../shared/storage'
 import { DAYS_OPTIONS, TIME_OPTIONS } from '../../shared/openingHours'
 import { SUBSCRIPTION_TIERS, getActiveSubscriptionTier } from '../../shared/subscriptions'
-import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX, Pencil } from 'lucide-react'
+import { Save, Store, Image, MessageSquare, Upload, X, Eye, EyeOff, Clock, Plus, Trash2, FileText, AlertTriangle, Crop, Link2, Bell, Volume2, VolumeX, Pencil, Check } from 'lucide-react'
 
 const MOCK_TENANT_KEY = 'mock.tenantCustomization'
 
@@ -937,7 +937,7 @@ export default function StoreEditor() {
               onClick={playTestSound}
               disabled={!soundEnabled}
             >
-              🔊 Probar Sonido
+              <Volume2 size={16} /> Probar Sonido
             </Button>
           </div>
         </div>
@@ -956,7 +956,7 @@ export default function StoreEditor() {
 
       {restaurantSuccess && (
         <div className="account__successMessage">
-          <div className="account__successIcon">✓</div>
+          <div className="account__successIcon"><Check size={20} /></div>
           <span>Configuración del restaurante guardada correctamente</span>
         </div>
       )}

@@ -114,6 +114,27 @@
   color: #fca5a5;
 }
 
+/* Cambio programado (en el header) */
+.subscriptionPanel__scheduledChange {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.subscriptionPanel__scheduledChange svg {
+  opacity: 0.8;
+}
+
+.subscriptionPanel__scheduledChange strong {
+  display: inline;
+}
+
 .subscriptionPanel__daysRemaining {
   display: flex;
   flex-direction: column;
@@ -165,6 +186,16 @@
   background: #eff6ff;
   border-color: #3b82f6;
   color: #1e40af;
+}
+
+.subscriptionPanel__alert--scheduled {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+}
+
+.subscriptionPanel__alert--scheduled strong {
+  color: #0369a1;
 }
 
 .subscriptionPanel__alert > svg {

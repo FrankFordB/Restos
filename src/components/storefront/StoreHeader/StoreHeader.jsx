@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import './StoreHeader.css'
 import { STORE_HERO_STYLES } from '../../../shared/subscriptions'
 import { checkIsStoreOpen } from '../../../shared/openingHours'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShoppingCart, CircleDot } from 'lucide-react'
 import OrdersRemainingBadge from '../OrdersRemainingBadge/OrdersRemainingBadge'
 
 export default function StoreHeader({
@@ -118,12 +118,12 @@ export default function StoreHeader({
           {/* Open/Closed Badge */}
           {!storeStatus.noSchedule && (
             <span className={`storeHeader__statusBadge ${storeStatus.isOpen ? 'storeHeader__statusBadge--open' : 'storeHeader__statusBadge--closed'}`}>
-              {storeStatus.isOpen ? '🟢 Abierto' : '🔴 Cerrado'}
+              <CircleDot size={12} /> {storeStatus.isOpen ? 'Abierto' : 'Cerrado'}
             </span>
           )}
           {cartCount > 0 && (
             <button className="storeHeader__cartBtn" onClick={onOpenCart}>
-              🛒 <span className="storeHeader__cartCount">{cartCount}</span>
+              <ShoppingCart size={18} /> <span className="storeHeader__cartCount">{cartCount}</span>
             </button>
           )}
         </div>
