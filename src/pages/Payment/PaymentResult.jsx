@@ -6,6 +6,7 @@ import {
   updatePlatformSubscription,
   updateTenantSubscriptionTier,
   getPendingSubscriptionByPreference,
+  getLatestPendingSubscriptionByTenant,
 } from '../../lib/supabaseMercadopagoApi'
 import { fetchTenantById } from '../../lib/supabaseApi'
 import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
@@ -31,6 +32,16 @@ export default function PaymentResult() {
   const tenantSlug = searchParams.get('tenant')
 
   useEffect(() => {
+    // Log todos los parámetros que llegan de MercadoPago
+    console.log('🔍 PaymentResult - Todos los parámetros de URL:', Object.fromEntries(searchParams.entries()))
+    console.log('🔍 PaymentResult - Parámetros parseados:', {
+      collectionStatus,
+      paymentId,
+      preferenceId,
+      externalReference,
+      paymentType,
+      tenantSlug
+    })
     processPaymentResult()
   }, [])
 
@@ -55,6 +66,7 @@ export default function PaymentResult() {
       console.log('🔄 PaymentResult - Processing:', {
         status,
         isSuccess,
+        isPending,
         paymentType,
         refData,
         paymentId,
@@ -66,6 +78,22 @@ export default function PaymentResult() {
         console.log('✅ Procesando upgrade de suscripción...')
         await handleSubscriptionSuccess(refData, paymentId, preferenceId)
         console.log('✅ Upgrade completado!')
+      }
+
+      // Si está en proceso o pendiente, guardar para seguimiento
+      // El webhook de MercadoPago confirmará el estado final
+      if (isPending && (paymentType === 'subscription' || refData.type === 'subscription')) {
+        console.log('⏳ Pago en proceso/pendiente - guardando para seguimiento...')
+        // Guardar en localStorage para que el usuario pueda volver a verificar
+        localStorage.setItem('mp_pending_subscription', JSON.stringify({
+          paymentId,
+          preferenceId,
+          tenantId: refData.tenantId,
+          planTier: refData.planTier,
+          billingPeriod: refData.billingPeriod,
+          status,
+          timestamp: Date.now(),
+        }))
       }
 
       // Si es un pago de tienda (store_order), actualizar la orden
@@ -162,6 +190,26 @@ export default function PaymentResult() {
           }
         } else {
           console.warn('⚠️ No se encontró suscripción pendiente para preferenceId:', preferenceId)
+        }
+      }
+
+      // Fallback: si tenemos tenantId pero no preferenceId, buscar suscripción pendiente más reciente
+      if (subscriptionData.tenantId && (!subscriptionData.planTier || !preferenceId)) {
+        console.log('🔍 Fallback: buscando suscripción pendiente más reciente para tenant:', subscriptionData.tenantId)
+        const latestPending = await getLatestPendingSubscriptionByTenant(subscriptionData.tenantId)
+        console.log('📋 Suscripción pendiente más reciente:', latestPending)
+        if (latestPending) {
+          subscriptionData = {
+            tenantId: latestPending.tenant_id,
+            planTier: latestPending.plan_tier,
+            billingPeriod: latestPending.billing_period,
+            amount: latestPending.amount,
+            preferenceId: latestPending.mp_preference_id,
+          }
+          // Actualizar preferenceId para usar después
+          if (!preferenceId && latestPending.mp_preference_id) {
+            preferenceId = latestPending.mp_preference_id
+          }
         }
       }
 
@@ -309,8 +357,10 @@ export default function PaymentResult() {
       icon: <Loader size={32} />,
       title: 'Pago en Proceso',
       subtitle: 'Estamos verificando tu pago',
-      message: 'Tu pago está siendo procesado. Esto puede tomar unos minutos. Te notificaremos cuando se confirme.',
-      info: 'Si pagaste en efectivo en un punto de pago, recuerda que puede tardar hasta 2 horas hábiles en acreditarse.',
+      message: result.type === 'subscription'
+        ? 'Tu pago está siendo procesado por MercadoPago. Recibirás una confirmación cuando se acredite. Si usaste una tarjeta de prueba, recuerda usar "APRO" como nombre del titular para que el pago sea aprobado inmediatamente.'
+        : 'Tu pago está siendo procesado. Esto puede tomar unos minutos. Te notificaremos cuando se confirme.',
+      info: 'En ambiente de pruebas (sandbox), usa el nombre "APRO" en el titular de la tarjeta para aprobar pagos instantáneamente. El webhook confirmará tu suscripción automáticamente.',
     },
     failure: {
       icon: <X size={32} />,
@@ -425,11 +475,23 @@ export default function PaymentResult() {
 
             {result.isPending && (
               <>
+                {result.type === 'subscription' && (
+                  <div className="paymentResult__pendingNote">
+                    <Clock size={16} />
+                    <span>El webhook de MercadoPago confirmará tu suscripción automáticamente cuando el pago sea aprobado.</span>
+                  </div>
+                )}
                 <button
-                  className="paymentResult__btn paymentResult__btn--secondary"
+                  className="paymentResult__btn paymentResult__btn--primary"
                   onClick={result.type === 'subscription' ? handleGoToDashboard : handleGoToStore}
                 >
-                  Continuar
+                  {result.type === 'subscription' ? 'Ir a Mi Dashboard' : 'Ver Mi Pedido'}
+                </button>
+                <button
+                  className="paymentResult__btn paymentResult__btn--secondary"
+                  onClick={() => window.location.reload()}
+                >
+                  <RefreshCw size={16} /> Verificar Estado
                 </button>
               </>
             )}

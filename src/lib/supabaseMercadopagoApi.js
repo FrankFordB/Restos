@@ -331,6 +331,43 @@ export const getTenantSubscriptions = async (tenantId) => {
 }
 
 /**
+ * Obtiene la suscripción pendiente más reciente de un tenant
+ * Útil cuando MercadoPago no devuelve preferenceId en el callback
+ * @param {string} tenantId 
+ * @returns {Promise<Object|null>}
+ */
+export const getLatestPendingSubscriptionByTenant = async (tenantId) => {
+  if (!isSupabaseConfigured) {
+    const key = 'platform_subscriptions_mock'
+    const data = JSON.parse(localStorage.getItem(key) || '[]')
+    // Buscar suscripción pendiente más reciente (creada en los últimos 30 minutos)
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000
+    const pending = data
+      .filter(s => s.tenant_id === tenantId && s.status === 'pending')
+      .filter(s => new Date(s.created_at).getTime() > thirtyMinutesAgo)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    return pending[0] || null
+  }
+
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'pending')
+    .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Error obteniendo suscripción pendiente por tenant:', error)
+    return null
+  }
+
+  return data
+}
+
+/**
  * Actualiza el tier de suscripción de un tenant
  * @param {string} tenantId 
  * @param {string} tier 
