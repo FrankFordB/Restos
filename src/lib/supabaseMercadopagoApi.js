@@ -338,7 +338,10 @@ export const getTenantSubscriptions = async (tenantId) => {
  * @returns {Promise<void>}
  */
 export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) => {
+  console.log('🔧 updateTenantSubscriptionTier llamado:', { tenantId, tier, expiresAt })
+  
   if (!isSupabaseConfigured) {
+    console.log('📦 Modo mock: actualizando localStorage...')
     // En modo mock, actualizar el tenant en localStorage
     const tenantsData = JSON.parse(localStorage.getItem('state.tenants') || '{}')
     const tenants = tenantsData.tenants || []
@@ -350,6 +353,7 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
       tenants[idx].orders_remaining = tier === 'premium_pro' ? null : tier === 'premium' ? 80 : 15
       tenantsData.tenants = tenants
       localStorage.setItem('state.tenants', JSON.stringify(tenantsData))
+      console.log('✅ Modo mock: tenant actualizado')
     }
     return
   }
@@ -357,6 +361,7 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
   // SEGURIDAD: Solo usar función RPC con SECURITY DEFINER
   // El cliente NUNCA puede hacer UPDATE directo a subscription_tier o premium_until
   // La función RPC verifica internamente que el usuario sea owner o super_admin
+  console.log('🚀 Llamando RPC update_tenant_subscription...')
   const { data, error } = await supabase.rpc('update_tenant_subscription', {
     p_tenant_id: tenantId,
     p_tier: tier,
@@ -364,10 +369,12 @@ export const updateTenantSubscriptionTier = async (tenantId, tier, expiresAt) =>
   })
 
   if (error) {
-    console.error('Error actualizando suscripción:', error)
+    console.error('❌ Error actualizando suscripción via RPC:', error)
+    console.error('💡 Detalles:', { code: error.code, message: error.message, details: error.details, hint: error.hint })
     throw new Error(error.message || 'Error al actualizar suscripción. Contacta soporte.')
   }
 
+  console.log('✅ RPC exitoso:', data)
   return data
 }
 

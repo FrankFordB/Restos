@@ -148,7 +148,18 @@ export default function StoreEditor() {
     }
 
     loadTenant()
-    return () => { cancelled = true }
+    
+    // Recargar cuando la ventana gane foco (ej: volver de MercadoPago)
+    const handleFocus = () => {
+      console.log('🔄 StoreEditor: ventana ganó foco, recargando...')
+      loadTenant()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => { 
+      cancelled = true
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [user?.tenantId, currentTenant])
 
   // Load tutorial video

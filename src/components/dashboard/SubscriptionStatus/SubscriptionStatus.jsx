@@ -47,6 +47,7 @@ export default function SubscriptionStatus({
   const [showModifyModal, setShowModifyModal] = useState(false)
   const [modifyingSchedule, setModifyingSchedule] = useState(false)
   const [selectedNewTier, setSelectedNewTier] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
   
   // Order limits state
   const [orderLimits, setOrderLimits] = useState({
@@ -58,6 +59,17 @@ export default function SubscriptionStatus({
 
   const status = getSubscriptionStatus(tenant)
   const mpConfigured = isPlatformMPConfigured()
+  
+  // Función para refrescar manualmente
+  const handleRefresh = async () => {
+    if (!onTenantUpdate) return
+    setRefreshing(true)
+    try {
+      await onTenantUpdate()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   // Cargar configuración de auto-renovación
   useEffect(() => {
@@ -219,7 +231,19 @@ export default function SubscriptionStatus({
 
   return (
     <>
-      <Card title="Estado de Suscripción">
+      <Card title={
+        <div className="subscriptionStatus__header">
+          <span>Estado de Suscripción</span>
+          <button 
+            className={`subscriptionStatus__refresh ${refreshing ? 'subscriptionStatus__refresh--loading' : ''}`}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="Refrescar estado"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      }>
         <div className="subscriptionStatus">
           {/* Badge del plan actual */}
           <div className="subscriptionStatus__plan">

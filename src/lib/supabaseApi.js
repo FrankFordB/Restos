@@ -868,13 +868,25 @@ export async function fetchTenantByOwnerUserId(ownerUserId) {
 
 export async function fetchTenantById(tenantId) {
   ensureSupabase()
+  console.log('🔍 fetchTenantById llamado para:', tenantId)
+  
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, name, slug, is_public, premium_until, subscription_tier, scheduled_tier, scheduled_at, logo, description, slogan')
+    .select('id, name, slug, is_public, premium_until, subscription_tier, scheduled_tier, scheduled_at, logo, description, slogan, orders_limit, orders_remaining')
     .eq('id', tenantId)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    console.error('❌ Error en fetchTenantById:', error)
+    throw error
+  }
+  
+  console.log('📦 fetchTenantById resultado:', {
+    id: data?.id,
+    subscription_tier: data?.subscription_tier,
+    premium_until: data?.premium_until
+  })
+  
   return data
 }
 

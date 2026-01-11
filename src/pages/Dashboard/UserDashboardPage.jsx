@@ -90,6 +90,57 @@ export default function UserDashboardPage() {
   const activeTab = dashboard?.activeTab || 'overview'
   const setActiveTab = dashboard?.setActiveTab || (() => {})
   
+  // Función para recargar el tenant
+  const refreshTenant = async () => {
+    if (!user?.tenantId || !isSupabaseConfigured) return
+    try {
+      const updated = await fetchTenantById(user.tenantId)
+      if (updated) {
+        setCurrentTenant(updated)
+        console.log('✅ Tenant refrescado:', updated.subscription_tier, updated.premium_until)
+      }
+    } catch (err) {
+      console.error('Error refrescando tenant:', err)
+    }
+  }
+  
+  // Recargar tenant cuando la ventana gana foco (ej: volver de MercadoPago)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Ventana ganó foco, refrescando tenant...')
+      refreshTenant()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user?.tenantId])
+  
+  // Detectar si viene de un pago exitoso (payment_success en URL o localStorage)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const paymentSuccess = params.get('payment_success')
+    const storedPayment = localStorage.getItem('payment_just_completed')
+    
+    console.log('🔍 Verificando pago:', { paymentSuccess, storedPayment, tenantId: user?.tenantId })
+    
+    if (paymentSuccess === 'true' || storedPayment === 'true') {
+      console.log('💳 Pago detectado! Refrescando tenant...')
+      localStorage.removeItem('payment_just_completed')
+      // Limpiar el parámetro de la URL
+      if (paymentSuccess) {
+        params.delete('payment_success')
+        const newUrl = params.toString() 
+          ? `${location.pathname}?${params.toString()}` 
+          : location.pathname
+        window.history.replaceState({}, '', newUrl)
+      }
+      // Refrescar inmediatamente y después de un delay
+      refreshTenant()
+      setTimeout(refreshTenant, 1000)
+      setTimeout(refreshTenant, 3000)
+    }
+  }, [location.search, user?.tenantId])
+  
   // Solo sincronizar desde URL al montar o cuando cambia location.search
   // (no incluir activeTab en dependencias para evitar loops)
   useEffect(() => {

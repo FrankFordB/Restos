@@ -7,6 +7,7 @@ import {
   updateTenantSubscriptionTier,
   getPendingSubscriptionByPreference,
 } from '../../lib/supabaseMercadopagoApi'
+import { fetchTenantById } from '../../lib/supabaseApi'
 import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
 import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper, Check, Loader, X, RefreshCw, HelpCircle } from 'lucide-react'
 
@@ -19,6 +20,7 @@ export default function PaymentResult() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [result, setResult] = useState(null)
+  const [dbVerified, setDbVerified] = useState(null) // Para verificar estado en BD
 
   // Parámetros de MercadoPago
   const collectionStatus = searchParams.get('collection_status') || searchParams.get('status')
@@ -148,7 +150,7 @@ export default function PaymentResult() {
 
       // Si no tenemos los datos del tenant en external_reference, buscar la suscripción pendiente
       if ((!subscriptionData.tenantId || !subscriptionData.planTier) && preferenceId) {
-        console.log('🔍 Buscando suscripción pendiente por preferenceId...')
+        console.log('🔍 Buscando suscripción pendiente por preferenceId:', preferenceId)
         const pendingSubscription = await getPendingSubscriptionByPreference(preferenceId)
         console.log('📋 Suscripción pendiente encontrada:', pendingSubscription)
         if (pendingSubscription) {
@@ -158,6 +160,8 @@ export default function PaymentResult() {
             billingPeriod: pendingSubscription.billing_period,
             amount: pendingSubscription.amount,
           }
+        } else {
+          console.warn('⚠️ No se encontró suscripción pendiente para preferenceId:', preferenceId)
         }
       }
 
@@ -176,13 +180,17 @@ export default function PaymentResult() {
       // Actualizar suscripción en BD
       if (preferenceId) {
         console.log('💾 Actualizando platform_subscriptions...')
-        await updatePlatformSubscription(preferenceId, {
-          paymentId,
-          status: 'approved',
-          paidAt: new Date(),
-          expiresAt,
-        })
-        console.log('✅ platform_subscriptions actualizado')
+        try {
+          await updatePlatformSubscription(preferenceId, {
+            paymentId,
+            status: 'approved',
+            paidAt: new Date(),
+            expiresAt,
+          })
+          console.log('✅ platform_subscriptions actualizado')
+        } catch (err) {
+          console.error('❌ Error actualizando platform_subscriptions:', err)
+        }
       }
 
       // Actualizar tier del tenant
@@ -192,19 +200,45 @@ export default function PaymentResult() {
           planTier: subscriptionData.planTier,
           expiresAt
         })
-        await updateTenantSubscriptionTier(subscriptionData.tenantId, subscriptionData.planTier, expiresAt)
-        console.log('✅ Tenant tier actualizado!')
+        try {
+          const rpcResult = await updateTenantSubscriptionTier(subscriptionData.tenantId, subscriptionData.planTier, expiresAt)
+          console.log('✅ Tenant tier actualizado! Resultado RPC:', rpcResult)
+          
+          // Verificar que realmente se actualizó en la BD
+          console.log('🔍 Verificando estado en BD...')
+          const tenantVerify = await fetchTenantById(subscriptionData.tenantId)
+          console.log('📊 Estado actual en BD:', {
+            subscription_tier: tenantVerify?.subscription_tier,
+            premium_until: tenantVerify?.premium_until
+          })
+          
+          if (tenantVerify?.subscription_tier === subscriptionData.planTier) {
+            console.log('✅✅ VERIFICADO: El tier se actualizó correctamente en la BD')
+            setDbVerified(true)
+          } else {
+            console.error('❌ PROBLEMA: La BD aún muestra tier:', tenantVerify?.subscription_tier, 'pero debería ser:', subscriptionData.planTier)
+            setDbVerified(false)
+          }
+        } catch (err) {
+          console.error('❌ Error CRÍTICO actualizando tier del tenant:', err)
+          console.error('💡 Es posible que necesites ejecutar la migración fix_subscription_system_final.sql en Supabase')
+          setDbVerified(false)
+        }
       } else {
         console.warn('⚠️ No se pudo actualizar tier: faltan tenantId o planTier', subscriptionData)
       }
 
     } catch (error) {
-      console.error('Error actualizando suscripción:', error)
+      console.error('Error general en handleSubscriptionSuccess:', error)
     }
   }
 
   const handleGoToDashboard = () => {
-    navigate('/dashboard')
+    // Marcar que hubo un pago para que el Dashboard refresque el tenant
+    if (result?.isSuccess) {
+      localStorage.setItem('payment_just_completed', 'true')
+    }
+    navigate('/dashboard?tab=plans&payment_success=true')
   }
 
   const handleGoToStore = () => {
@@ -358,6 +392,15 @@ export default function PaymentResult() {
               {currentContent.info}
             </p>
           </div>
+          
+          {/* Verificación de BD - solo para suscripciones */}
+          {result.type === 'subscription' && result.isSuccess && (
+            <div className={`paymentResult__dbVerify ${dbVerified === true ? 'paymentResult__dbVerify--ok' : dbVerified === false ? 'paymentResult__dbVerify--error' : ''}`}>
+              {dbVerified === null && <span>⏳ Verificando actualización...</span>}
+              {dbVerified === true && <span>✅ Suscripción activada correctamente</span>}
+              {dbVerified === false && <span>⚠️ Hubo un problema activando la suscripción. Contacta soporte.</span>}
+            </div>
+          )}
 
           {/* Acciones */}
           <div className="paymentResult__actions">

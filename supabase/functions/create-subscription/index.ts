@@ -10,13 +10,13 @@ const PLANS = {
   premium: {
     id: 'RESTO_PREMIUM_MONTHLY',
     tier: 'premium',
-    amount: 4990,
+    amount: 9990, // $9.990 ARS
     reason: 'Suscripción Resto Premium - Mensual',
   },
   premium_pro: {
     id: 'RESTO_PRO_MONTHLY',
     tier: 'premium_pro',
-    amount: 7990,
+    amount: 19990, // $19.990 ARS
     reason: 'Suscripción Resto PRO - Mensual',
   },
 }
@@ -169,13 +169,12 @@ Deno.serve(async (req) => {
     // Guardar en nuestra DB usando service role
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     
-    const { error: insertError } = await supabaseAdmin.rpc('create_mp_subscription_record', {
+    const { data: subResult, error: insertError } = await supabaseAdmin.rpc('create_mp_subscription', {
       p_tenant_id: tenant_id,
-      p_preapproval_id: mpData.id,
-      p_plan_id: planConfig.id,
+      p_mp_preapproval_id: mpData.id,
       p_plan_tier: planConfig.tier,
       p_amount: planConfig.amount,
-      p_external_reference: externalReference,
+      p_payer_email: user.email,
     })
 
     if (insertError) {
@@ -183,6 +182,8 @@ Deno.serve(async (req) => {
       // No fallamos aquí porque la suscripción ya se creó en MP
       // El webhook la activará de todos modos
     }
+
+    console.log('Subscription saved:', subResult)
 
     // Retornar la URL para que el usuario autorice
     return new Response(

@@ -660,6 +660,17 @@ export default function StorefrontPage() {
       }
     }
     loadTenantFull()
+    
+    // Recargar cuando la ventana gane foco (ej: volver de pagar)
+    const handleFocus = () => {
+      console.log('🔄 StorefrontPage: ventana ganó foco, recargando tenant...')
+      loadTenantFull()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [slug, tenant, tenantId])
 
   // Update pause status when tenant data is loaded
@@ -735,10 +746,12 @@ export default function StorefrontPage() {
   const heroCarouselButtonStyle = heroTheme?.heroCarouselButtonStyle || 'arrows_classic'
 
   // Get subscription tier from tenant (super_admin bypasses tier restrictions)
+  // Use tenantFullData for most up-to-date info, fallback to tenant from Redux
   // Check if premium is still active (not expired)
-  const subscriptionTier = (() => {
-    const tier = tenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE
-    const premiumUntil = tenant?.premium_until
+  const subscriptionTier = useMemo(() => {
+    const tenantSource = tenantFullData || tenant
+    const tier = tenantSource?.subscription_tier || SUBSCRIPTION_TIERS.FREE
+    const premiumUntil = tenantSource?.premium_until
     
     if (tier !== SUBSCRIPTION_TIERS.FREE && premiumUntil) {
       try {
@@ -752,7 +765,7 @@ export default function StorefrontPage() {
       }
     }
     return SUBSCRIPTION_TIERS.FREE
-  })()
+  }, [tenantFullData, tenant])
   
   const effectiveTier = isSuperAdmin ? SUBSCRIPTION_TIERS.PREMIUM_PRO : subscriptionTier
 

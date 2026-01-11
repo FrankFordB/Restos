@@ -1,0 +1,375 @@
+/* MPSubscriptionCheckout.css */
+
+.mpCheckout {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.mpCheckout__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.mpCheckout__loading .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.mpCheckout__header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.mpCheckout__header h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.mpCheckout__header p {
+  color: #64748b;
+}
+
+/* Planes */
+.mpCheckout__plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.mpCheckout__plan {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mpCheckout__plan:hover {
+  border-color: #94a3b8;
+  transform: translateY(-2px);
+}
+
+.mpCheckout__plan--selected {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb, white);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+}
+
+.mpCheckout__planHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mpCheckout__planHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.plan-icon {
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.plan-icon.premium {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+}
+
+.plan-icon.pro {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: white;
+}
+
+.mpCheckout__badge {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.mpCheckout__planPrice {
+  margin-bottom: 1.25rem;
+}
+
+.mpCheckout__price {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.mpCheckout__period {
+  font-size: 1rem;
+  color: #64748b;
+}
+
+.mpCheckout__features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mpCheckout__features li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.mpCheckout__features .text-success {
+  color: #10b981;
+}
+
+.mpCheckout__planSelect {
+  text-align: center;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.mpCheckout__plan--selected .mpCheckout__planSelect {
+  background: #f59e0b;
+  color: white;
+}
+
+.mpCheckout__selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+/* Payment Info */
+.mpCheckout__paymentInfo {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.mpCheckout__paymentInfo svg {
+  color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mpCheckout__paymentInfo strong {
+  display: block;
+  color: #166534;
+  margin-bottom: 0.25rem;
+}
+
+.mpCheckout__paymentInfo p {
+  font-size: 0.85rem;
+  color: #15803d;
+  margin: 0;
+}
+
+/* Terms */
+.mpCheckout__terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+}
+
+.mpCheckout__terms input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #f59e0b;
+}
+
+.mpCheckout__terms span {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.mpCheckout__terms a {
+  color: #f59e0b;
+  text-decoration: underline;
+}
+
+/* Error */
+.mpCheckout__error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* Submit button */
+.mpCheckout__submitBtn {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.mpCheckout__submitBtn .spin {
+  animation: spin 1s linear infinite;
+}
+
+.mpCheckout__footer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 1rem;
+}
+
+/* Active subscription card */
+.mpCheckout__active {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.mpCheckout__activeHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mpCheckout__activeHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mpCheckout__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+}
+
+.mpCheckout__status--green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.mpCheckout__status--yellow {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.mpCheckout__status--orange {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.mpCheckout__status--red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mpCheckout__activeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.mpCheckout__infoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+.mpCheckout__infoRow svg {
+  color: #94a3b8;
+}
+
+.mpCheckout__note {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.mpCheckout__upgradeBtn {
+  width: 100%;
+}
+
+/* Pending state */
+.mpCheckout__pending {
+  text-align: center;
+  padding: 2rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.mpCheckout__pending svg {
+  color: #f59e0b;
+  margin-bottom: 1rem;
+}
+
+.mpCheckout__pending h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.mpCheckout__pending p {
+  color: #64748b;
+  margin-bottom: 1.5rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .mpCheckout__plans {
+    grid-template-columns: 1fr;
+  }
+  
+  .mpCheckout__price {
+    font-size: 1.75rem;
+  }
+}

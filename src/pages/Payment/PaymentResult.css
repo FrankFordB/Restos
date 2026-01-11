@@ -301,3 +301,24 @@
     padding: 1.5rem;
   }
 }
+
+/* DB Verification */
+.paymentResult__dbVerify {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.paymentResult__dbVerify--ok {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.paymentResult__dbVerify--error {
+  background: #fee2e2;
+  color: #dc2626;
+}

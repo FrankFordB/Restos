@@ -1,3 +1,45 @@
+/* Header con botón de refresh */
+.subscriptionStatus__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.subscriptionStatus__refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.subscriptionStatus__refresh:hover {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.subscriptionStatus__refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.subscriptionStatus__refresh--loading svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .subscriptionStatus {
   display: flex;
   flex-direction: column;

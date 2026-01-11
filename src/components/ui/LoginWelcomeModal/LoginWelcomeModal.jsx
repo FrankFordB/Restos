@@ -65,14 +65,17 @@ export default function LoginWelcomeModal({ open, onClose, userName }) {
           
           {/* Floating Decorations */}
           <div className="loginWelcome__floatingElements">
-            {FLOATING_ITEMS.map((emoji, i) => (
-              <div 
-                key={i} 
-                className={`loginWelcome__floatingItem loginWelcome__floatingItem--${i + 1}`}
-              >
-                {emoji}
-              </div>
-            ))}
+            {FLOATING_ITEMS.map((item, i) => {
+              const IconComponent = item.icon
+              return (
+                <div 
+                  key={item.key} 
+                  className={`loginWelcome__floatingItem loginWelcome__floatingItem--${i + 1}`}
+                >
+                  <IconComponent size={24} />
+                </div>
+              )
+            })}
           </div>
 
           <div className="loginWelcome__heroContent">
