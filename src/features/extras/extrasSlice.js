@@ -31,6 +31,7 @@ const seedGroups = isSupabaseConfigured
           isRequired: false,
           sortOrder: 0,
           active: true,
+          categoryIds: [], // Aplica a todas las categorías
         },
         {
           id: 'group_demo_2',
@@ -41,6 +42,7 @@ const seedGroups = isSupabaseConfigured
           isRequired: false,
           sortOrder: 1,
           active: true,
+          categoryIds: [], // Aplica a todas las categorías
         },
         {
           id: 'group_demo_3',
@@ -51,6 +53,7 @@ const seedGroups = isSupabaseConfigured
           isRequired: true,
           sortOrder: 2,
           active: true,
+          categoryIds: [], // Aplica a todas las categorías
         },
       ],
     }
@@ -135,6 +138,7 @@ export const createExtraGroup = createAsyncThunk(
       is_required: group.isRequired ?? false,
       sort_order: group.sortOrder ?? 0,
       active: group.active ?? true,
+      category_ids: group.categoryIds || [],
     }
     if (!isSupabaseConfigured) {
       return { tenantId, row }
@@ -314,6 +318,7 @@ const extrasSlice = createSlice({
           isRequired: r.is_required ?? false,
           sortOrder: r.sort_order ?? 0,
           active: r.active,
+          categoryIds: r.category_ids || [],
         }))
         persist(state)
       })
@@ -330,6 +335,7 @@ const extrasSlice = createSlice({
           isRequired: row.is_required ?? false,
           sortOrder: row.sort_order ?? 0,
           active: row.active ?? true,
+          categoryIds: row.category_ids || [],
         }
         state.groupsByTenantId[tenantId].push(newGroup)
         persist(state)
@@ -349,6 +355,7 @@ const extrasSlice = createSlice({
               isRequired: row.is_required ?? false,
               sortOrder: row.sort_order ?? 0,
               active: row.active,
+              categoryIds: row.category_ids || [],
             }
           } else if (patch) {
             list[idx] = { ...list[idx], ...patch }
@@ -473,6 +480,29 @@ export const selectExtraGroupsForTenant = (tenantId) => {
     )
   }
   return groupsSelectorCache.get(tenantId)
+}
+
+/**
+ * Selector para obtener grupos de extras filtrados por categoría del producto
+ * @param {string} tenantId - ID del tenant
+ * @param {string} categoryId - ID de la categoría del producto
+ * @returns {Array} - Grupos de extras que aplican a esa categoría
+ */
+export const selectExtraGroupsForCategory = (tenantId, categoryId) => {
+  return createSelector(
+    [selectGroupsByTenantId],
+    (groupsByTenantId) => {
+      const groups = groupsByTenantId[tenantId] || EMPTY_ARRAY
+      // Si no hay categoryId, devolver todos los grupos
+      if (!categoryId) return groups
+      // Filtrar grupos que aplican a esta categoría
+      // Un grupo aplica si: categoryIds está vacío/null (aplica a todas) O contiene el categoryId
+      return groups.filter(group => {
+        const categoryIds = group.categoryIds || []
+        return categoryIds.length === 0 || categoryIds.includes(categoryId)
+      })
+    }
+  )
 }
 
 export default extrasSlice.reducer

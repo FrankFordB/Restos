@@ -7,6 +7,7 @@ import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
 import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
 import TutorialSection from '../TutorialSection/TutorialSection'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
+import CategoryManager from '../CategoryManager/CategoryManager'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { selectUser } from '../../../features/auth/authSlice'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
@@ -21,10 +22,14 @@ import {
 } from '../../../features/products/productsSlice'
 import {
   createCategory,
+  patchCategory,
+  deleteCategory,
   fetchCategoriesForTenant,
   selectCategoriesForTenant,
+  selectCategoryTree,
+  selectCategoryDescendants,
 } from '../../../features/categories/categoriesSlice'
-import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut, Plus, Link2, Upload, X } from 'lucide-react'
+import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut, Plus, Link2, Upload, X, ChevronRight, ChevronDown, FolderOpen, Home, Edit2, Trash2, Save, FolderPlus, Settings, Image, Tag, Layers, LayoutGrid, FolderTree } from 'lucide-react'
 
 // Constantes de zoom
 const ZOOM_MIN = 0.5
@@ -70,11 +75,101 @@ function extractDominantColor(imgSrc) {
   })
 }
 
+// Componente recursivo para renderizar el árbol de categorías
+function CategoryTreeItem({
+  category,
+  level,
+  selectedCategoryFilter,
+  expandedCategories,
+  toggleCategoryExpand,
+  navigateToCategory,
+  getProductCountForCategory,
+  showCategoryManager,
+  onEdit,
+  onDelete,
+  onAddSubcategory,
+}) {
+  const hasChildren = category.children && category.children.length > 0
+  const isExpanded = expandedCategories.has(category.id)
+  const isActive = selectedCategoryFilter === category.name
+  const productCount = getProductCountForCategory(category.id)
+
+  return (
+    <li className="products__treeItem">
+      <div className="products__treeItemRow">
+        <button
+          className={`products__sidebarItem ${isActive ? 'products__sidebarItem--active' : ''}`}
+          onClick={() => navigateToCategory(category)}
+          style={{ paddingLeft: `${12 + level * 16}px` }}
+        >
+          {hasChildren && (
+            <span
+              className="products__expandToggle"
+              onClick={(e) => toggleCategoryExpand(category.id, e)}
+            >
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </span>
+          )}
+          {!hasChildren && <span className="products__expandPlaceholder" />}
+          <span className="products__sidebarItemName">{category.name}</span>
+          <span className="products__sidebarCount">{productCount}</span>
+        </button>
+        {showCategoryManager && (
+          <div className="products__treeItemActions">
+            <button
+              className="products__treeActionBtn products__treeActionBtn--add"
+              onClick={(e) => { e.stopPropagation(); onAddSubcategory(category.id); }}
+              title="Agregar subcategoría"
+            >
+              <FolderPlus size={12} />
+            </button>
+            <button
+              className="products__treeActionBtn products__treeActionBtn--edit"
+              onClick={(e) => onEdit(category, e)}
+              title="Editar"
+            >
+              <Edit2 size={12} />
+            </button>
+            <button
+              className="products__treeActionBtn products__treeActionBtn--delete"
+              onClick={(e) => onDelete(category, e)}
+              title="Eliminar"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+      </div>
+      {hasChildren && isExpanded && (
+        <ul className="products__treeChildren">
+          {category.children.map((child) => (
+            <CategoryTreeItem
+              key={child.id}
+              category={child}
+              level={level + 1}
+              selectedCategoryFilter={selectedCategoryFilter}
+              expandedCategories={expandedCategories}
+              toggleCategoryExpand={toggleCategoryExpand}
+              navigateToCategory={navigateToCategory}
+              getProductCountForCategory={getProductCountForCategory}
+              showCategoryManager={showCategoryManager}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onAddSubcategory={onAddSubcategory}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
 export default function ProductsManager({ tenantId }) {
   const dispatch = useAppDispatch()
   const user = useAppSelector(selectUser)
   const products = useAppSelector(selectProductsForTenant(tenantId))
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
+  const categoryTree = useAppSelector(selectCategoryTree(tenantId))
 
   const createFileInputRef = useRef(null)
   
@@ -114,6 +209,21 @@ export default function ProductsManager({ tenantId }) {
 
   // Estado para filtrar por categoría - null = "Todas"
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null)
+  // Estado para navegación jerárquica - categoryId de la categoría actual
+  const [currentCategoryId, setCurrentCategoryId] = useState(null)
+  // Estado para categorías expandidas en el árbol
+  const [expandedCategories, setExpandedCategories] = useState(new Set())
+  
+  // Tab interno: 'products' | 'categories'
+  const [internalTab, setInternalTab] = useState('products')
+  
+  // Estados para panel de gestión de categorías
+  const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [editingCategoryName, setEditingCategoryName] = useState('')
+  const [editingCategoryParent, setEditingCategoryParent] = useState(null)
+  const [newSubcategoryName, setNewSubcategoryName] = useState('')
+  const [addingSubcategoryTo, setAddingSubcategoryTo] = useState(null) // ID de la categoría padre
 
   // selección mÃºltiple de productos
   const [selectedProductIds, setSelectedProductIds] = useState(new Set())
@@ -123,6 +233,8 @@ export default function ProductsManager({ tenantId }) {
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  const [subcategory, setSubcategory] = useState('') // Subcategoría seleccionada (ID)
+  const [costPrice, setCostPrice] = useState('') // Precio de costo
   const [stock, setStock] = useState('')
   const [stockUnlimited, setStockUnlimited] = useState(true)
   const [imageFile, setImageFile] = useState(null)
@@ -144,6 +256,8 @@ export default function ProductsManager({ tenantId }) {
   const [editPrice, setEditPrice] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editCategory, setEditCategory] = useState('')
+  const [editSubcategory, setEditSubcategory] = useState('') // ID de subcategoría
+  const [editCostPrice, setEditCostPrice] = useState('') // Precio de costo
   const [editStock, setEditStock] = useState('')
   const [editStockUnlimited, setEditStockUnlimited] = useState(true)
   const [editIsActive, setEditIsActive] = useState(true)
@@ -469,6 +583,200 @@ export default function ProductsManager({ tenantId }) {
     }))
   }, [productsByCategory])
 
+  // Breadcrumb: ruta desde raíz hasta la categoría actual
+  const currentBreadcrumb = useMemo(() => {
+    if (!currentCategoryId) return []
+    const breadcrumb = []
+    let current = categories.find(c => c.id === currentCategoryId)
+    while (current) {
+      breadcrumb.unshift(current)
+      current = current.parentId
+        ? categories.find(c => c.id === current.parentId)
+        : null
+    }
+    return breadcrumb
+  }, [categories, currentCategoryId])
+
+  // Obtener subcategorías de la categoría actual
+  const currentSubcategories = useMemo(() => {
+    return categories.filter(c => c.parentId === currentCategoryId)
+  }, [categories, currentCategoryId])
+
+  // Obtener todos los descendientes de una categoría
+  const getCategoryDescendantIds = (categoryId) => {
+    const descendants = []
+    const findDescendants = (parentId) => {
+      categories
+        .filter(c => c.parentId === parentId)
+        .forEach(child => {
+          descendants.push(child.id)
+          findDescendants(child.id)
+        })
+    }
+    findDescendants(categoryId)
+    return descendants
+  }
+
+  // Contar productos de una categoría incluyendo subcategorías
+  const getProductCountForCategory = (categoryId) => {
+    const category = categories.find(c => c.id === categoryId)
+    if (!category) return 0
+    const descendantIds = getCategoryDescendantIds(categoryId)
+    const allCategoryIds = [categoryId, ...descendantIds]
+    const categoryNames = allCategoryIds
+      .map(id => categories.find(c => c.id === id)?.name)
+      .filter(Boolean)
+    return products.filter(p => categoryNames.includes(p.category)).length
+  }
+
+  // Toggle expandir/colapsar categoría
+  const toggleCategoryExpand = (categoryId, e) => {
+    e.stopPropagation()
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(categoryId)) {
+        next.delete(categoryId)
+      } else {
+        next.add(categoryId)
+      }
+      return next
+    })
+  }
+
+  // Navegar a una categoría
+  const navigateToCategory = (category) => {
+    if (category) {
+      setCurrentCategoryId(category.id)
+      setSelectedCategoryFilter(category.name)
+      // Auto-expandir categorías padre
+      let current = category
+      const toExpand = new Set(expandedCategories)
+      while (current.parentId) {
+        toExpand.add(current.parentId)
+        current = categories.find(c => c.id === current.parentId)
+        if (!current) break
+      }
+      setExpandedCategories(toExpand)
+    } else {
+      setCurrentCategoryId(null)
+      setSelectedCategoryFilter(null)
+    }
+  }
+
+  // =====================
+  // FUNCIONES DE GESTIÓN DE CATEGORÍAS
+  // =====================
+  
+  // Iniciar edición de una categoría
+  const startEditCategory = (cat, e) => {
+    e?.stopPropagation()
+    setEditingCategoryId(cat.id)
+    setEditingCategoryName(cat.name)
+    setEditingCategoryParent(cat.parentId)
+  }
+  
+  // Guardar cambios de una categoría
+  const handleSaveCategory = async () => {
+    if (!editingCategoryId || !editingCategoryName.trim()) return
+    
+    try {
+      const patch = { name: editingCategoryName.trim() }
+      // Si cambió el padre, incluirlo
+      const originalCat = categories.find(c => c.id === editingCategoryId)
+      if (originalCat && editingCategoryParent !== originalCat.parentId) {
+        patch.parentId = editingCategoryParent
+      }
+      
+      await dispatch(patchCategory({ tenantId, categoryId: editingCategoryId, patch })).unwrap()
+      setEditingCategoryId(null)
+      setEditingCategoryName('')
+      setEditingCategoryParent(null)
+    } catch (err) {
+      console.error('Error al guardar categoría:', err)
+      alert('Error al guardar: ' + (err.message || err))
+    }
+  }
+  
+  // Cancelar edición
+  const cancelEditCategory = () => {
+    setEditingCategoryId(null)
+    setEditingCategoryName('')
+    setEditingCategoryParent(null)
+  }
+  
+  // Eliminar categoría
+  const handleDeleteCategory = async (cat, e) => {
+    e?.stopPropagation()
+    
+    // Verificar si tiene subcategorías
+    const hasChildren = categories.some(c => c.parentId === cat.id)
+    if (hasChildren) {
+      alert('No puedes eliminar una categoría que tiene subcategorías. Elimina primero las subcategorías.')
+      return
+    }
+    
+    // Verificar si tiene productos
+    const hasProducts = products.some(p => p.category === cat.name)
+    if (hasProducts) {
+      alert('No puedes eliminar una categoría que tiene productos. Mueve o elimina los productos primero.')
+      return
+    }
+    
+    if (!confirm(`¿Seguro que quieres eliminar la categoría "${cat.name}"?`)) return
+    
+    try {
+      await dispatch(deleteCategory({ tenantId, categoryId: cat.id })).unwrap()
+      // Si estaba seleccionada, volver a "Todas"
+      if (selectedCategoryFilter === cat.name) {
+        navigateToCategory(null)
+      }
+    } catch (err) {
+      console.error('Error al eliminar categoría:', err)
+      alert('Error al eliminar: ' + (err.message || err))
+    }
+  }
+  
+  // Crear nueva subcategoría
+  const handleCreateSubcategory = async () => {
+    if (!newSubcategoryName.trim()) return
+    
+    try {
+      await dispatch(createCategory({
+        tenantId,
+        category: {
+          name: newSubcategoryName.trim(),
+          parentId: addingSubcategoryTo, // null = categoría raíz
+          sortOrder: categories.length,
+        }
+      })).unwrap()
+      
+      setNewSubcategoryName('')
+      setAddingSubcategoryTo(null)
+      
+      // Expandir el padre si existe
+      if (addingSubcategoryTo) {
+        setExpandedCategories(prev => new Set([...prev, addingSubcategoryTo]))
+      }
+    } catch (err) {
+      console.error('Error al crear subcategoría:', err)
+      alert('Error al crear: ' + (err.message || err))
+    }
+  }
+  
+  // Mover categoría a otro padre
+  const handleMoveCategory = async (categoryId, newParentId) => {
+    try {
+      await dispatch(patchCategory({ 
+        tenantId, 
+        categoryId, 
+        patch: { parentId: newParentId }
+      })).unwrap()
+    } catch (err) {
+      console.error('Error al mover categoría:', err)
+      alert('Error al mover: ' + (err.message || err))
+    }
+  }
+
   // =====================
   // FUNCIONES MODAL DE EDICIÓN
   // =====================
@@ -477,7 +785,9 @@ export default function ProductsManager({ tenantId }) {
     setEditName(product.name || '')
     setEditPrice(product.price?.toString() || '')
     setEditDescription(product.description || '')
-    setEditCategory(product.category || '')
+    setEditCategory(product.categoryId || '')
+    setEditSubcategory(product.subcategoryId || '')
+    setEditCostPrice(product.costPrice?.toString() || '')
     setEditStock(product.stock?.toString() || '')
     setEditStockUnlimited(product.stock === null || product.stock === undefined)
     setEditIsActive(product.active !== false)
@@ -492,6 +802,8 @@ export default function ProductsManager({ tenantId }) {
     setEditPrice('')
     setEditDescription('')
     setEditCategory('')
+    setEditSubcategory('')
+    setEditCostPrice('')
     setEditStock('')
     setEditStockUnlimited(true)
     setEditIsActive(true)
@@ -501,17 +813,25 @@ export default function ProductsManager({ tenantId }) {
   const handleSaveProduct = async () => {
     if (!editingProduct) return
     const parsedEditPrice = parsePrice(editPrice)
+    const parsedCostPrice = editCostPrice.trim() ? parsePrice(editCostPrice) : null
     if (!editName.trim() || parsedEditPrice === null) {
       alert('Nombre y precio válido son requeridos')
       return
     }
     setEditSaving(true)
     try {
+      // Obtener nombre de categoría desde ID
+      const selectedCategory = categories.find(c => c.id === editCategory)
+      const selectedSubcategory = categories.find(c => c.id === editSubcategory)
+      
       const patch = {
         name: editName.trim(),
         price: parsedEditPrice,
         description: editDescription.trim(),
-        category: editCategory.trim() || null,
+        category: selectedSubcategory?.name || selectedCategory?.name || null,
+        categoryId: editCategory || null,
+        subcategoryId: editSubcategory || null,
+        costPrice: parsedCostPrice,
         stock: editStockUnlimited ? null : (editStock.trim() ? parseInt(editStock, 10) : null),
         active: editIsActive,
       }
@@ -598,8 +918,36 @@ export default function ProductsManager({ tenantId }) {
             hasVideo={Boolean(tutorialVideo.url)}
           />
         </div>
+        
+        {/* Tabs internos: Productos | Categorías */}
+        <div className="products__internalTabs">
+          <button
+            type="button"
+            className={`products__internalTab ${internalTab === 'products' ? 'products__internalTab--active' : ''}`}
+            onClick={() => setInternalTab('products')}
+          >
+            <Package size={16} />
+            Productos
+          </button>
+          <button
+            type="button"
+            className={`products__internalTab ${internalTab === 'categories' ? 'products__internalTab--active' : ''}`}
+            onClick={() => setInternalTab('categories')}
+          >
+            <FolderTree size={16} />
+            Categorías
+          </button>
+        </div>
       </div>
       
+      {/* Tab de Categorías */}
+      {internalTab === 'categories' && (
+        <CategoryManager tenantId={tenantId} />
+      )}
+      
+      {/* Tab de Productos */}
+      {internalTab === 'products' && (
+      <>
       <Card
         title="Crear producto"
         actions={
@@ -608,7 +956,19 @@ export default function ProductsManager({ tenantId }) {
             onClick={async () => {
               setPhotoStatus(null)
               if (!name.trim() || parsedPrice === null) {
-                setPhotoStatus('Precio inválido. Usa 9.99 o 9,99.')
+                setPhotoStatus('Nombre y precio válido son requeridos.')
+                return
+              }
+              
+              // Validar categoría y subcategoría obligatorias
+              if (!category) {
+                setPhotoStatus('Debes seleccionar una categoría.')
+                return
+              }
+              
+              const subcategoriesAvailable = categories.filter(c => c.parentId === category)
+              if (subcategoriesAvailable.length > 0 && !subcategory) {
+                setPhotoStatus('Debes seleccionar una subcategoría.')
                 return
               }
 
@@ -626,6 +986,11 @@ export default function ProductsManager({ tenantId }) {
 
               // Determinar URL de imagen final
               const finalImageUrl = imageUrl.trim() || mockImageUrl || null
+              
+              // Obtener nombres de categoría/subcategoría
+              const selectedCategory = categories.find(c => c.id === category)
+              const selectedSubcategory = categories.find(c => c.id === subcategory)
+              const parsedCostPrice = costPrice.trim() ? parsePrice(costPrice) : null
 
               let created
               try {
@@ -636,7 +1001,10 @@ export default function ProductsManager({ tenantId }) {
                       name: name.trim(),
                       price: parsedPrice,
                       description: description.trim(),
-                      category: category.trim() || null,
+                      category: selectedSubcategory?.name || selectedCategory?.name || null,
+                      categoryId: category || null,
+                      subcategoryId: subcategory || null,
+                      costPrice: parsedCostPrice,
                       stock: stockUnlimited ? null : (stock.trim() ? parseInt(stock, 10) : null),
                       ...(finalImageUrl ? { imageUrl: finalImageUrl } : null),
                     },
@@ -675,6 +1043,8 @@ export default function ProductsManager({ tenantId }) {
               setPrice('')
               setDescription('')
               setCategory('')
+              setSubcategory('')
+              setCostPrice('')
               setStock('')
               setStockUnlimited(true)
               setImageFile(null)
@@ -741,11 +1111,13 @@ export default function ProductsManager({ tenantId }) {
               className="products__input"
             />
           </div>
+          
+          {/* Selector de Categoría y Subcategoría */}
           <div className="products__formField">
             <div className="products__fieldHeader">
-              <span className="products__label">Categoría</span>
+              <span className="products__label">Categoría *</span>
               <InfoTooltip 
-                text="Agrupa tus productos por categorías para que los clientes encuentren fácilmente lo que buscan."
+                text="Selecciona la categoría principal del producto."
                 position="right"
                 size={14}
               />
@@ -758,17 +1130,70 @@ export default function ProductsManager({ tenantId }) {
                     setShowNewCategoryModal(true)
                   } else {
                     setCategory(e.target.value)
+                    setSubcategory('') // Reset subcategoría al cambiar categoría
                   }
                 }}
                 className="products__select"
               >
-                <option value="">Sin categoría</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                <option value="">Seleccionar categoría...</option>
+                {categories.filter(c => !c.parentId).map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
                 <option value="__new__">+ Crear nueva categoría</option>
               </select>
             </div>
+          </div>
+          
+          {/* Subcategoría - Solo si hay categoría seleccionada */}
+          {category && (
+            <div className="products__formField">
+              <div className="products__fieldHeader">
+                <span className="products__label">Subcategoría *</span>
+                <InfoTooltip 
+                  text="Selecciona la subcategoría donde estará el producto."
+                  position="right"
+                  size={14}
+                />
+              </div>
+              <div className="products__categorySelect">
+                <select
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                  className="products__select"
+                >
+                  <option value="">Seleccionar subcategoría...</option>
+                  {categories.filter(c => c.parentId === category).map((sub) => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+                {categories.filter(c => c.parentId === category).length === 0 && (
+                  <p className="products__selectHint">
+                    Esta categoría no tiene subcategorías. Créalas desde el panel de gestión (⚙️).
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Precio de costo (opcional) */}
+          <div className="products__formField">
+            <div className="products__fieldHeader">
+              <span className="products__label">Precio de costo</span>
+              <InfoTooltip 
+                text="Opcional. El costo del producto para calcular ganancias en estadísticas. No visible para clientes."
+                position="right"
+                size={14}
+              />
+            </div>
+            <input
+              type="text"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="Ej: 5.50 (opcional)"
+              inputMode="decimal"
+              autoComplete="off"
+              className="products__input"
+            />
           </div>
           
           <div className="products__stockSection">
@@ -884,10 +1309,13 @@ export default function ProductsManager({ tenantId }) {
 
           {!isSupabaseConfigured ? <p className="products__hint">Modo MOCK: la foto se guarda localmente.</p> : null}
           {photoStatus ? <p className="products__hint">{photoStatus}</p> : null}
-          <p className="products__hint">Tip: el precio debe ser numÃ©rico.</p>
+          <p className="products__hint">Tip: el precio debe ser numérico.</p>
         </div>
       </Card>
-
+      </>
+      )}
+      
+      {/* Modales flotantes (fuera del tab condicional) */}
       {focalState.open ? (
         <div
           className="products__modalOverlay"
@@ -1114,28 +1542,286 @@ export default function ProductsManager({ tenantId }) {
               <div className="products__sidebarHeader">
                 <List size={16} />
                 <span>Categorías</span>
+                <button
+                  className={`products__sidebarToggle ${showCategoryManager ? 'products__sidebarToggle--active' : ''}`}
+                  onClick={() => setShowCategoryManager(!showCategoryManager)}
+                  title={showCategoryManager ? 'Ocultar gestión' : 'Gestionar categorías'}
+                >
+                  <Settings size={14} />
+                </button>
               </div>
+              
+              {/* Panel de gestión de categorías */}
+              {showCategoryManager && (
+                <div className="products__categoryManagerPanel">
+                  <div className="products__categoryManagerHeader">
+                    <LayoutGrid size={16} />
+                    <h4>Gestión de Categorías</h4>
+                  </div>
+                  
+                  {/* Botones de acción principales */}
+                  <div className="products__categoryActions">
+                    <button
+                      className={`products__categoryActionBtn ${!addingSubcategoryTo ? 'products__categoryActionBtn--active' : ''}`}
+                      onClick={() => setAddingSubcategoryTo(null)}
+                    >
+                      <Tag size={16} />
+                      <span>Categoría</span>
+                    </button>
+                    <button
+                      className={`products__categoryActionBtn ${addingSubcategoryTo ? 'products__categoryActionBtn--active' : ''}`}
+                      onClick={() => {
+                        // Si no hay categoría seleccionada, elegir la primera
+                        const rootCategories = categories.filter(c => !c.parentId)
+                        if (rootCategories.length > 0 && !addingSubcategoryTo) {
+                          setAddingSubcategoryTo(rootCategories[0].id)
+                        }
+                      }}
+                      disabled={categories.filter(c => !c.parentId).length === 0}
+                    >
+                      <Layers size={16} />
+                      <span>Subcategoría</span>
+                    </button>
+                  </div>
+                  
+                  {/* Formulario visual para crear */}
+                  <div className="products__categoryCreateBox">
+                    {addingSubcategoryTo ? (
+                      <>
+                        <div className="products__categoryCreateLabel">
+                          <Layers size={14} />
+                          <span>Nueva subcategoría en:</span>
+                        </div>
+                        <select
+                          className="products__categoryParentSelect"
+                          value={addingSubcategoryTo || ''}
+                          onChange={(e) => setAddingSubcategoryTo(e.target.value || null)}
+                        >
+                          {categories.filter(c => !c.parentId).map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <div className="products__categoryCreateLabel">
+                        <Tag size={14} />
+                        <span>Nueva categoría principal</span>
+                      </div>
+                    )}
+                    
+                    <div className="products__categoryInputGroup">
+                      <input
+                        type="text"
+                        className="products__categoryInput products__categoryInput--large"
+                        placeholder={addingSubcategoryTo ? 'Ej: Hombres, Mujeres, Niños...' : 'Ej: Remeras, Pantalones, Zapatos...'}
+                        value={newSubcategoryName}
+                        onChange={(e) => setNewSubcategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newSubcategoryName.trim()) {
+                            handleCreateSubcategory()
+                          }
+                          if (e.key === 'Escape') {
+                            setNewSubcategoryName('')
+                          }
+                        }}
+                      />
+                      <button
+                        className="products__categoryCreateBtn"
+                        onClick={handleCreateSubcategory}
+                        disabled={!newSubcategoryName.trim()}
+                      >
+                        <Plus size={16} />
+                        Crear
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Lista visual de categorías existentes */}
+                  <div className="products__categoryList">
+                    <div className="products__categoryListHeader">
+                      <span>Categorías existentes</span>
+                      <span className="products__categoryListCount">{categories.filter(c => !c.parentId).length}</span>
+                    </div>
+                    {categories.filter(c => !c.parentId).length === 0 ? (
+                      <div className="products__categoryEmpty">
+                        <Tag size={24} />
+                        <p>No hay categorías</p>
+                        <span>Crea tu primera categoría arriba</span>
+                      </div>
+                    ) : (
+                      <div className="products__categoryGrid">
+                        {categories.filter(c => !c.parentId).map(cat => {
+                          const subcats = categories.filter(c => c.parentId === cat.id)
+                          return (
+                            <div key={cat.id} className="products__categoryCard">
+                              <div className="products__categoryCardHeader">
+                                <div className="products__categoryCardIcon">
+                                  <Tag size={16} />
+                                </div>
+                                <div className="products__categoryCardInfo">
+                                  <span className="products__categoryCardName">{cat.name}</span>
+                                  <span className="products__categoryCardMeta">
+                                    {subcats.length} subcategorías · {getProductCountForCategory(cat.id)} productos
+                                  </span>
+                                </div>
+                                <div className="products__categoryCardActions">
+                                  <button
+                                    className="products__categoryCardBtn"
+                                    onClick={() => {
+                                      setAddingSubcategoryTo(cat.id)
+                                      setNewSubcategoryName('')
+                                    }}
+                                    title="Agregar subcategoría"
+                                  >
+                                    <Plus size={14} />
+                                  </button>
+                                  <button
+                                    className="products__categoryCardBtn"
+                                    onClick={(e) => startEditCategory(cat, e)}
+                                    title="Editar"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    className="products__categoryCardBtn products__categoryCardBtn--danger"
+                                    onClick={(e) => handleDeleteCategory(cat, e)}
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                              {subcats.length > 0 && (
+                                <div className="products__subcategoryList">
+                                  {subcats.map(sub => (
+                                    <div key={sub.id} className="products__subcategoryItem">
+                                      <Layers size={12} />
+                                      <span>{sub.name}</span>
+                                      <span className="products__subcategoryCount">
+                                        {getProductCountForCategory(sub.id)}
+                                      </span>
+                                      <div className="products__subcategoryActions">
+                                        <button onClick={(e) => startEditCategory(sub, e)} title="Editar">
+                                          <Edit2 size={12} />
+                                        </button>
+                                        <button onClick={(e) => handleDeleteCategory(sub, e)} title="Eliminar">
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Modal inline de edición */}
+                  {editingCategoryId && (
+                    <div className="products__categoryEditPanel">
+                      <div className="products__categoryEditHeader">
+                        <Edit2 size={16} />
+                        <h5>Editando: {categories.find(c => c.id === editingCategoryId)?.name}</h5>
+                      </div>
+                      <div className="products__categoryEditForm">
+                        <label>
+                          <span>Nombre:</span>
+                          <input
+                            type="text"
+                            value={editingCategoryName}
+                            onChange={(e) => setEditingCategoryName(e.target.value)}
+                            className="products__categoryInput"
+                          />
+                        </label>
+                        <label>
+                          <span>Categoría padre:</span>
+                          <select
+                            value={editingCategoryParent || ''}
+                            onChange={(e) => setEditingCategoryParent(e.target.value || null)}
+                            className="products__categorySelect"
+                          >
+                            <option value="">— Ninguna (categoría raíz) —</option>
+                            {categories
+                              .filter(c => c.id !== editingCategoryId && !getCategoryDescendantIds(editingCategoryId).includes(c.id))
+                              .map(c => (
+                                <option key={c.id} value={c.id}>
+                                  {'—'.repeat(c.level || 0)} {c.name}
+                                </option>
+                              ))
+                            }
+                          </select>
+                        </label>
+                        <div className="products__categoryEditActions">
+                          <button className="products__categoryBtn products__categoryBtn--save" onClick={handleSaveCategory}>
+                            <Save size={14} /> Guardar
+                          </button>
+                          <button className="products__categoryBtn products__categoryBtn--cancel" onClick={cancelEditCategory}>
+                            <X size={14} /> Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Breadcrumb de navegación */}
+              {currentBreadcrumb.length > 0 && (
+                <div className="products__breadcrumb">
+                  <button
+                    className="products__breadcrumbItem products__breadcrumbItem--home"
+                    onClick={() => navigateToCategory(null)}
+                  >
+                    <Home size={12} />
+                  </button>
+                  {currentBreadcrumb.map((cat, index) => (
+                    <span key={cat.id} className="products__breadcrumbSegment">
+                      <ChevronRight size={12} className="products__breadcrumbSeparator" />
+                      <button
+                        className={`products__breadcrumbItem ${index === currentBreadcrumb.length - 1 ? 'products__breadcrumbItem--active' : ''}`}
+                        onClick={() => navigateToCategory(cat)}
+                      >
+                        {cat.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <ul className="products__sidebarMenu">
                 <li>
                   <button
                     className={`products__sidebarItem ${selectedCategoryFilter === null ? 'products__sidebarItem--active' : ''}`}
-                    onClick={() => setSelectedCategoryFilter(null)}
+                    onClick={() => navigateToCategory(null)}
                   >
                     <Grid3X3 size={14} />
                     <span>Todas</span>
                     <span className="products__sidebarCount">{products.length}</span>
                   </button>
                 </li>
-                {categoryList.map((cat) => (
-                  <li key={cat.name}>
-                    <button
-                      className={`products__sidebarItem ${selectedCategoryFilter === cat.name ? 'products__sidebarItem--active' : ''}`}
-                      onClick={() => setSelectedCategoryFilter(cat.name)}
-                    >
-                      <span className="products__sidebarItemName">{cat.name}</span>
-                      <span className="products__sidebarCount">{cat.count}</span>
-                    </button>
-                  </li>
+                
+                {/* Renderizar árbol de categorías recursivamente */}
+                {categoryTree.map((cat) => (
+                  <CategoryTreeItem
+                    key={cat.id}
+                    category={cat}
+                    level={0}
+                    selectedCategoryFilter={selectedCategoryFilter}
+                    expandedCategories={expandedCategories}
+                    toggleCategoryExpand={toggleCategoryExpand}
+                    navigateToCategory={navigateToCategory}
+                    getProductCountForCategory={getProductCountForCategory}
+                    showCategoryManager={showCategoryManager}
+                    onEdit={startEditCategory}
+                    onDelete={handleDeleteCategory}
+                    onAddSubcategory={(parentId) => {
+                      setAddingSubcategoryTo(parentId)
+                      setNewSubcategoryName('')
+                    }}
+                  />
                 ))}
               </ul>
             </div>

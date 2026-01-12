@@ -72,6 +72,44 @@
   letter-spacing: 0.02em;
 }
 
+/* Badge de Descuento (ribbon style) - esquina superior izquierda */
+.productCard__discountRibbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  width: 70px;
+  height: 70px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.productCard__discountRibbon span {
+  position: absolute;
+  display: block;
+  width: 90px;
+  padding: 4px 0;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+  color: white;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  transform: rotate(-45deg);
+  top: 14px;
+  left: -22px;
+}
+
+/* Old badge style - deprecated but kept for compatibility */
+.productCard__discountBadge {
+  display: none;
+}
+
+.productCard__discountBadge span {
+  letter-spacing: 0.02em;
+}
+
 /* Badge viejo (deprecated - mantener por compatibilidad) */
 .productCard__badge {
   display: none;
@@ -151,15 +189,38 @@
   color: var(--card-text);
 }
 
+/* Wrapper de precios para descuentos */
+.productCard__priceWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.productCard__priceWrapper--discount .productCard__price {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.productCard__originalPrice {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
 .productCard__price {
-  font-weight: 800;
-  font-size: 0.9rem;
-  color: var(--card-price);
-  background: color-mix(in srgb, var(--card-price) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-price) 20%, transparent);
-  padding: 6px 12px;
-  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--card-price, #16a34a);
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.08) 0%, rgba(22, 163, 74, 0.04) 100%);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 .productCard__desc {

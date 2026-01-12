@@ -277,6 +277,61 @@ export const PRODUCT_CARD_LAYOUTS = {
   },
 }
 
+// Layouts de cards de categoría
+// FREE: 1 layout básico
+// PREMIUM: 4 layouts adicionales
+// PREMIUM_PRO: 4 layouts adicionales
+export const CATEGORY_CARD_LAYOUTS = {
+  // FREE
+  grid: {
+    label: 'Cuadrícula',
+    tier: SUBSCRIPTION_TIERS.FREE,
+    description: 'Cards cuadradas con imagen y nombre',
+  },
+  // PREMIUM (4 layouts)
+  horizontal: {
+    label: 'Horizontal',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Cards anchas con imagen a la izquierda',
+  },
+  circle: {
+    label: 'Circular',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Imagen circular con nombre debajo',
+  },
+  chips: {
+    label: 'Chips',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Estilo píldoras compactas',
+  },
+  overlay: {
+    label: 'Overlay',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Nombre sobre la imagen',
+  },
+  // PREMIUM PRO (4 layouts)
+  magazine: {
+    label: 'Revista',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Estilo editorial con imagen grande',
+  },
+  minimal: {
+    label: 'Minimal',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Solo texto, muy limpio',
+  },
+  polaroid: {
+    label: 'Polaroid',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Estilo foto instantánea',
+  },
+  banner: {
+    label: 'Banner',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Cards tipo banner ancho',
+  },
+}
+
 // Estilos de botones
 export const BUTTON_STYLES = {
   rounded: { label: 'Redondeado', tier: SUBSCRIPTION_TIERS.FREE },
@@ -765,6 +820,7 @@ export const FREE_DEFAULT_THEME = {
   buttonStyle: 'rounded',
   layoutStyle: 'modern',
   productCardLayout: 'classic',
+  categoryCardLayout: 'grid',
   heroStyle: 'simple',
   heroSlides: [],
   heroTitlePosition: 'center',

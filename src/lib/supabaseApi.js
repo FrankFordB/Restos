@@ -1283,7 +1283,7 @@ export async function fetchProductsByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('products')
-    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, category_id, subcategory_id, cost_price, stock, active, product_extras, discount, has_sizes, size_required, sizes')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
 
@@ -1303,11 +1303,18 @@ export async function insertProduct({ tenantId, product }) {
       image_url: product.imageUrl || null,
       focal_point: product.focalPoint || null,
       category: product.category || null,
+      category_id: product.categoryId || null,
+      subcategory_id: product.subcategoryId || null,
+      cost_price: product.costPrice ?? null,
       stock: product.stock ?? null,
       active: product.active ?? true,
       product_extras: product.productExtras || [],
+      discount: product.discount ?? null,
+      has_sizes: product.hasSizes ?? false,
+      size_required: product.sizeRequired ?? true,
+      sizes: product.sizes || [],
     })
-    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, category_id, subcategory_id, cost_price, stock, active, product_extras, discount, has_sizes, size_required, sizes')
     .single()
 
   if (error) throw error
@@ -1325,13 +1332,20 @@ export async function updateProductRow({ tenantId, productId, patch }) {
       ...('imageUrl' in patch ? { image_url: patch.imageUrl || null } : null),
       ...('focalPoint' in patch ? { focal_point: patch.focalPoint || null } : null),
       ...('category' in patch ? { category: patch.category || null } : null),
+      ...('categoryId' in patch ? { category_id: patch.categoryId || null } : null),
+      ...('subcategoryId' in patch ? { subcategory_id: patch.subcategoryId || null } : null),
+      ...('costPrice' in patch ? { cost_price: patch.costPrice ?? null } : null),
       ...('stock' in patch ? { stock: patch.stock ?? null } : null),
       ...('active' in patch ? { active: patch.active } : null),
       ...('productExtras' in patch ? { product_extras: patch.productExtras || [] } : null),
+      ...('discount' in patch ? { discount: patch.discount ?? null } : null),
+      ...('hasSizes' in patch ? { has_sizes: patch.hasSizes ?? false } : null),
+      ...('sizeRequired' in patch ? { size_required: patch.sizeRequired ?? true } : null),
+      ...('sizes' in patch ? { sizes: patch.sizes || [] } : null),
     })
     .eq('tenant_id', tenantId)
     .eq('id', productId)
-    .select('id, tenant_id, name, price, description, image_url, focal_point, category, stock, active, product_extras')
+    .select('id, tenant_id, name, price, description, image_url, focal_point, category, category_id, subcategory_id, cost_price, stock, active, product_extras, discount, has_sizes, size_required, sizes')
     .single()
 
   if (error) throw error
@@ -1372,6 +1386,7 @@ export async function upsertTheme({ tenantId, theme }) {
       button_style: theme.buttonStyle,
       layout_style: theme.layoutStyle,
       product_card_layout: theme.productCardLayout,
+      category_card_layout: theme.categoryCardLayout,
       card_bg: theme.cardBg,
       card_text: theme.cardText,
       card_desc: theme.cardDesc,
@@ -1383,10 +1398,9 @@ export async function upsertTheme({ tenantId, theme }) {
       hero_overlay_opacity: theme.heroOverlayOpacity,
       hero_show_title: theme.heroShowTitle,
       hero_show_subtitle: theme.heroShowSubtitle,
-      hero_show_cta: theme.heroShowCta,
       hero_carousel_button_style: theme.heroCarouselButtonStyle,
     })
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, category_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .single()
 
   if (error) throw error
@@ -1423,16 +1437,43 @@ export async function updateDeliveryConfig(tenantId, deliveryConfig) {
 }
 
 // -------------------------
-// Categories
+// Categories (with subcategories support)
 // -------------------------
 
 export async function fetchCategoriesByTenantId(tenantId) {
   ensureSupabase()
-  const { data, error } = await supabase
+  
+  // Intentar con campos de subcategorías y reglas de carpetas
+  let { data, error } = await supabase
     .from('product_categories')
-    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
     .eq('tenant_id', tenantId)
+    .order('level', { ascending: true })
     .order('sort_order', { ascending: true })
+
+  // Si falla por columnas inexistentes, usar query sin subcategorías
+  if (error && (error.message?.includes('parent_id') || error.message?.includes('level') || error.message?.includes('has_products'))) {
+    console.warn('⚠️ Columnas de subcategorías no existen. Ejecuta las migraciones add_subcategories_system.sql y add_folder_rules_system.sql')
+    const result = await supabase
+      .from('product_categories')
+      .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: true })
+    
+    if (result.error) throw result.error
+    // Agregar campos de subcategoría con valores por defecto
+    return (result.data || []).map(row => ({ 
+      ...row, 
+      parent_id: null, 
+      level: 0, 
+      path: row.id,
+      image_url: null,
+      icon: null,
+      short_description: null,
+      has_products: false,
+      has_children: false
+    }))
+  }
 
   if (error) throw error
   return data
@@ -1440,19 +1481,74 @@ export async function fetchCategoriesByTenantId(tenantId) {
 
 export async function insertCategory({ tenantId, category }) {
   ensureSupabase()
-  const { data, error } = await supabase
+  
+  // Preparar datos base
+  const insertData = {
+    tenant_id: tenantId,
+    name: category.name,
+    description: category.description || null,
+    sort_order: category.sortOrder ?? 0,
+    active: category.active ?? true,
+    max_stock: category.maxStock ?? null,
+    current_stock: category.maxStock ?? null,
+  }
+  
+  // Agregar campos de subcategoría si están presentes
+  if ('parentId' in category) {
+    insertData.parent_id = category.parentId || null
+  }
+  if ('imageUrl' in category) {
+    insertData.image_url = category.imageUrl || null
+  }
+  if ('icon' in category) {
+    insertData.icon = category.icon || null
+  }
+  if ('shortDescription' in category) {
+    insertData.short_description = category.shortDescription || null
+  }
+  
+  // Intentar con campos de subcategorías y reglas
+  let { data, error } = await supabase
     .from('product_categories')
-    .insert({
-      tenant_id: tenantId,
-      name: category.name,
-      description: category.description || null,
-      sort_order: category.sortOrder ?? 0,
-      active: category.active ?? true,
-      max_stock: category.maxStock ?? null,
-      current_stock: category.maxStock ?? null, // inicializa igual al máximo
-    })
-    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+    .insert(insertData)
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
     .single()
+
+  // Si falla por regla de carpetas (tiene productos y se intenta crear subcategoría)
+  if (error && error.message?.includes('No se pueden crear subcategorías')) {
+    throw new Error('Esta categoría ya tiene productos. No puedes crear subcategorías aquí. Mueve los productos primero.')
+  }
+
+  // Si falla por columnas inexistentes, usar query sin subcategorías
+  if (error && (error.message?.includes('parent_id') || error.message?.includes('level'))) {
+    console.warn('⚠️ Columnas de subcategorías no existen. Ejecuta las migraciones')
+    const result = await supabase
+      .from('product_categories')
+      .insert({
+        tenant_id: tenantId,
+        name: category.name,
+        description: category.description || null,
+        sort_order: category.sortOrder ?? 0,
+        active: category.active ?? true,
+        max_stock: category.maxStock ?? null,
+        current_stock: category.maxStock ?? null,
+      })
+      .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+      .single()
+    
+    if (result.error) throw result.error
+    return { 
+      ...result.data, 
+      parent_id: null, 
+      level: 0, 
+      path: result.data.id,
+      image_url: null,
+      icon: null,
+      short_description: null,
+      has_products: false,
+      has_children: false
+    }
+  }
 
   if (error) throw error
   return data
@@ -1460,20 +1556,64 @@ export async function insertCategory({ tenantId, category }) {
 
 export async function updateCategoryRow({ tenantId, categoryId, patch }) {
   ensureSupabase()
-  const { data, error } = await supabase
+  
+  const updateData = {}
+  
+  // Campos existentes
+  if ('name' in patch) updateData.name = patch.name
+  if ('description' in patch) updateData.description = patch.description
+  if ('sortOrder' in patch) updateData.sort_order = patch.sortOrder
+  if ('sort_order' in patch) updateData.sort_order = patch.sort_order
+  if ('active' in patch) updateData.active = patch.active
+  if ('max_stock' in patch) updateData.max_stock = patch.max_stock
+  if ('current_stock' in patch) updateData.current_stock = patch.current_stock
+  
+  // Nuevos campos de subcategorías (soportar ambas convenciones)
+  if ('parentId' in patch) updateData.parent_id = patch.parentId
+  if ('parent_id' in patch) updateData.parent_id = patch.parent_id
+  if ('imageUrl' in patch) updateData.image_url = patch.imageUrl
+  if ('image_url' in patch) updateData.image_url = patch.image_url
+  if ('icon' in patch) updateData.icon = patch.icon
+  if ('shortDescription' in patch) updateData.short_description = patch.shortDescription
+  if ('short_description' in patch) updateData.short_description = patch.short_description
+  
+  let { data, error } = await supabase
     .from('product_categories')
-    .update({
-      ...('name' in patch ? { name: patch.name } : null),
-      ...('description' in patch ? { description: patch.description } : null),
-      ...('sortOrder' in patch ? { sort_order: patch.sortOrder } : null),
-      ...('active' in patch ? { active: patch.active } : null),
-      ...('max_stock' in patch ? { max_stock: patch.max_stock } : null),
-      ...('current_stock' in patch ? { current_stock: patch.current_stock } : null),
-    })
+    .update(updateData)
     .eq('tenant_id', tenantId)
     .eq('id', categoryId)
-    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
     .single()
+
+  // Si falla por columnas inexistentes, usar query sin subcategorías
+  if (error && (error.message?.includes('parent_id') || error.message?.includes('level'))) {
+    // Remover campos de subcategoría del update
+    delete updateData.parent_id
+    delete updateData.image_url
+    delete updateData.icon
+    delete updateData.short_description
+    
+    const result = await supabase
+      .from('product_categories')
+      .update(updateData)
+      .eq('tenant_id', tenantId)
+      .eq('id', categoryId)
+      .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock')
+      .single()
+    
+    if (result.error) throw result.error
+    return { 
+      ...result.data, 
+      parent_id: null, 
+      level: 0, 
+      path: result.data.id,
+      image_url: null,
+      icon: null,
+      short_description: null,
+      has_products: false,
+      has_children: false
+    }
+  }
 
   if (error) throw error
   return data
@@ -1481,8 +1621,64 @@ export async function updateCategoryRow({ tenantId, categoryId, patch }) {
 
 export async function deleteCategoryRow({ tenantId, categoryId }) {
   ensureSupabase()
-  const { error } = await supabase.from('product_categories').delete().eq('tenant_id', tenantId).eq('id', categoryId)
+  
+  // Verificar si tiene subcategorías
+  const { data: children } = await supabase
+    .from('product_categories')
+    .select('id')
+    .eq('parent_id', categoryId)
+    .limit(1)
+  
+  if (children && children.length > 0) {
+    throw new Error('No puedes eliminar una categoría que tiene subcategorías. Elimina primero las subcategorías.')
+  }
+  
+  // Verificar si tiene productos
+  const { data: products } = await supabase
+    .from('products')
+    .select('id')
+    .eq('category_id', categoryId)
+    .limit(1)
+  
+  if (products && products.length > 0) {
+    throw new Error('No puedes eliminar una categoría que tiene productos. Mueve o elimina los productos primero.')
+  }
+  
+  const { error } = await supabase
+    .from('product_categories')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('id', categoryId)
+    
   if (error) throw error
+}
+
+// Función para obtener subcategorías de una categoría
+export async function fetchSubcategoriesByParentId(tenantId, parentId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon')
+    .eq('tenant_id', tenantId)
+    .eq('parent_id', parentId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+// Función para obtener categorías raíz (sin parent)
+export async function fetchRootCategories(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('id, tenant_id, name, description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon')
+    .eq('tenant_id', tenantId)
+    .is('parent_id', null)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data
 }
 
 // -------------------------
@@ -1491,11 +1687,27 @@ export async function deleteCategoryRow({ tenantId, categoryId }) {
 
 export async function fetchExtraGroupsByTenantId(tenantId) {
   ensureSupabase()
-  const { data, error } = await supabase
+  
+  // Intentar con category_ids primero
+  let { data, error } = await supabase
     .from('extra_groups')
-    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active, category_ids')
     .eq('tenant_id', tenantId)
     .order('sort_order', { ascending: true })
+
+  // Si falla por columna inexistente, intentar sin category_ids
+  if (error && error.message?.includes('category_ids')) {
+    console.warn('⚠️ Columna category_ids no existe. Ejecuta la migración add_category_ids_to_extra_groups.sql')
+    const result = await supabase
+      .from('extra_groups')
+      .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: true })
+    
+    if (result.error) throw result.error
+    // Agregar category_ids vacío a cada resultado
+    return (result.data || []).map(row => ({ ...row, category_ids: null }))
+  }
 
   if (error) throw error
   return data
@@ -1503,7 +1715,14 @@ export async function fetchExtraGroupsByTenantId(tenantId) {
 
 export async function insertExtraGroup({ tenantId, group }) {
   ensureSupabase()
-  const { data, error } = await supabase
+  
+  // Preparar category_ids: array vacío se guarda como null (= todas las categorías)
+  const categoryIds = Array.isArray(group.categoryIds) && group.categoryIds.length > 0 
+    ? group.categoryIds 
+    : null
+  
+  // Intentar con category_ids primero
+  let { data, error } = await supabase
     .from('extra_groups')
     .insert({
       tenant_id: tenantId,
@@ -1514,9 +1733,32 @@ export async function insertExtraGroup({ tenantId, group }) {
       is_required: group.isRequired ?? false,
       sort_order: group.sortOrder ?? 0,
       active: group.active ?? true,
+      category_ids: categoryIds,
     })
-    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active, category_ids')
     .single()
+
+  // Si falla por columna inexistente, intentar sin category_ids
+  if (error && error.message?.includes('category_ids')) {
+    console.warn('⚠️ Columna category_ids no existe. Ejecuta la migración add_category_ids_to_extra_groups.sql')
+    const result = await supabase
+      .from('extra_groups')
+      .insert({
+        tenant_id: tenantId,
+        name: group.name,
+        description: group.description || null,
+        min_selections: group.minSelections ?? 0,
+        max_selections: group.maxSelections ?? 10,
+        is_required: group.isRequired ?? false,
+        sort_order: group.sortOrder ?? 0,
+        active: group.active ?? true,
+      })
+      .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+      .single()
+    
+    if (result.error) throw result.error
+    return { ...result.data, category_ids: null }
+  }
 
   if (error) throw error
   return data
@@ -1525,21 +1767,65 @@ export async function insertExtraGroup({ tenantId, group }) {
 export async function updateExtraGroupRow({ tenantId, groupId, patch }) {
   ensureSupabase()
   const updateData = {}
-  if ('name' in patch) updateData.name = patch.name
-  if ('description' in patch) updateData.description = patch.description
-  if ('minSelections' in patch) updateData.min_selections = patch.minSelections
-  if ('maxSelections' in patch) updateData.max_selections = patch.maxSelections
-  if ('isRequired' in patch) updateData.is_required = patch.isRequired
-  if ('sortOrder' in patch) updateData.sort_order = patch.sortOrder
-  if ('active' in patch) updateData.active = patch.active
+  const updateDataWithoutCategoryIds = {}
+  
+  if ('name' in patch) {
+    updateData.name = patch.name
+    updateDataWithoutCategoryIds.name = patch.name
+  }
+  if ('description' in patch) {
+    updateData.description = patch.description
+    updateDataWithoutCategoryIds.description = patch.description
+  }
+  if ('minSelections' in patch) {
+    updateData.min_selections = patch.minSelections
+    updateDataWithoutCategoryIds.min_selections = patch.minSelections
+  }
+  if ('maxSelections' in patch) {
+    updateData.max_selections = patch.maxSelections
+    updateDataWithoutCategoryIds.max_selections = patch.maxSelections
+  }
+  if ('isRequired' in patch) {
+    updateData.is_required = patch.isRequired
+    updateDataWithoutCategoryIds.is_required = patch.isRequired
+  }
+  if ('sortOrder' in patch) {
+    updateData.sort_order = patch.sortOrder
+    updateDataWithoutCategoryIds.sort_order = patch.sortOrder
+  }
+  if ('active' in patch) {
+    updateData.active = patch.active
+    updateDataWithoutCategoryIds.active = patch.active
+  }
+  if ('categoryIds' in patch) {
+    // Array vacío se guarda como null (= todas las categorías)
+    updateData.category_ids = Array.isArray(patch.categoryIds) && patch.categoryIds.length > 0 
+      ? patch.categoryIds 
+      : null
+  }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('extra_groups')
     .update(updateData)
     .eq('tenant_id', tenantId)
     .eq('id', groupId)
-    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+    .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active, category_ids')
     .single()
+
+  // Si falla por columna inexistente, intentar sin category_ids
+  if (error && error.message?.includes('category_ids')) {
+    console.warn('⚠️ Columna category_ids no existe. Ejecuta la migración add_category_ids_to_extra_groups.sql')
+    const result = await supabase
+      .from('extra_groups')
+      .update(updateDataWithoutCategoryIds)
+      .eq('tenant_id', tenantId)
+      .eq('id', groupId)
+      .select('id, tenant_id, name, description, min_selections, max_selections, is_required, sort_order, active')
+      .single()
+    
+    if (result.error) throw result.error
+    return { ...result.data, category_ids: null }
+  }
 
   if (error) throw error
   return data
@@ -2226,5 +2512,263 @@ export async function markWelcomeTutorialSeen(userId) {
   // Always use localStorage to track welcome tutorial
   const localKey = `dashboard.welcomeTutorial.seen.${userId}`
   localStorage.setItem(localKey, 'true')
+  return true
+}
+
+// ============================================
+// SIZE PRESETS
+// ============================================
+
+// Default presets for when DB is not configured
+const DEFAULT_SIZE_PRESETS = [
+  {
+    id: 'preset_footwear_latam',
+    name: 'Zapatillas Adulto (AR/LATAM)',
+    category: 'footwear',
+    region: 'latam',
+    audience: 'adult',
+    sizes: [
+      { name: '35', priceModifier: 0 },
+      { name: '36', priceModifier: 0 },
+      { name: '37', priceModifier: 0 },
+      { name: '38', priceModifier: 0 },
+      { name: '39', priceModifier: 0 },
+      { name: '40', priceModifier: 0 },
+      { name: '41', priceModifier: 0 },
+      { name: '42', priceModifier: 0 },
+      { name: '43', priceModifier: 0 },
+      { name: '44', priceModifier: 0 },
+      { name: '45', priceModifier: 0 },
+    ],
+    isDefault: true,
+    isGlobal: true,
+  },
+  {
+    id: 'preset_kids_footwear_latam',
+    name: 'Zapatillas Niños (AR/LATAM)',
+    category: 'kids_footwear',
+    region: 'latam',
+    audience: 'kids',
+    sizes: [
+      { name: '17', priceModifier: 0 },
+      { name: '18', priceModifier: 0 },
+      { name: '19', priceModifier: 0 },
+      { name: '20', priceModifier: 0 },
+      { name: '21', priceModifier: 0 },
+      { name: '22', priceModifier: 0 },
+      { name: '23', priceModifier: 0 },
+      { name: '24', priceModifier: 0 },
+      { name: '25', priceModifier: 0 },
+      { name: '26', priceModifier: 0 },
+      { name: '27', priceModifier: 0 },
+      { name: '28', priceModifier: 0 },
+      { name: '29', priceModifier: 0 },
+      { name: '30', priceModifier: 0 },
+      { name: '31', priceModifier: 0 },
+      { name: '32', priceModifier: 0 },
+      { name: '33', priceModifier: 0 },
+      { name: '34', priceModifier: 0 },
+    ],
+    isDefault: true,
+    isGlobal: true,
+  },
+  {
+    id: 'preset_clothing_adult',
+    name: 'Ropa Adulto (S-XXL)',
+    category: 'clothing',
+    region: 'global',
+    audience: 'adult',
+    sizes: [
+      { name: 'XS', priceModifier: 0 },
+      { name: 'S', priceModifier: 0 },
+      { name: 'M', priceModifier: 0 },
+      { name: 'L', priceModifier: 0 },
+      { name: 'XL', priceModifier: 0 },
+      { name: 'XXL', priceModifier: 0 },
+      { name: 'XXXL', priceModifier: 0 },
+    ],
+    isDefault: true,
+    isGlobal: true,
+  },
+  {
+    id: 'preset_kids_clothing',
+    name: 'Ropa Niños (2-16 años)',
+    category: 'kids_clothing',
+    region: 'global',
+    audience: 'kids',
+    sizes: [
+      { name: '2', priceModifier: 0 },
+      { name: '4', priceModifier: 0 },
+      { name: '6', priceModifier: 0 },
+      { name: '8', priceModifier: 0 },
+      { name: '10', priceModifier: 0 },
+      { name: '12', priceModifier: 0 },
+      { name: '14', priceModifier: 0 },
+      { name: '16', priceModifier: 0 },
+    ],
+    isDefault: true,
+    isGlobal: true,
+  },
+  {
+    id: 'preset_baby_clothing',
+    name: 'Ropa Bebés (0-24 meses)',
+    category: 'kids_clothing',
+    region: 'global',
+    audience: 'kids',
+    sizes: [
+      { name: '0-3m', priceModifier: 0 },
+      { name: '3-6m', priceModifier: 0 },
+      { name: '6-9m', priceModifier: 0 },
+      { name: '9-12m', priceModifier: 0 },
+      { name: '12-18m', priceModifier: 0 },
+      { name: '18-24m', priceModifier: 0 },
+    ],
+    isDefault: true,
+    isGlobal: true,
+  },
+  {
+    id: 'preset_pants',
+    name: 'Pantalones/Jeans (Talle numérico)',
+    category: 'clothing',
+    region: 'global',
+    audience: 'adult',
+    sizes: [
+      { name: '28', priceModifier: 0 },
+      { name: '30', priceModifier: 0 },
+      { name: '32', priceModifier: 0 },
+      { name: '34', priceModifier: 0 },
+      { name: '36', priceModifier: 0 },
+      { name: '38', priceModifier: 0 },
+      { name: '40', priceModifier: 0 },
+      { name: '42', priceModifier: 0 },
+      { name: '44', priceModifier: 0 },
+    ],
+    isDefault: false,
+    isGlobal: true,
+  },
+]
+
+// Fetch size presets for a tenant (includes global presets)
+export async function fetchSizePresets(tenantId) {
+  if (!isSupabaseConfigured) {
+    return DEFAULT_SIZE_PRESETS
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('size_presets')
+      .select('*')
+      .or(`is_global.eq.true,tenant_id.eq.${tenantId}`)
+      .order('is_global', { ascending: false })
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      console.warn('fetchSizePresets error, using defaults:', error)
+      return DEFAULT_SIZE_PRESETS
+    }
+
+    return data.map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      region: p.region,
+      audience: p.audience,
+      sizes: p.sizes || [],
+      isDefault: p.is_default,
+      isGlobal: p.is_global,
+      tenantId: p.tenant_id,
+    }))
+  } catch (err) {
+    console.warn('fetchSizePresets exception, using defaults:', err)
+    return DEFAULT_SIZE_PRESETS
+  }
+}
+
+// Create a custom size preset for a tenant
+export async function createSizePreset(tenantId, preset) {
+  if (!isSupabaseConfigured) {
+    return {
+      id: `preset_custom_${Date.now()}`,
+      ...preset,
+      isGlobal: false,
+      tenantId,
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('size_presets')
+    .insert({
+      name: preset.name,
+      category: preset.category || 'custom',
+      region: preset.region || 'global',
+      audience: preset.audience || 'all',
+      sizes: preset.sizes || [],
+      is_default: false,
+      is_global: false,
+      tenant_id: tenantId,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return {
+    id: data.id,
+    name: data.name,
+    category: data.category,
+    region: data.region,
+    audience: data.audience,
+    sizes: data.sizes || [],
+    isDefault: data.is_default,
+    isGlobal: data.is_global,
+    tenantId: data.tenant_id,
+  }
+}
+
+// Update a custom size preset
+export async function updateSizePreset(presetId, updates) {
+  if (!isSupabaseConfigured) {
+    return { id: presetId, ...updates }
+  }
+
+  const updateData = {}
+  if ('name' in updates) updateData.name = updates.name
+  if ('sizes' in updates) updateData.sizes = updates.sizes
+  if ('category' in updates) updateData.category = updates.category
+  if ('audience' in updates) updateData.audience = updates.audience
+
+  const { data, error } = await supabase
+    .from('size_presets')
+    .update(updateData)
+    .eq('id', presetId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return {
+    id: data.id,
+    name: data.name,
+    category: data.category,
+    region: data.region,
+    audience: data.audience,
+    sizes: data.sizes || [],
+    isDefault: data.is_default,
+    isGlobal: data.is_global,
+    tenantId: data.tenant_id,
+  }
+}
+
+// Delete a custom size preset
+export async function deleteSizePreset(presetId) {
+  if (!isSupabaseConfigured) {
+    return true
+  }
+
+  const { error } = await supabase
+    .from('size_presets')
+    .delete()
+    .eq('id', presetId)
+    .eq('is_global', false) // Only allow deleting non-global presets
+
+  if (error) throw error
   return true
 }

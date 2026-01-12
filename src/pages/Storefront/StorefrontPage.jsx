@@ -14,6 +14,7 @@ import { selectUser } from '../../features/auth/authSlice'
 import ProductCard from '../../components/storefront/ProductCard/ProductCard'
 import ProductDetailModal from '../../components/storefront/ProductDetailModal/ProductDetailModal'
 import ProductExtrasConfigModal from '../../components/storefront/ProductExtrasConfigModal/ProductExtrasConfigModal'
+import ProductModal from '../../components/dashboard/ProductModal/ProductModal'
 import ExtrasManager from '../../components/dashboard/ExtrasManager/ExtrasManager'
 import CartPanel from '../../components/storefront/CartPanel/CartPanel'
 import StoreHeader from '../../components/storefront/StoreHeader/StoreHeader'
@@ -33,6 +34,7 @@ import {
   SUBSCRIPTION_TIERS,
   TIER_LABELS,
   PRODUCT_CARD_LAYOUTS,
+  CATEGORY_CARD_LAYOUTS,
   STORE_HERO_STYLES,
   CAROUSEL_BUTTON_STYLES,
   isFeatureAvailable,
@@ -72,6 +74,7 @@ import {
   Newspaper,
   Camera,
   Tag,
+  Folder,
   FolderUp,
   ChevronRight,
   Settings,
@@ -98,9 +101,16 @@ import {
   MapPin,
   FileText,
   CheckCircle,
+  Circle,
+  LayoutList,
+  Type,
+  RectangleHorizontal,
 } from 'lucide-react'
 import StoreFooter from '../../components/storefront/StoreFooter/StoreFooter'
 import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
+import StoreCategoryNav from '../../components/storefront/StoreCategoryNav/StoreCategoryNav'
+import CategoryModal from '../../components/dashboard/CategoryModal/CategoryModal'
+import { Search } from 'lucide-react'
 
 export default function StorefrontPage() {
   const { slug } = useParams()
@@ -162,6 +172,17 @@ export default function StorefrontPage() {
   const [editingCategoryName, setEditingCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+  
+  // Hierarchical category navigation state (folder-like)
+  const [currentCategoryId, setCurrentCategoryId] = useState(null) // null = root level
+  
+  // Category modal state (for editing in store)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [editingCategory, setEditingCategory] = useState(null)
+  const [categoryModalParentId, setCategoryModalParentId] = useState(null)
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Get unique categories from products (for showing product count)
   const categoryCounts = useMemo(() => {
@@ -305,16 +326,127 @@ export default function StorefrontPage() {
     return '__all__'
   }, [selectedCategory, sortedCategories, hasUnassignedProducts])
 
-  // Filter products by selected category
-  const filteredProducts = useMemo(() => {
-    // "Todas" muestra todos los productos
-    if (effectiveSelectedCategory === '__all__') return visible
-    if (effectiveSelectedCategory === '__unassigned__') {
-      return visible.filter((p) => !p.category)
+  // Check if we have hierarchical categories (any category has children)
+  const hasHierarchicalCategories = useMemo(() => {
+    return categories.some(c => c.parentId !== null && c.parentId !== undefined)
+  }, [categories])
+
+  // Get current category for folder navigation
+  const currentCategory = useMemo(() => {
+    if (!currentCategoryId) return null
+    return categories.find(c => c.id === currentCategoryId)
+  }, [categories, currentCategoryId])
+
+  // Get subcategories of current category
+  const currentSubcategories = useMemo(() => {
+    return categories
+      .filter(c => c.parentId === currentCategoryId && c.active)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+  }, [categories, currentCategoryId])
+
+  // Helper to get all descendant category IDs
+  const getDescendantCategoryIds = (categoryId) => {
+    const descendants = []
+    const findChildren = (parentId) => {
+      const children = categories.filter(c => c.parentId === parentId)
+      children.forEach(child => {
+        descendants.push(child.id)
+        findChildren(child.id)
+      })
     }
-    if (!effectiveSelectedCategory) return visible
-    return visible.filter((p) => p.category === effectiveSelectedCategory)
-  }, [visible, effectiveSelectedCategory])
+    findChildren(categoryId)
+    return descendants
+  }
+
+  // Check if current category has subcategories (is a folder)
+  const currentCategoryHasSubcategories = useMemo(() => {
+    if (!currentCategoryId) return true // Root always has subcategories (the categories)
+    return currentSubcategories.length > 0
+  }, [currentCategoryId, currentSubcategories])
+
+  // Products without category go to "Otros" virtual category
+  const productsWithOtros = useMemo(() => {
+    return visible.map(p => {
+      if (!p.categoryId && !p.subcategoryId && !p.category) {
+        return { ...p, _isOtros: true }
+      }
+      return p
+    })
+  }, [visible])
+
+  // Check if there are "Otros" products
+  const hasOtrosProducts = useMemo(() => {
+    return productsWithOtros.some(p => p._isOtros)
+  }, [productsWithOtros])
+
+  // Search results - includes both categories and products
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return { categories: [], products: [] }
+    
+    const query = searchQuery.toLowerCase().trim()
+    
+    const matchingCategories = categories.filter(c => 
+      c.active && (
+        c.name?.toLowerCase().includes(query) ||
+        c.description?.toLowerCase().includes(query) ||
+        c.shortDescription?.toLowerCase().includes(query)
+      )
+    )
+    
+    const matchingProducts = productsWithOtros.filter(p =>
+      p.name?.toLowerCase().includes(query) ||
+      p.description?.toLowerCase().includes(query) ||
+      p.category?.toLowerCase().includes(query)
+    )
+    
+    return { categories: matchingCategories, products: matchingProducts }
+  }, [searchQuery, categories, productsWithOtros])
+
+  // Filter products - only show when inside a leaf category OR searching
+  const filteredProducts = useMemo(() => {
+    // If searching, return search results
+    if (searchQuery.trim()) {
+      return searchResults.products
+    }
+
+    // If using hierarchical navigation
+    if (hasHierarchicalCategories) {
+      // At root level - don't show products, only categories
+      if (currentCategoryId === null) {
+        return []
+      }
+      
+      // Special case: "Otros" category for uncategorized products
+      if (currentCategoryId === '__otros__') {
+        return productsWithOtros.filter(p => p._isOtros)
+      }
+      
+      // If current category has subcategories, don't show products
+      if (currentCategoryHasSubcategories) {
+        return []
+      }
+      
+      // In a leaf category - show its products
+      const descendantIds = getDescendantCategoryIds(currentCategoryId)
+      const validCategoryIds = [currentCategoryId, ...descendantIds]
+      
+      return productsWithOtros.filter((p) => 
+        validCategoryIds.includes(p.categoryId) || 
+        validCategoryIds.includes(p.subcategoryId)
+      )
+    }
+    
+    // Legacy flat category filtering
+    if (effectiveSelectedCategory === '__all__') {
+      return productsWithOtros
+    } else if (effectiveSelectedCategory === '__unassigned__' || effectiveSelectedCategory === '__otros__') {
+      return productsWithOtros.filter((p) => p._isOtros)
+    } else if (effectiveSelectedCategory) {
+      return productsWithOtros.filter((p) => p.category === effectiveSelectedCategory)
+    }
+
+    return productsWithOtros
+  }, [productsWithOtros, effectiveSelectedCategory, hasHierarchicalCategories, currentCategoryId, currentCategoryHasSubcategories, searchQuery, searchResults, categories])
 
   // Cart state with localStorage persistence
   const cartStorageKey = `cart.${slug}`
@@ -338,15 +470,7 @@ export default function StorefrontPage() {
   // Product modal state (for admin)
   const [showProductModal, setShowProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
-  const [productForm, setProductForm] = useState({ name: '', price: '', description: '', imageUrl: '', category: '' })
-  const [savingProduct, setSavingProduct] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  
-  // Product image cropper state
-  const [showProductImageCropper, setShowProductImageCropper] = useState(false)
-  const [productImageToCrop, setProductImageToCrop] = useState(null)
-  const [uploadingProductImage, setUploadingProductImage] = useState(false)
-  const productImageInputRef = useRef(null)
 
   // Card customization panel state
   const [showCardPanel, setShowCardPanel] = useState(false)
@@ -778,6 +902,7 @@ export default function StorefrontPage() {
   // Get card layout from theme (local for preview, or saved)
   const cardTheme = localCardTheme || theme || {}
   const cardLayout = cardTheme?.productCardLayout || 'classic'
+  const categoryLayout = cardTheme?.categoryCardLayout || 'grid'
   const cardColors = {
     cardBg: cardTheme?.cardBg || '#ffffff',
     cardText: cardTheme?.cardText || '#1f2937',
@@ -1079,8 +1204,15 @@ export default function StorefrontPage() {
       }
     }
     
-    // If there are extras configured, open the modal instead
-    if (extraGroups.length > 0) {
+    // If there are extras configured for this product's category, open the modal instead
+    // Filtrar grupos de extras según la categoría del producto
+    const productCategoryId = categories.find(c => c.name === product.category)?.id
+    const applicableExtraGroups = extraGroups.filter(group => {
+      const groupCategoryIds = group.categoryIds || []
+      return groupCategoryIds.length === 0 || groupCategoryIds.includes(productCategoryId)
+    })
+    
+    if (applicableExtraGroups.length > 0) {
       openProductDetail(product)
       return
     }
@@ -1255,100 +1387,12 @@ export default function StorefrontPage() {
   // Product management functions
   const openAddProduct = () => {
     setEditingProduct(null)
-    setProductForm({ name: '', price: '', description: '', imageUrl: '', category: '' })
     setShowProductModal(true)
   }
 
   const openEditProduct = (product) => {
     setEditingProduct(product)
-    setProductForm({
-      name: product.name || '',
-      price: String(product.price || ''),
-      description: product.description || '',
-      imageUrl: product.imageUrl || '',
-      category: product.category || '',
-    })
     setShowProductModal(true)
-  }
-
-  const handleSaveProduct = async () => {
-    if (!productForm.name.trim() || !productForm.price) return
-    
-    setSavingProduct(true)
-    try {
-      if (editingProduct) {
-        await dispatch(patchProduct({
-          tenantId,
-          productId: editingProduct.id,
-          patch: {
-            name: productForm.name.trim(),
-            price: Number(productForm.price),
-            description: productForm.description.trim(),
-            imageUrl: productForm.imageUrl.trim() || null,
-            category: productForm.category.trim() || null,
-          }
-        })).unwrap()
-      } else {
-        await dispatch(createProduct({
-          tenantId,
-          product: {
-            name: productForm.name.trim(),
-            price: Number(productForm.price),
-            description: productForm.description.trim(),
-            imageUrl: productForm.imageUrl.trim() || null,
-            category: productForm.category.trim() || null,
-          }
-        })).unwrap()
-      }
-      setShowProductModal(false)
-      setEditingProduct(null)
-    } catch (e) {
-      console.error('Error saving product:', e)
-    } finally {
-      setSavingProduct(false)
-    }
-  }
-
-  // Product image handlers
-  const handleProductImageFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    const reader = new FileReader()
-    reader.onload = () => {
-      setProductImageToCrop(reader.result)
-      setShowProductImageCropper(true)
-    }
-    reader.readAsDataURL(file)
-    // Reset input
-    if (productImageInputRef.current) {
-      productImageInputRef.current.value = ''
-    }
-  }
-
-  const handleProductImageCropComplete = async (croppedImage) => {
-    setShowProductImageCropper(false)
-    setProductImageToCrop(null)
-    setUploadingProductImage(true)
-
-    try {
-      if (isSupabaseConfigured) {
-        // Convert base64 to File for upload
-        const response = await fetch(croppedImage)
-        const blob = await response.blob()
-        const file = new File([blob], 'product.jpg', { type: 'image/jpeg' })
-        const productId = editingProduct?.id || `temp-${Date.now()}`
-        const imageUrl = await uploadProductImage({ tenantId, productId, file })
-        setProductForm(f => ({ ...f, imageUrl }))
-      } else {
-        // Mock: use base64 directly
-        setProductForm(f => ({ ...f, imageUrl: croppedImage }))
-      }
-    } catch (err) {
-      console.error('Error uploading product image:', err)
-    } finally {
-      setUploadingProductImage(false)
-    }
   }
 
   const handleDeleteProduct = async (product) => {
@@ -1603,7 +1647,110 @@ export default function StorefrontPage() {
             </div>
           )}
 
-          {/* Category Navigation Tabs */}
+          {/* Store Closed/Paused Banner */}
+          {isStoreClosed && (
+            <div className={`store__closedBanner ${isPaused ? 'store__closedBanner--paused' : ''}`}>
+              <div className="store__closedBannerContent">
+                <div className="store__closedBannerIcon">
+                  {isPaused ? <AlertTriangle size={24} /> : <Clock size={24} />}
+                </div>
+                <div className="store__closedBannerText">
+                  <span className="store__closedBannerTitle">
+                    {isPaused ? 'Tienda en pausa' : 'Estamos cerrados'}
+                  </span>
+                  {isPaused && pauseMessage ? (
+                    <span className="store__closedBannerNext">{pauseMessage}</span>
+                  ) : storeStatus.nextOpen && !isPaused ? (
+                    <span className="store__closedBannerNext">Abrimos: {storeStatus.nextOpen}</span>
+                  ) : null}
+                </div>
+                <button 
+                  className="store__closedBannerBtn"
+                  onClick={() => setShowClosedModal(true)}
+                >
+                  {isPaused ? 'Ver info' : 'Ver horarios'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search Bar */}
+          <div className="store__searchBar">
+            <Search size={18} className="store__searchIcon" />
+            <input
+              type="text"
+              className="store__searchInput"
+              placeholder="Buscar productos..."
+              value={searchQuery || ''}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="store__searchClear"
+                onClick={() => setSearchQuery('')}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Search Results - Categories found */}
+          {searchQuery.trim() && searchResults.categories.length > 0 && (
+            <div className="store__searchResults">
+              <h3 className="store__searchResultsTitle">Categorías encontradas</h3>
+              <div className="store__searchResultsCategories">
+                {searchResults.categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    className="store__searchResultCategory"
+                    onClick={() => {
+                      setCurrentCategoryId(cat.id)
+                      setSearchQuery('')
+                    }}
+                    type="button"
+                  >
+                    <Folder size={16} />
+                    <span>{cat.name}</span>
+                    <ChevronRight size={14} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Hierarchical Category Navigation (when categories have subcategories and NOT searching) */}
+          {hasHierarchicalCategories && !searchQuery.trim() && (
+            <StoreCategoryNav
+              tenantId={tenantId}
+              currentCategoryId={currentCategoryId}
+              onNavigate={(categoryId) => {
+                setCurrentCategoryId(categoryId)
+                setSearchQuery('') // Clear search when navigating
+              }}
+              cardLayout={categoryLayout}
+              isAdmin={isAdmin}
+              onEditCategory={(category) => {
+                setEditingCategory(category)
+                setCategoryModalParentId(null)
+                setShowCategoryModal(true)
+              }}
+              onDeleteCategory={(categoryId) => {
+                dispatch(deleteCategory({ tenantId, categoryId }))
+                if (currentCategoryId === categoryId) {
+                  setCurrentCategoryId(null)
+                }
+              }}
+              onCreateCategory={(parentId) => {
+                setEditingCategory(null)
+                setCategoryModalParentId(parentId)
+                setShowCategoryModal(true)
+              }}
+            />
+          )}
+
+          {/* Category Navigation Tabs (for flat categories or as secondary nav) */}
+          {!hasHierarchicalCategories && (
           <div className="store__categoryTabs">
             {/* Botón "Todas" fijo al inicio */}
             <button
@@ -1770,32 +1917,6 @@ export default function StorefrontPage() {
               )
             )}
           </div>
-
-          {/* Store Closed/Paused Banner */}
-          {isStoreClosed && (
-            <div className={`store__closedBanner ${isPaused ? 'store__closedBanner--paused' : ''}`}>
-              <div className="store__closedBannerContent">
-                <div className="store__closedBannerIcon">
-                  {isPaused ? <AlertTriangle size={24} /> : <Clock size={24} />}
-                </div>
-                <div className="store__closedBannerText">
-                  <span className="store__closedBannerTitle">
-                    {isPaused ? 'Tienda en pausa' : 'Estamos cerrados'}
-                  </span>
-                  {isPaused && pauseMessage ? (
-                    <span className="store__closedBannerNext">{pauseMessage}</span>
-                  ) : storeStatus.nextOpen && !isPaused ? (
-                    <span className="store__closedBannerNext">Abrimos: {storeStatus.nextOpen}</span>
-                  ) : null}
-                </div>
-                <button 
-                  className="store__closedBannerBtn"
-                  onClick={() => setShowClosedModal(true)}
-                >
-                  {isPaused ? 'Ver info' : 'Ver horarios'}
-                </button>
-              </div>
-            </div>
           )}
 
           {/* Hero Customization Panel */}
@@ -2375,6 +2496,46 @@ export default function StorefrontPage() {
                   </div>
                 </div>
 
+                {/* Category Layout Selector */}
+                <div className="store__cardSection">
+                  <label className="store__cardSectionTitle">
+                    <Folder size={14} /> Layout de Categorías
+                  </label>
+                  <div className="store__layoutGrid">
+                    {Object.entries(CATEGORY_CARD_LAYOUTS).map(([layoutId, config]) => {
+                      const available = isFeatureAvailable(config.tier, effectiveTier)
+                      const isSelected = categoryLayout === layoutId
+                      
+                      return (
+                        <button
+                          key={layoutId}
+                          type="button"
+                          className={`store__layoutBtn ${isSelected ? 'selected' : ''} ${!available ? 'locked' : ''}`}
+                          onClick={() => available && updateCardTheme({ categoryCardLayout: layoutId })}
+                          disabled={!available}
+                          title={config.description}
+                        >
+                          <span className="store__layoutIcon">
+                            {layoutId === 'grid' && <Grid3X3 size={18} />}
+                            {layoutId === 'horizontal' && <Rows3 size={18} />}
+                            {layoutId === 'circle' && <Circle size={18} />}
+                            {layoutId === 'chips' && <LayoutList size={18} />}
+                            {layoutId === 'overlay' && <Layers size={18} />}
+                            {layoutId === 'magazine' && <Newspaper size={18} />}
+                            {layoutId === 'minimal' && <Type size={18} />}
+                            {layoutId === 'polaroid' && <Camera size={18} />}
+                            {layoutId === 'banner' && <RectangleHorizontal size={18} />}
+                          </span>
+                          <span className="store__layoutName">{config.label}</span>
+                          {!available && <span className="store__layoutLock"><Lock size={12} /></span>}
+                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM && <span className="store__tierBadge premium"><Star size={10} /></span>}
+                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO && <span className="store__tierBadge pro"><Crown size={10} /></span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 {/* Color Pickers */}
                 <div className="store__cardSection">
                   <label className="store__cardSectionTitle">Colores</label>
@@ -2528,7 +2689,15 @@ export default function StorefrontPage() {
                   isEditable={isAdmin}
                   onEdit={openEditProduct}
                   onDelete={handleDeleteProduct}
-                  hasExtras={extraGroups.length > 0 || (p.productExtras?.length > 0)}
+                  hasExtras={(() => {
+                    // Verificar si hay extras aplicables a la categoría de este producto
+                    const pCategoryId = categories.find(c => c.name === p.category)?.id
+                    const hasApplicableExtras = extraGroups.some(group => {
+                      const groupCategoryIds = group.categoryIds || []
+                      return groupCategoryIds.length === 0 || groupCategoryIds.includes(pCategoryId)
+                    })
+                    return hasApplicableExtras || (p.productExtras?.length > 0)
+                  })()}
                   hasProductExtras={p.productExtras?.length > 0}
                   isPremium={effectiveTier !== SUBSCRIPTION_TIERS.FREE}
                   disabled={isStoreClosed && !isAdmin}
@@ -2643,149 +2812,16 @@ export default function StorefrontPage() {
         />
       )}
 
-      {/* Product Modal */}
-      {showProductModal && (
-        <div className="store__modalOverlay">
-          <div className="store__modal">
-            <div className="store__modalHeader">
-              <h3>{editingProduct ? 'Editar producto' : 'Nuevo producto'}</h3>
-              <button 
-                className="store__modalClose" 
-                type="button"
-                onClick={() => setShowProductModal(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="store__modalBody">
-              <Input
-                label="Nombre del producto"
-                value={productForm.name}
-                onChange={(v) => setProductForm(f => ({ ...f, name: v }))}
-                placeholder="Ej: Hamburguesa Clásica"
-              />
-              
-              <Input
-                label="Precio"
-                type="number"
-                value={productForm.price}
-                onChange={(v) => setProductForm(f => ({ ...f, price: v }))}
-                placeholder="9.99"
-              />
-              
-              <Input
-                label="Descripción"
-                value={productForm.description}
-                onChange={(v) => setProductForm(f => ({ ...f, description: v }))}
-                placeholder="Descripción del producto..."
-              />
-
-              <div className="store__formGroup">
-                <label className="store__formLabel">Categoría</label>
-                <select
-                  className="store__formSelect"
-                  value={productForm.category}
-                  onChange={(e) => setProductForm(f => ({ ...f, category: e.target.value }))}
-                >
-                  <option value="">Sin asignar</option>
-                  {sortedCategories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Imagen del producto */}
-              <div className="store__formGroup">
-                <label className="store__formLabel">Imagen del producto</label>
-                <div className="store__imageUploadActions">
-                  <input
-                    type="file"
-                    ref={productImageInputRef}
-                    accept="image/*"
-                    onChange={handleProductImageFileSelect}
-                    style={{ display: 'none' }}
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => productImageInputRef.current?.click()}
-                    disabled={uploadingProductImage}
-                  >
-                    {uploadingProductImage ? (
-                      <><Loader2 size={14} className="icon-spin" /> Subiendo...</>
-                    ) : (
-                      <><Upload size={14} /> Subir foto</>
-                    )}
-                  </Button>
-                  {productForm.imageUrl && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setProductImageToCrop(productForm.imageUrl)
-                        setShowProductImageCropper(true)
-                      }}
-                    >
-                      <Focus size={14} /> Ajustar
-                    </Button>
-                  )}
-                </div>
-                <div className="store__urlInputWrapper">
-                  <Link2 size={14} />
-                  <input
-                    type="text"
-                    className="store__urlInput"
-                    value={productForm.imageUrl}
-                    onChange={(e) => setProductForm(f => ({ ...f, imageUrl: e.target.value }))}
-                    placeholder="O pega una URL: https://..."
-                  />
-                  {productForm.imageUrl && (
-                    <button 
-                      className="store__urlClear"
-                      onClick={() => setProductForm(f => ({ ...f, imageUrl: '' }))}
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {productForm.imageUrl && (
-                <div className="store__imagePreview">
-                  <img src={productForm.imageUrl} alt="Preview" />
-                </div>
-              )}
-            </div>
-            
-            <div className="store__modalFooter">
-              <Button variant="secondary" onClick={() => setShowProductModal(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleSaveProduct} 
-                disabled={savingProduct || !productForm.name.trim() || !productForm.price}
-              >
-                {savingProduct ? 'Guardando...' : (editingProduct ? 'Guardar cambios' : 'Crear producto')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Product Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={showProductImageCropper}
+      {/* Product Modal - Modal completo para crear/editar productos */}
+      <ProductModal
+        isOpen={showProductModal}
         onClose={() => {
-          setShowProductImageCropper(false)
-          setProductImageToCrop(null)
+          setShowProductModal(false)
+          setEditingProduct(null)
         }}
-        onCropComplete={handleProductImageCropComplete}
-        initialImage={productImageToCrop}
-        aspectRatio={1}
-        title="Ajustar imagen del producto"
-        allowUrl={true}
-        allowUpload={true}
+        tenantId={tenantId}
+        product={editingProduct}
+        defaultCategoryId={selectedCategory || null}
       />
 
       {/* Delete confirmation toast */}
@@ -2820,10 +2856,18 @@ export default function StorefrontPage() {
           modalIsLimitedByCategory = true
         }
         
+        // Filtrar grupos de extras según la categoría del producto
+        // Un grupo aplica si: categoryIds está vacío/null (aplica a todas) O contiene el categoryId del producto
+        const productCategoryId = categories.find(c => c.name === selectedProductForDetail.category)?.id
+        const filteredExtraGroups = extraGroups.filter(group => {
+          const groupCategoryIds = group.categoryIds || []
+          return groupCategoryIds.length === 0 || groupCategoryIds.includes(productCategoryId)
+        })
+        
         return (
           <ProductDetailModal
             product={selectedProductForDetail}
-            groups={extraGroups}
+            groups={filteredExtraGroups}
             extras={extras}
             onClose={() => {
               setShowProductDetailModal(false)
@@ -2932,6 +2976,19 @@ export default function StorefrontPage() {
 
       {/* Cart Toast Notifications */}
       <CartToast toast={cartToast} onDismiss={dismissCartToast} />
+
+      {/* Category Modal for creating/editing categories in store */}
+      <CategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false)
+          setEditingCategory(null)
+          setCategoryModalParentId(null)
+        }}
+        tenantId={tenantId}
+        category={editingCategory}
+        parentId={categoryModalParentId}
+      />
 
       {/* Realtime Pause Modal - Shows when store is paused while customer is browsing */}
       {showPausedRealtimeModal && (

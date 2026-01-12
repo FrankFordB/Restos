@@ -382,15 +382,26 @@ export const selectConvertedReferrals = createSelector(
   (referrals) => referrals.filter(r => r.status === REFERRAL_STATUS.CONVERTED)
 )
 
-export const selectReferralLoadingStates = (state) => ({
-  config: state.referrals.configStatus,
-  code: state.referrals.codeStatus,
-  stats: state.referrals.statsStatus,
-  referrals: state.referrals.referralsStatus,
-  rewards: state.referrals.rewardsStatus,
-  applyReward: state.referrals.applyRewardStatus,
-  validateCode: state.referrals.validateCodeStatus,
-})
+export const selectReferralLoadingStates = createSelector(
+  [
+    (state) => state.referrals.configStatus,
+    (state) => state.referrals.codeStatus,
+    (state) => state.referrals.statsStatus,
+    (state) => state.referrals.referralsStatus,
+    (state) => state.referrals.rewardsStatus,
+    (state) => state.referrals.applyRewardStatus,
+    (state) => state.referrals.validateCodeStatus,
+  ],
+  (config, code, stats, referrals, rewards, applyReward, validateCode) => ({
+    config,
+    code,
+    stats,
+    referrals,
+    rewards,
+    applyReward,
+    validateCode,
+  })
+)
 
 export const selectIsApplyingReward = (state) => 
   state.referrals.applyRewardStatus === 'loading'

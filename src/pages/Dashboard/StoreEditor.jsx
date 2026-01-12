@@ -221,18 +221,39 @@ export default function StoreEditor() {
 
     try {
       if (isSupabaseConfigured) {
-        // Convertir base64 a File para subir
-        const response = await fetch(imageSrc)
-        const blob = await response.blob()
+        // Convertir base64/URL a File para subir
+        let blob
+        try {
+          const response = await fetch(imageSrc)
+          if (!response.ok) {
+            throw new Error(`Error al obtener imagen: ${response.status}`)
+          }
+          blob = await response.blob()
+        } catch (fetchErr) {
+          // Si falla fetch (CORS), intentar con un enfoque alternativo para base64
+          if (imageSrc.startsWith('data:')) {
+            const base64Response = await fetch(imageSrc)
+            blob = await base64Response.blob()
+          } else {
+            throw new Error('No se pudo cargar la imagen. Intenta subir un archivo desde tu dispositivo.')
+          }
+        }
+        
         const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' })
         const logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
         setTenantLogo(logoUrl)
-        // TODO: Guardar focalPoint para el logo si es necesario
+        
+        // Guardar automáticamente el logo en la base de datos
+        await updateTenantInfo({
+          tenantId: user.tenantId,
+          logo: logoUrl,
+        })
       } else {
         // Mock: usar directamente el data URL
         setTenantLogo(imageSrc)
       }
     } catch (e) {
+      console.error('Error subiendo logo:', e)
       setError(e?.message || 'Error al subir el logo')
     } finally {
       setUploadingLogo(false)

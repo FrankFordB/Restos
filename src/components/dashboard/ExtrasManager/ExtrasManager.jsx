@@ -14,6 +14,10 @@ import {
   patchExtra,
   deleteExtra,
 } from '../../../features/extras/extrasSlice'
+import {
+  fetchCategoriesForTenant,
+  selectCategoriesForTenant,
+} from '../../../features/categories/categoriesSlice'
 import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
 import { createId } from '../../../shared/ids'
 import Button from '../../ui/Button/Button'
@@ -30,6 +34,7 @@ import {
   GripVertical,
   List,
   UtensilsCrossed,
+  Tag,
 } from 'lucide-react'
 
 export default function ExtrasManager({ tenantId }) {
@@ -37,6 +42,7 @@ export default function ExtrasManager({ tenantId }) {
   const user = useAppSelector(selectUser)
   const extras = useAppSelector(selectExtrasForTenant(tenantId))
   const groups = useAppSelector(selectExtraGroupsForTenant(tenantId))
+  const categories = useAppSelector(selectCategoriesForTenant(tenantId))
 
   // UI State
   const [expandedGroups, setExpandedGroups] = useState({})
@@ -56,6 +62,7 @@ export default function ExtrasManager({ tenantId }) {
     minSelections: 0,
     maxSelections: 10,
     isRequired: false,
+    categoryIds: [], // IDs de categorías donde aplica este grupo
   })
 
   // Form State - Extra
@@ -72,6 +79,7 @@ export default function ExtrasManager({ tenantId }) {
     if (tenantId) {
       dispatch(fetchExtraGroupsForTenant(tenantId))
       dispatch(fetchExtrasForTenant(tenantId))
+      dispatch(fetchCategoriesForTenant(tenantId))
     }
   }, [dispatch, tenantId])
 
@@ -130,6 +138,7 @@ export default function ExtrasManager({ tenantId }) {
       minSelections: 0,
       maxSelections: 10,
       isRequired: false,
+      categoryIds: [],
     })
     setShowGroupModal(true)
   }
@@ -143,6 +152,7 @@ export default function ExtrasManager({ tenantId }) {
       minSelections: group.minSelections ?? 0,
       maxSelections: group.maxSelections ?? 10,
       isRequired: group.isRequired ?? false,
+      categoryIds: group.categoryIds || [],
     })
     setShowGroupModal(true)
   }
@@ -161,6 +171,7 @@ export default function ExtrasManager({ tenantId }) {
           minSelections: Number(groupForm.minSelections) || 0,
           maxSelections: Number(groupForm.maxSelections) || 10,
           isRequired: groupForm.isRequired,
+          categoryIds: groupForm.categoryIds,
         },
       }))
       setShowGroupModal(false)
@@ -175,6 +186,7 @@ export default function ExtrasManager({ tenantId }) {
           maxSelections: Number(groupForm.maxSelections) || 10,
           isRequired: groupForm.isRequired,
           sortOrder: groups.length,
+          categoryIds: groupForm.categoryIds,
         },
       }))
       
@@ -350,6 +362,11 @@ export default function ExtrasManager({ tenantId }) {
         {sortedGroups.map((group) => {
           const groupExtras = getExtrasForGroup(group.id)
           const isExpanded = expandedGroups[group.id] !== false // Default to expanded
+          
+          // Get category names for this group
+          const groupCategoryNames = (group.categoryIds || [])
+            .map(catId => categories.find(c => c.id === catId)?.name)
+            .filter(Boolean)
 
           return (
             <div key={group.id} className="extrasManager__group">
@@ -363,6 +380,7 @@ export default function ExtrasManager({ tenantId }) {
                       <span className="extrasManager__groupBadge extrasManager__groupBadge--required">
                         Obligatorio
                       </span>
+
                     )}
                   </span>
                   <span className="extrasManager__groupMeta">
@@ -373,6 +391,18 @@ export default function ExtrasManager({ tenantId }) {
                       {' - '}
                       Máx: {group.maxSelections}
                     </span>
+                    {groupCategoryNames.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="extrasManager__groupCategories">
+                          <Tag size={12} />
+                          {groupCategoryNames.length <= 2 
+                            ? groupCategoryNames.join(', ')
+                            : `${groupCategoryNames.slice(0, 2).join(', ')} +${groupCategoryNames.length - 2}`
+                          }
+                        </span>
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="extrasManager__groupActions">
@@ -571,6 +601,65 @@ export default function ExtrasManager({ tenantId }) {
                   />
                 </div>
               </div>
+
+              {/* Category Selection */}
+              <div className="extrasManager__field">
+                <label className="extrasManager__fieldLabel">
+                  <Tag size={14} style={{ marginRight: 4 }} />
+                  Categorías donde aplica
+                  <InfoTooltip 
+                    text="Selecciona en qué categorías de productos estará disponible este grupo de extras. Si no seleccionas ninguna, aplicará a todas las categorías."
+                    position="right"
+                    size={14}
+                  />
+                </label>
+                <div className="extrasManager__categorySelector">
+                  {categories.length === 0 ? (
+                    <p className="extrasManager__categorySelectorEmpty">
+                      No hay categorías creadas. Este grupo aplicará a todos los productos.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="extrasManager__categoryList">
+                        {categories.filter(c => c.active !== false).map((cat) => {
+                          const isSelected = groupForm.categoryIds.includes(cat.id)
+                          return (
+                            <label 
+                              key={cat.id} 
+                              className={`extrasManager__categoryItem ${isSelected ? 'extrasManager__categoryItem--selected' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setGroupForm({
+                                      ...groupForm,
+                                      categoryIds: [...groupForm.categoryIds, cat.id]
+                                    })
+                                  } else {
+                                    setGroupForm({
+                                      ...groupForm,
+                                      categoryIds: groupForm.categoryIds.filter(id => id !== cat.id)
+                                    })
+                                  }
+                                }}
+                              />
+                              <span>{cat.name}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      <p className="extrasManager__categoryHint">
+                        {groupForm.categoryIds.length === 0 
+                          ? '✓ Aplicará a todas las categorías' 
+                          : `Aplicará solo a ${groupForm.categoryIds.length} categoría(s) seleccionada(s)`}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
               <div className="extrasManager__field">
                 <label className="extrasManager__fieldCheckbox">
                   <input

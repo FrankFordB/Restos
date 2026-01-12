@@ -1,0 +1,223 @@
+.categoryGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* =============================================
+   BREADCRUMB
+   ============================================= */
+
+.categoryGrid__breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--breadcrumb-bg, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.categoryGrid__breadcrumbItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.categoryGrid__breadcrumbItem:hover {
+  background: var(--breadcrumb-hover-bg, #e5e7eb);
+  color: var(--text-primary, #111827);
+}
+
+.categoryGrid__breadcrumbItem--active {
+  background: var(--primary-bg, #e0e7ff);
+  color: var(--primary, #4f46e5);
+}
+
+.categoryGrid__breadcrumbItem--active:hover {
+  background: var(--primary-hover-bg, #c7d2fe);
+}
+
+.categoryGrid__breadcrumbSegment {
+  display: flex;
+  align-items: center;
+}
+
+.categoryGrid__breadcrumbSeparator {
+  color: var(--text-muted, #9ca3af);
+  margin: 0 2px;
+}
+
+.categoryGrid__breadcrumbIcon {
+  font-size: 16px;
+}
+
+/* =============================================
+   LEVEL INFO (para admins)
+   ============================================= */
+
+.categoryGrid__levelInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--info-bg, #f0f9ff);
+  border-radius: 8px;
+  border: 1px solid var(--info-border, #bae6fd);
+}
+
+.categoryGrid__levelStats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.categoryGrid__stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.categoryGrid__stat--folder {
+  color: var(--warning, #d97706);
+}
+
+.categoryGrid__stat--products {
+  color: var(--success, #059669);
+}
+
+.categoryGrid__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--warning-bg, #fef3c7);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--warning-text, #92400e);
+}
+
+.categoryGrid__warning svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* =============================================
+   GRID
+   ============================================= */
+
+.categoryGrid__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* Grid más compacto para pantallas pequeñas */
+@media (max-width: 640px) {
+  .categoryGrid__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .categoryGrid__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* =============================================
+   PRODUCTOS SECTION
+   ============================================= */
+
+.categoryGrid__products {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.categoryGrid__productsTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.categoryGrid__productsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* =============================================
+   ADD PRODUCT SECTION
+   ============================================= */
+
+.categoryGrid__addProductSection {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  margin-top: 8px;
+}
+
+/* =============================================
+   EMPTY STATE
+   ============================================= */
+
+.categoryGrid__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted, #9ca3af);
+}
+
+.categoryGrid__empty p {
+  margin: 0;
+  font-size: 15px;
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+
+@media (max-width: 768px) {
+  .categoryGrid__breadcrumb {
+    padding: 10px 12px;
+  }
+
+  .categoryGrid__breadcrumbItem {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  .categoryGrid__levelInfo {
+    padding: 10px 12px;
+  }
+
+  .categoryGrid__warning {
+    font-size: 12px;
+  }
+}

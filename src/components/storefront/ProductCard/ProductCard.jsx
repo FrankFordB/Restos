@@ -46,6 +46,13 @@ export default function ProductCard({
     '--card-button': colors.cardButton || undefined,
   }
   
+  // Calcular precio con descuento
+  const hasDiscount = product.discount && product.discount > 0
+  const originalPrice = Number(product.price)
+  const discountedPrice = hasDiscount 
+    ? originalPrice * (1 - product.discount / 100)
+    : originalPrice
+  
   // Overlay layout has text on image
   const isOverlay = layout === 'overlay'
   const isMinimal = layout === 'minimal'
@@ -78,6 +85,13 @@ export default function ProductCard({
       {isPopular && !isOutOfStock && !wouldExceedStock && !isLowStock && (
         <div className="productCard__popularBadge">
           <span><Flame size={14} /> Popular</span>
+        </div>
+      )}
+
+      {/* Cinta de descuento (ribbon) - esquina superior derecha */}
+      {product.discount && product.discount > 0 && (
+        <div className="productCard__discountRibbon">
+          <span>-{product.discount}%</span>
         </div>
       )}
       
@@ -199,7 +213,12 @@ export default function ProductCard({
         {isOverlay && (
           <div className="productCard__overlayContent">
             <h3 className="productCard__title">{product.name}</h3>
-            <div className="productCard__price">${Number(product.price).toFixed(2)}</div>
+            <div className={`productCard__priceWrapper ${hasDiscount ? 'productCard__priceWrapper--discount' : ''}`}>
+              {hasDiscount && (
+                <span className="productCard__originalPrice">${originalPrice.toFixed(2)}</span>
+              )}
+              <div className="productCard__price">${discountedPrice.toFixed(2)}</div>
+            </div>
             <div className="productCard__overlayActions">
               {isOutOfStock ? (
                 <span className="productCard__overlayOutOfStock">Sin stock</span>
@@ -236,7 +255,12 @@ export default function ProductCard({
         <div className={`productCard__content ${isHorizontal ? 'productCard__content--horizontal' : ''}`}>
           <div className="productCard__top">
             <h3 className="productCard__title">{product.name}</h3>
-            <div className="productCard__price">${Number(product.price).toFixed(2)}</div>
+            <div className={`productCard__priceWrapper ${hasDiscount ? 'productCard__priceWrapper--discount' : ''}`}>
+              {hasDiscount && (
+                <span className="productCard__originalPrice">${originalPrice.toFixed(2)}</span>
+              )}
+              <div className="productCard__price">${discountedPrice.toFixed(2)}</div>
+            </div>
           </div>
           
           {!isMinimal && !isPolaroid && (

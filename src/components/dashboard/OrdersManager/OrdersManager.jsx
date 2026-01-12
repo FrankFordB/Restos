@@ -246,6 +246,16 @@ export default function OrdersManager({ tenantId }) {
     }
   }
 
+  // Helper: Filtrar grupos de extras según la categoría del producto
+  const getExtraGroupsForProduct = useCallback((product) => {
+    if (!product) return extraGroups
+    const productCategoryId = categories.find(c => c.name === product.category)?.id
+    return extraGroups.filter(group => {
+      const groupCategoryIds = group.categoryIds || []
+      return groupCategoryIds.length === 0 || groupCategoryIds.includes(productCategoryId)
+    })
+  }, [extraGroups, categories])
+
   // Refrescar pedidos
   const handleRefresh = useCallback(() => {
     if (tenantId) {
@@ -1108,27 +1118,30 @@ export default function OrdersManager({ tenantId }) {
                       <p className="muted">Agrega productos desde la sección de Productos</p>
                     </div>
                   ) : (
-                    filteredProducts.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        quantity={getProductCartQuantity(product.id)}
-                        onAdd={() => openProductDetail(product)}
-                        onRemove={() => {
-                          // Remover el primer item de este producto del carrito
-                          const cartItemId = Object.keys(cart).find((id) => {
-                            const item = cart[id]
-                            return typeof item === 'object' && item.productId === product.id
-                          })
-                          if (cartItemId) decrementCartItem(cartItemId)
-                        }}
-                        onClick={() => openProductDetail(product)}
-                        layout="classic"
-                        isEditable={false}
-                        hasExtras={extraGroups.length > 0 || (product.productExtras?.length > 0)}
-                        hasProductExtras={product.productExtras?.length > 0}
-                      />
-                    ))
+                    filteredProducts.map((product) => {
+                      const productExtraGroups = getExtraGroupsForProduct(product)
+                      return (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          quantity={getProductCartQuantity(product.id)}
+                          onAdd={() => openProductDetail(product)}
+                          onRemove={() => {
+                            // Remover el primer item de este producto del carrito
+                            const cartItemId = Object.keys(cart).find((id) => {
+                              const item = cart[id]
+                              return typeof item === 'object' && item.productId === product.id
+                            })
+                            if (cartItemId) decrementCartItem(cartItemId)
+                          }}
+                          onClick={() => openProductDetail(product)}
+                          layout="classic"
+                          isEditable={false}
+                          hasExtras={productExtraGroups.length > 0 || (product.productExtras?.length > 0)}
+                          hasProductExtras={product.productExtras?.length > 0}
+                        />
+                      )
+                    })
                   )}
                 </div>
 
@@ -1576,7 +1589,7 @@ export default function OrdersManager({ tenantId }) {
       {showProductDetailModal && selectedProductForDetail && (
         <ProductDetailModal
           product={selectedProductForDetail}
-          groups={extraGroups}
+          groups={getExtraGroupsForProduct(selectedProductForDetail)}
           extras={extras}
           onClose={() => {
             setShowProductDetailModal(false)
@@ -2179,6 +2192,16 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
   // Productos visibles (activos)
   const visibleProducts = useMemo(() => products.filter(p => p.active !== false), [products])
   
+  // Helper: Filtrar grupos de extras según la categoría del producto
+  const getExtraGroupsForProduct = useCallback((product) => {
+    if (!product) return extraGroups
+    const productCategoryId = categories.find(c => c.name === product.category)?.id
+    return extraGroups.filter(group => {
+      const groupCategoryIds = group.categoryIds || []
+      return groupCategoryIds.length === 0 || groupCategoryIds.includes(productCategoryId)
+    })
+  }, [extraGroups, categories])
+  
   // Filtrar productos por categoría
   const filteredStoreProducts = useMemo(() => {
     if (storeSelectedCategory === null) return visibleProducts
@@ -2597,7 +2620,7 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
                       <div className="orderDetailModal__storeProductInfo">
                         <span className="orderDetailModal__storeProductName">{product.name}</span>
                         <span className="orderDetailModal__storeProductPrice">${product.price}</span>
-                        {(product.productExtras?.length > 0) && (
+                        {(product.productExtras?.length > 0 || getExtraGroupsForProduct(product).length > 0) && (
                           <span className="orderDetailModal__storeProductExtras">
                             + Extras disponibles
                           </span>
@@ -2611,7 +2634,7 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
                 {showStoreProductDetail && storeSelectedProduct && (
                   <ProductDetailModal
                     product={storeSelectedProduct}
-                    groups={extraGroups}
+                    groups={getExtraGroupsForProduct(storeSelectedProduct)}
                     extras={extras}
                     onClose={() => {
                       setShowStoreProductDetail(false)
@@ -2886,7 +2909,7 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
             {showStoreProductDetail && storeSelectedProduct && !showProductStore && (
               <ProductDetailModal
                 product={storeSelectedProduct}
-                groups={extraGroups}
+                groups={getExtraGroupsForProduct(storeSelectedProduct)}
                 extras={extras}
                 onClose={() => {
                   setShowStoreProductDetail(false)

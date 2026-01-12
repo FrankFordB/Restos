@@ -9,6 +9,7 @@ import {
   insertProduct,
   updateProductRow,
 } from '../../lib/supabaseApi'
+import { setCategoryHasProducts } from '../categories/categoriesSlice'
 
 const PERSIST_KEY = 'state.products'
 
@@ -138,7 +139,29 @@ export const fetchProductsForTenant = createAsyncThunk(
 
 export const createProduct = createAsyncThunk(
   'products/createProduct',
-  async ({ tenantId, product }) => {
+  async ({ tenantId, product }, { getState, dispatch }) => {
+    // Validar reglas de carpetas
+    const state = getState()
+    const categories = state.categories?.categoriesByTenantId?.[tenantId] || []
+    
+    // Determinar la categoría destino
+    const targetCategoryId = product.subcategoryId || product.categoryId
+    
+    if (targetCategoryId) {
+      const targetCategory = categories.find(c => c.id === targetCategoryId)
+      
+      // Verificar si la categoría tiene subcategorías (no puede recibir productos)
+      if (targetCategory?.hasChildren) {
+        throw new Error('No puedes agregar productos a una categoría que tiene subcategorías. Los productos solo pueden estar en el último nivel.')
+      }
+      
+      // Verificar manualmente si tiene hijos
+      const hasChildren = categories.some(c => c.parentId === targetCategoryId)
+      if (hasChildren) {
+        throw new Error('No puedes agregar productos a una categoría que tiene subcategorías. Los productos solo pueden estar en el último nivel.')
+      }
+    }
+    
     if (!isSupabaseConfigured) {
       const row = {
         id: createId('prod'),
@@ -147,13 +170,30 @@ export const createProduct = createAsyncThunk(
         price: product.price ?? 0,
         description: product.description || null,
         image_url: product.imageUrl || null,
+        focal_point: product.focalPoint || null,
         category: product.category || null,
+        category_id: product.categoryId || null,
+        subcategory_id: product.subcategoryId || null,
+        cost_price: product.costPrice ?? null,
         stock: product.stock ?? null,
         active: product.active ?? true,
+        product_extras: product.productExtras || [],
       }
+      
+      // Actualizar hasProducts de la categoría
+      if (targetCategoryId) {
+        dispatch(setCategoryHasProducts({ tenantId, categoryId: targetCategoryId, hasProducts: true }))
+      }
+      
       return { tenantId, row }
     }
     const row = await insertProduct({ tenantId, product })
+    
+    // Actualizar hasProducts de la categoría (BD lo hace con trigger, pero actualizamos Redux también)
+    if (targetCategoryId) {
+      dispatch(setCategoryHasProducts({ tenantId, categoryId: targetCategoryId, hasProducts: true }))
+    }
+    
     return { tenantId, row }
   },
 )
@@ -220,9 +260,16 @@ const productsSlice = createSlice({
           imageUrl: r.image_url || null,
           focalPoint: r.focal_point || null,
           category: r.category || null,
+          categoryId: r.category_id || null,
+          subcategoryId: r.subcategory_id || null,
+          costPrice: r.cost_price != null ? Number(r.cost_price) : null,
           stock: r.stock ?? null,
           active: r.active,
           productExtras: r.product_extras || [],
+          discount: r.discount ?? null,
+          hasSizes: r.has_sizes ?? false,
+          sizeRequired: r.size_required ?? true,
+          sizes: r.sizes || [],
         }))
         persist(state)
       })
@@ -240,9 +287,16 @@ const productsSlice = createSlice({
             imageUrl: row.image_url || null,
             focalPoint: row.focal_point || null,
             category: row.category || null,
+            categoryId: row.category_id || null,
+            subcategoryId: row.subcategory_id || null,
+            costPrice: row.cost_price != null ? Number(row.cost_price) : null,
             stock: row.stock ?? null,
             active: row.active,
             productExtras: row.product_extras || [],
+            discount: row.discount ?? null,
+            hasSizes: row.has_sizes ?? false,
+            sizeRequired: row.size_required ?? true,
+            sizes: row.sizes || [],
           })
           persist(state)
         }
@@ -263,9 +317,16 @@ const productsSlice = createSlice({
             imageUrl: row.image_url || null,
             focalPoint: row.focal_point || null,
             category: row.category || null,
+            categoryId: row.category_id || null,
+            subcategoryId: row.subcategory_id || null,
+            costPrice: row.cost_price != null ? Number(row.cost_price) : null,
             stock: row.stock ?? null,
             active: row.active,
             productExtras: row.product_extras || existingProductExtras || [],
+            discount: row.discount ?? null,
+            hasSizes: row.has_sizes ?? false,
+            sizeRequired: row.size_required ?? true,
+            sizes: row.sizes || [],
           }
         } else {
           list[idx] = { ...list[idx], ...patch }

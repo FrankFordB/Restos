@@ -573,6 +573,110 @@
   }
 }
 
+/* Search Bar */
+.store__searchBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+
+.store__searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.store__searchInput {
+  width: 100%;
+  padding: 12px 40px 12px 40px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.store__searchInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.store__searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.store__searchClear {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.store__searchClear:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Search Results */
+.store__searchResults {
+  margin-bottom: 16px;
+}
+
+.store__searchResultsTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.store__searchResultsCategories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.store__searchResultCategory {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.store__searchResultCategory:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.store__searchResultCategory svg:last-child {
+  opacity: 0.5;
+}
+
 /* Category Navigation Tabs */
 .store__categoryTabs {
   display: flex;
