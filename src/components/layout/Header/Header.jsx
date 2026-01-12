@@ -183,7 +183,7 @@ FrankFood
                   to={user.role === ROLES.SUPER_ADMIN ? '/admin' : '/dashboard'}
                   onClick={() => setShowMobileMenu(false)}
                 >
-                  Dashboards
+                  Dashboard
                 </NavLink>
                 
                 {/* Super Admin Exclusive Button */}
