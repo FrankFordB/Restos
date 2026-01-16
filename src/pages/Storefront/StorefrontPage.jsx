@@ -216,19 +216,47 @@ export default function StorefrontPage() {
   }
 
   // Helper: Obtener info del stock global de una categoría
+  // Stock jerárquico: retorna el mínimo stock entre la categoría y sus ancestros
   const getCategoryStockInfo = (categoryName) => {
+    // Buscar la categoría base
     const category = sortedCategories.find(c => c.name === categoryName)
-    if (!category || category.maxStock === null || category.maxStock === undefined) {
-      return null // No tiene stock global
+    if (!category) return null
+
+    // Recopilar todas las categorías con stock en la jerarquía
+    const categoriesWithStock = []
+    let current = category
+    while (current) {
+      if (current.maxStock !== null && current.maxStock !== undefined) {
+        categoriesWithStock.push(current)
+      }
+      current = current.parentId ? sortedCategories.find(c => c.id === current.parentId) : null
     }
+    if (categoriesWithStock.length === 0) return null
+
+    // Calcular el stock disponible en cada nivel (restando lo que hay en el carrito)
     const inCart = getCategoryCartQuantity(categoryName)
-    const availableStock = Math.max(0, (category.currentStock || 0) - inCart)
+    // El stock disponible de la categoría base
+    let availableStock = Math.max(0, (category.currentStock || 0) - inCart)
+    let limitingCategory = category
+
+    // Buscar el mínimo stock entre ancestros
+    for (const cat of categoriesWithStock) {
+      if (cat.id !== category.id) {
+        // Para ancestros, no restamos inCart porque el carrito solo afecta a la categoría base
+        if ((cat.currentStock || 0) < availableStock) {
+          availableStock = cat.currentStock || 0
+          limitingCategory = cat
+        }
+      }
+    }
+
     return {
       maxStock: category.maxStock,
       currentStock: category.currentStock || 0,
       inCart,
       availableStock,
       isEmpty: availableStock === 0,
+      limitingCategory: limitingCategory.name,
     }
   }
 

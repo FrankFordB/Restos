@@ -3368,12 +3368,35 @@ function PauseStoreModal({ isPaused: initialIsPaused, pauseMessage: initialPause
 }
 
 // Modal para configurar stock global por categoría
+// Solo muestra categorías que tienen productos DIRECTAMENTE (categorías "hoja")
 function StockGlobalModal({ categories, tenantId, onClose }) {
   const dispatch = useAppDispatch()
+  const allProducts = useAppSelector(selectProductsForTenant(tenantId))
   const [loading, setLoading] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(null) // { type: 'success' | 'error', message: string }
+  
+  // Filtrar solo categorías que pueden tener stock:
+  // 1. No tienen subcategorías (hasChildren = false)
+  // 2. Tienen productos directamente asignados
+  const leafCategoriesWithProducts = useMemo(() => {
+    return categories.filter(cat => {
+      // Si tiene hijos (subcategorías), no puede tener stock configurado
+      const hasChildren = cat.hasChildren || categories.some(c => c.parentId === cat.id)
+      if (hasChildren) return false
+      
+      // Verificar que tenga productos directamente
+      const hasProducts = allProducts.some(p => 
+        p.categoryId === cat.id || 
+        p.subcategoryId === cat.id ||
+        (p.category === cat.name && !p.subcategoryId)
+      )
+      
+      return hasProducts
+    })
+  }, [categories, allProducts])
+  
   const [localCategories, setLocalCategories] = useState(
-    categories.map(cat => ({
+    leafCategoriesWithProducts.map(cat => ({
       ...cat,
       maxStock: cat.maxStock ?? null,
       currentStock: cat.currentStock ?? null,

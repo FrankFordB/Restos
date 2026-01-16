@@ -300,52 +300,154 @@ export async function decrementProductStock(items) {
 }
 
 /**
- * Decrementa el stock global de una categoría
+ * Decrementa el stock global de una categoría Y de todos sus ancestros con stock configurado
  * @param {string} categoryId - ID de la categoría
  * @param {number} quantity - Cantidad a restar
- * @returns {Promise<{categoryId: string, newStock: number} | null>}
+ * @param {Array} allCategories - Todas las categorías del tenant (para buscar ancestros)
+ * @returns {Promise<Array<{categoryId: string, newStock: number}>>}
  */
-export async function decrementCategoryStock(categoryId, quantity) {
+export async function decrementCategoryStock(categoryId, quantity, allCategories = null) {
   ensureSupabase()
   
-  console.log('[CategoryStock] Decrementando categoría:', categoryId, 'cantidad:', quantity)
+  console.log('[CategoryStock] Decrementando categoría jerárquica:', categoryId, 'cantidad:', quantity)
   
-  // Obtener stock actual de la categoría
+  // Obtener la categoría inicial
   const { data: category, error: fetchError } = await supabase
     .from('product_categories')
-    .select('id, current_stock, max_stock, name')
+    .select('id, current_stock, max_stock, name, parent_id')
     .eq('id', categoryId)
     .single()
   
   if (fetchError || !category) {
     console.log('[CategoryStock] Categoría no encontrada:', categoryId, fetchError)
-    return null
+    return []
   }
   
-  // Si no tiene stock definido, no hacemos nada
-  if (category.current_stock === null || category.current_stock === undefined) {
-    console.log('[CategoryStock] Categoría sin stock configurado:', category.name)
-    return null
+  // Construir lista de categorías a actualizar (esta + ancestros con stock)
+  const categoriesToUpdate = []
+  
+  // Si esta categoría tiene stock, agregarla
+  if (category.current_stock !== null && category.current_stock !== undefined) {
+    categoriesToUpdate.push(category)
   }
   
-  const newStock = Math.max(0, (category.current_stock || 0) - quantity)
-  console.log(`[CategoryStock] ${category.name}: ${category.current_stock} -> ${newStock}`)
+  // Buscar ancestros con stock
+  let currentParentId = category.parent_id
+  while (currentParentId) {
+    const { data: parent, error: parentError } = await supabase
+      .from('product_categories')
+      .select('id, current_stock, max_stock, name, parent_id')
+      .eq('id', currentParentId)
+      .single()
+    
+    if (parentError || !parent) break
+    
+    // Si el ancestro tiene stock configurado, agregarlo
+    if (parent.max_stock !== null && parent.max_stock !== undefined) {
+      categoriesToUpdate.push(parent)
+    }
+    
+    currentParentId = parent.parent_id
+  }
   
-  const { error: updateError } = await supabase
+  if (categoriesToUpdate.length === 0) {
+    console.log('[CategoryStock] Ninguna categoría en la jerarquía tiene stock configurado')
+    return []
+  }
+  
+  // Decrementar stock de todas las categorías
+  const results = []
+  for (const cat of categoriesToUpdate) {
+    const newStock = Math.max(0, (cat.current_stock || 0) - quantity)
+    console.log(`[CategoryStock] ${cat.name}: ${cat.current_stock} -> ${newStock}`)
+    
+    const { error: updateError } = await supabase
+      .from('product_categories')
+      .update({ current_stock: newStock })
+      .eq('id', cat.id)
+    
+    if (!updateError) {
+      results.push({ categoryId: cat.id, categoryName: cat.name, oldStock: cat.current_stock, newStock })
+    } else {
+      console.log('[CategoryStock] Error actualizando:', cat.name, updateError)
+    }
+  }
+  
+  return results
+}
+
+/**
+ * Obtiene el stock efectivo de una categoría considerando la jerarquía
+ * Retorna el mínimo stock entre la categoría y todos sus ancestros
+ * @param {string} categoryId - ID de la categoría
+ * @returns {Promise<{effectiveStock: number, limitingCategoryId: string, limitingCategoryName: string} | null>}
+ */
+export async function getEffectiveCategoryStock(categoryId) {
+  ensureSupabase()
+  
+  // Obtener la categoría inicial
+  const { data: category, error: fetchError } = await supabase
     .from('product_categories')
-    .update({ current_stock: newStock })
+    .select('id, current_stock, max_stock, name, parent_id')
     .eq('id', categoryId)
+    .single()
   
-  if (updateError) {
-    console.log('[CategoryStock] Error actualizando:', updateError)
+  if (fetchError || !category) {
     return null
   }
   
-  return { categoryId, newStock }
+  // Recopilar todas las categorías con stock en la jerarquía
+  const categoriesWithStock = []
+  
+  if (category.max_stock !== null && category.max_stock !== undefined) {
+    categoriesWithStock.push({
+      id: category.id,
+      name: category.name,
+      currentStock: category.current_stock || 0
+    })
+  }
+  
+  // Buscar ancestros
+  let currentParentId = category.parent_id
+  while (currentParentId) {
+    const { data: parent, error: parentError } = await supabase
+      .from('product_categories')
+      .select('id, current_stock, max_stock, name, parent_id')
+      .eq('id', currentParentId)
+      .single()
+    
+    if (parentError || !parent) break
+    
+    if (parent.max_stock !== null && parent.max_stock !== undefined) {
+      categoriesWithStock.push({
+        id: parent.id,
+        name: parent.name,
+        currentStock: parent.current_stock || 0
+      })
+    }
+    
+    currentParentId = parent.parent_id
+  }
+  
+  if (categoriesWithStock.length === 0) {
+    return null // Ninguna categoría en la jerarquía tiene stock configurado
+  }
+  
+  // Encontrar la categoría con menor stock (la que limita)
+  const limiting = categoriesWithStock.reduce((min, cat) => 
+    cat.currentStock < min.currentStock ? cat : min
+  )
+  
+  return {
+    effectiveStock: limiting.currentStock,
+    limitingCategoryId: limiting.id,
+    limitingCategoryName: limiting.name
+  }
 }
 
 /**
  * Valida que haya stock disponible en las categorías para los productos del pedido
+ * Considera la jerarquía completa - si un ancestro no tiene stock, bloquea
  * @param {string} tenantId - ID del tenant
  * @param {Array<{productId: string, quantity: number}>} items - Items del carrito
  * @returns {Promise<{valid: boolean, errors: string[]}>}
@@ -356,10 +458,10 @@ export async function validateCategoryStock(tenantId, items) {
   const productIds = items.map(it => it.productId).filter(Boolean)
   if (productIds.length === 0) return { valid: true, errors: [] }
   
-  // Obtener productos con su categoría (nombre)
+  // Obtener productos con su categoría y subcategoría
   const { data: products, error: prodError } = await supabase
     .from('products')
-    .select('id, name, category')
+    .select('id, name, category, category_id, subcategory_id')
     .in('id', productIds)
   
   if (prodError || !products) {
@@ -367,44 +469,86 @@ export async function validateCategoryStock(tenantId, items) {
     return { valid: true, errors: [] } // En caso de error, permitir (fail-open)
   }
   
-  // Obtener categorías del tenant con stock configurado
-  const { data: categories, error: catError } = await supabase
+  // Obtener TODAS las categorías del tenant (para navegación jerárquica)
+  const { data: allCategories, error: catError } = await supabase
     .from('product_categories')
-    .select('id, name, current_stock, max_stock')
+    .select('id, name, current_stock, max_stock, parent_id')
     .eq('tenant_id', tenantId)
-    .not('max_stock', 'is', null)
   
-  if (catError || !categories) {
+  if (catError || !allCategories) {
     console.warn('Error obteniendo categorías:', catError)
     return { valid: true, errors: [] }
   }
   
-  // Crear mapa de categoría por nombre
+  // Crear mapa de categoría por id y por nombre
+  const categoryById = {}
   const categoryByName = {}
-  categories.forEach(cat => {
+  allCategories.forEach(cat => {
+    categoryById[cat.id] = cat
     categoryByName[cat.name.toLowerCase()] = cat
   })
   
-  // Agrupar cantidades por categoría
-  const categoryQuantities = {}
-  products.forEach(product => {
-    if (!product.category) return
-    const catName = product.category.toLowerCase()
-    const item = items.find(it => it.productId === product.id)
-    if (item) {
-      if (!categoryQuantities[catName]) {
-        categoryQuantities[catName] = { name: product.category, requested: 0 }
-      }
-      categoryQuantities[catName].requested += item.quantity || 1
+  // Función para obtener todas las categorías ancestro con stock de un producto
+  const getCategoriesWithStockForProduct = (product) => {
+    const result = []
+    // Determinar categoría directa del producto
+    let startCategoryId = product.subcategory_id || product.category_id
+    
+    // Si no tiene ID, buscar por nombre
+    if (!startCategoryId && product.category) {
+      const catByName = categoryByName[product.category.toLowerCase()]
+      if (catByName) startCategoryId = catByName.id
     }
+    
+    if (!startCategoryId) return result
+    
+    // Recorrer hacia arriba la jerarquía
+    let currentId = startCategoryId
+    while (currentId) {
+      const cat = categoryById[currentId]
+      if (!cat) break
+      
+      if (cat.max_stock !== null && cat.max_stock !== undefined) {
+        result.push({
+          id: cat.id,
+          name: cat.name,
+          currentStock: cat.current_stock || 0
+        })
+      }
+      
+      currentId = cat.parent_id
+    }
+    
+    return result
+  }
+  
+  // Acumular cantidades por categoría (considerando jerarquía)
+  const categoryQuantities = {} // { categoryId: { name, requested, currentStock } }
+  
+  items.forEach(item => {
+    const product = products.find(p => p.id === item.productId)
+    if (!product) return
+    
+    const categoriesWithStock = getCategoriesWithStockForProduct(product)
+    const qty = item.quantity || 1
+    
+    categoriesWithStock.forEach(cat => {
+      if (!categoryQuantities[cat.id]) {
+        categoryQuantities[cat.id] = {
+          name: cat.name,
+          currentStock: cat.currentStock,
+          requested: 0
+        }
+      }
+      categoryQuantities[cat.id].requested += qty
+    })
   })
   
-  // Validar stock
+  // Validar stock de cada categoría
   const errors = []
-  for (const [catName, info] of Object.entries(categoryQuantities)) {
-    const cat = categoryByName[catName]
-    if (cat && cat.current_stock !== null && info.requested > cat.current_stock) {
-      errors.push(`Stock insuficiente de ${info.name}: quedan ${cat.current_stock}, se pidieron ${info.requested}`)
+  for (const [catId, info] of Object.entries(categoryQuantities)) {
+    if (info.requested > info.currentStock) {
+      errors.push(`Stock insuficiente de ${info.name}: quedan ${info.currentStock}, se pidieron ${info.requested}`)
     }
   }
   
@@ -413,7 +557,7 @@ export async function validateCategoryStock(tenantId, items) {
 
 /**
  * Decrementa el stock de categorías basándose en los productos vendidos
- * Busca por nombre de categoría ya que products usa "category" (texto) no "category_id"
+ * Ahora considera la jerarquía completa - decrementa stock de subcategoría Y ancestros
  * @param {string} tenantId - ID del tenant
  * @param {Array<{productId: string, quantity: number}>} items 
  */
@@ -428,50 +572,65 @@ export async function decrementCategoryStockByProducts(tenantId, items) {
   
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, category')
+    .select('id, category, category_id, subcategory_id')
     .in('id', productIds)
   
   if (error || !products) {
     return []
   }
   
-  // Obtener todas las categorías del tenant
+  // Obtener todas las categorías del tenant (para navegación jerárquica)
   const { data: categories, error: catError } = await supabase
     .from('product_categories')
-    .select('id, name')
+    .select('id, name, parent_id')
     .eq('tenant_id', tenantId)
   
   if (catError || !categories) {
     return []
   }
   
-  // Crear mapa nombre -> categoryId
+  // Crear mapa id -> categoría y nombre -> id
+  const categoryById = {}
   const categoryIdByName = {}
   categories.forEach(cat => {
+    categoryById[cat.id] = cat
     categoryIdByName[cat.name.toLowerCase()] = cat.id
   })
   
-  // Agrupar cantidades por categoría
-  const categoryQuantities = {}
+  // Para cada producto, obtener la categoría de inicio (subcategory o category)
+  // y agrupar cantidades
+  const categoryQuantities = {} // { categoryId: quantity }
+  
   items.forEach(item => {
     const product = products.find(p => p.id === item.productId)
-    if (product?.category) {
-      const categoryId = categoryIdByName[product.category.toLowerCase()]
-      if (categoryId) {
-        if (!categoryQuantities[categoryId]) {
-          categoryQuantities[categoryId] = 0
-        }
-        categoryQuantities[categoryId] += item.quantity || 1
+    if (!product) return
+    
+    // Determinar la categoría más específica del producto
+    let startCategoryId = product.subcategory_id || product.category_id
+    
+    // Si no tiene ID, buscar por nombre (legacy)
+    if (!startCategoryId && product.category) {
+      startCategoryId = categoryIdByName[product.category.toLowerCase()]
+    }
+    
+    if (startCategoryId) {
+      if (!categoryQuantities[startCategoryId]) {
+        categoryQuantities[startCategoryId] = 0
       }
+      categoryQuantities[startCategoryId] += item.quantity || 1
     }
   })
   
-  // Decrementar stock de cada categoría
-  const updates = Object.entries(categoryQuantities).map(async ([categoryId, quantity]) => {
-    return decrementCategoryStock(categoryId, quantity)
-  })
+  // Decrementar stock jerárquicamente de cada categoría
+  const allResults = []
   
-  return Promise.all(updates)
+  for (const [categoryId, quantity] of Object.entries(categoryQuantities)) {
+    // decrementCategoryStock ahora decrementa jerárquicamente
+    const results = await decrementCategoryStock(categoryId, quantity)
+    allResults.push(...results)
+  }
+  
+  return allResults
 }
 /**
  * Actualiza el estado de pago de una orden (usado por MercadoPago callback)

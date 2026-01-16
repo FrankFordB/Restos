@@ -74,23 +74,37 @@ export default function CategoryModal({
   useEffect(() => {
     if (!isOpen) return
     
-    // Si estamos creando subcategoría, verificar que el padre no tenga productos
+    // Si estamos creando subcategoría, verificar reglas
     if (parentId && !category) {
-      const parentHasProducts = allProducts.some(
-        p => p.categoryId === parentId || 
-             p.subcategoryId === parentId ||
-             (p.category === parentCategory?.name && !p.subcategoryId)
-      )
+      // Obtener subcategorías existentes del padre
+      const existingSubcategories = allCategories.filter(c => c.parentId === parentId)
+      const hasExistingSubcategories = existingSubcategories.length > 0
       
-      if (parentHasProducts) {
-        setWarning('Esta categoría tiene productos. Deberás moverlos antes de crear subcategorías.')
-      } else {
+      // REGLA: Si ya hay subcategorías, SIEMPRE permitir crear más
+      if (hasExistingSubcategories) {
         setWarning(null)
+      } else {
+        // No hay subcategorías aún - verificar si tiene productos directos
+        const parentHasDirectProducts = allProducts.some(p => {
+          if (p.categoryId === parentId && !p.subcategoryId) {
+            return true
+          }
+          if (p.category === parentCategory?.name && !p.subcategoryId && !p.categoryId) {
+            return true
+          }
+          return false
+        })
+        
+        if (parentHasDirectProducts) {
+          setWarning('Esta categoría tiene productos directos. Deberás moverlos a una subcategoría primero.')
+        } else {
+          setWarning(null)
+        }
       }
     } else {
       setWarning(null)
     }
-  }, [isOpen, parentId, parentCategory, allProducts, category])
+  }, [isOpen, parentId, parentCategory, allProducts, allCategories, category])
 
   // Inicializar form cuando se abre el modal
   useEffect(() => {

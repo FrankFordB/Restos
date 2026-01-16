@@ -104,23 +104,40 @@ export const createCategory = createAsyncThunk(
     const categories = state.categories?.categoriesByTenantId?.[tenantId] || []
     const products = state.products?.productsByTenantId?.[tenantId] || []
     
-    // Si se intenta crear subcategoría, verificar que el padre no tenga productos
+    // Si se intenta crear subcategoría, verificar reglas
     if (category.parentId) {
       const parent = categories.find(c => c.id === category.parentId)
       
-      // Verificar por flag hasProducts
-      if (parent?.hasProducts) {
-        throw new Error('Esta categoría ya tiene productos. No puedes crear subcategorías aquí.')
-      }
+      // Obtener subcategorías existentes del padre
+      const existingSubcategoryIds = categories
+        .filter(c => c.parentId === category.parentId)
+        .map(c => c.id)
       
-      // Verificar también en los productos directamente (por si el flag no está sincronizado)
-      const parentHasProducts = products.some(
-        p => p.categoryId === category.parentId || 
-             p.subcategoryId === category.parentId ||
-             (p.category === parent?.name && !p.subcategoryId)
-      )
-      if (parentHasProducts) {
-        throw new Error('Esta categoría ya tiene productos. No puedes crear subcategorías aquí.')
+      const hasExistingSubcategories = existingSubcategoryIds.length > 0
+      
+      // REGLA PRINCIPAL: Si ya hay subcategorías, SIEMPRE permitir crear más
+      // (los productos deben estar dentro de las subcategorías, no en el padre)
+      if (hasExistingSubcategories) {
+        // OK - permitir crear subcategoría
+      } else {
+        // No hay subcategorías aún - verificar si el padre tiene productos directos
+        const parentHasDirectProducts = products.some(p => {
+          // Producto directamente asignado a esta categoría (no a subcategoría)
+          if (p.categoryId === category.parentId && !p.subcategoryId) {
+            return true
+          }
+          
+          // Producto con nombre de categoría (legacy) sin subcategoría y sin categoryId
+          if (p.category === parent?.name && !p.subcategoryId && !p.categoryId) {
+            return true
+          }
+          
+          return false
+        })
+        
+        if (parentHasDirectProducts) {
+          throw new Error('Esta categoría tiene productos directos. Debes moverlos a una subcategoría primero.')
+        }
       }
     }
     
