@@ -201,18 +201,17 @@ export const createStoreOrderPreference = async ({
       failure: `${MP_CONFIG.appUrl}/tienda/${tenant.slug}/payment/failure?order=${order.id}`,
       pending: `${MP_CONFIG.appUrl}/tienda/${tenant.slug}/payment/pending?order=${order.id}`,
     },
-    // auto_return 'all' redirige automáticamente en todos los casos
     auto_return: 'all',
     external_reference: JSON.stringify({
       type: 'store_order',
       orderId: order.id,
       tenantId: tenant.id,
-      tenantSlug: tenant.slug,
+      tenantSlug: tenant.slug || tenant.tenantSlug || tenant.slug,
     }),
     statement_descriptor: tenant.name?.substring(0, 22) || 'TIENDA',
     expires: true,
     expiration_date_from: new Date().toISOString(),
-    expiration_date_to: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 horas
+    expiration_date_to: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
   }
 
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {

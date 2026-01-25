@@ -10,6 +10,7 @@ import {
 } from '../../lib/supabaseMercadopagoApi'
 import { fetchTenantById } from '../../lib/supabaseApi'
 import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
+import { supabase } from '../../lib/supabaseClient'
 import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper, Check, Loader, X, RefreshCw, HelpCircle } from 'lucide-react'
 
 /**
@@ -30,6 +31,8 @@ export default function PaymentResult() {
   const externalReference = searchParams.get('external_reference')
   const paymentType = searchParams.get('type') // 'subscription' o 'order'
   const tenantSlug = searchParams.get('tenant')
+  // Parámetro order que agregamos en back_urls
+  const orderIdFromUrl = searchParams.get('order')
 
   useEffect(() => {
     // Log todos los parámetros que llegan de MercadoPago
@@ -40,7 +43,8 @@ export default function PaymentResult() {
       preferenceId,
       externalReference,
       paymentType,
-      tenantSlug
+      tenantSlug,
+      orderIdFromUrl
     })
     processPaymentResult()
   }, [])
@@ -96,9 +100,19 @@ export default function PaymentResult() {
         }))
       }
 
-      // Si es un pago de tienda (store_order), actualizar la orden
-      if ((paymentType === 'order' || refData.type === 'store_order') && refData.orderId) {
-        await handleStoreOrderPayment(refData.orderId, status, paymentId)
+      // Si es un pago de tienda (customer_purchase o store_order), actualizar la orden
+      const isStoreOrder = paymentType === 'order' || 
+                          refData.type === 'store_order' || 
+                          refData.type === 'customer_purchase' ||
+                          orderIdFromUrl // Si hay orderId en URL, es pago de tienda
+      
+      // Obtener orderId de múltiples fuentes
+      const orderId = refData.orderId || orderIdFromUrl
+      
+      if (isStoreOrder && orderId) {
+        console.log('🛒 Procesando pago de tienda, orderId:', orderId)
+        await handleStoreOrderPayment(orderId, status, paymentId)
+        refData.orderId = orderId // Asegurar que esté en refData para el resultado
       }
 
       // También verificar si hay una orden pendiente en localStorage
@@ -150,23 +164,67 @@ export default function PaymentResult() {
   // Manejar pago de orden de tienda
   const handleStoreOrderPayment = async (orderId, status, paymentId) => {
     try {
+      console.log('📝 handleStoreOrderPayment:', { orderId, status, paymentId })
+      
       const isApproved = status === 'approved'
       const isPending = status === 'pending' || status === 'in_process'
+      const isRejected = status === 'rejected' || status === 'cancelled'
       
-      let orderStatus = 'pending_payment'
       if (isApproved) {
-        orderStatus = 'pending' // Pago aprobado, orden lista para preparar
-      } else if (!isPending) {
-        orderStatus = 'cancelled' // Pago rechazado
+        // PAGO APROBADO - Actualizar orden para que aparezca en el dashboard
+        console.log('✅ Pago aprobado, actualizando orden...')
+        
+        // Intentar actualizar con la función helper
+        try {
+          await updateOrderPaymentStatus(orderId, {
+            status: 'confirmed',
+            payment_status: 'paid',
+            mp_payment_id: paymentId,
+            mp_status: status,
+            is_paid: true,
+          })
+          console.log('✅ Orden actualizada via updateOrderPaymentStatus')
+        } catch (helperError) {
+          console.warn('⚠️ Error en updateOrderPaymentStatus, usando Supabase directo:', helperError)
+          
+          // Fallback: actualizar directamente con Supabase
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+              is_paid: true,
+              paid_at: new Date().toISOString(),
+            })
+            .eq('id', orderId)
+          
+          if (updateError) {
+            console.error('❌ Error actualizando orden:', updateError)
+          } else {
+            console.log('✅ Orden actualizada via Supabase directo')
+          }
+        }
+        
+      } else if (isPending) {
+        console.log('⏳ Pago pendiente, esperando confirmación...')
+        // No hacemos nada, el webhook confirmará después
+        
+      } else if (isRejected) {
+        console.log('❌ Pago rechazado/cancelado')
+        // Eliminar la orden para no dejar basura
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId)
+        
+        if (deleteError) {
+          console.warn('No se pudo eliminar la orden:', deleteError)
+        } else {
+          console.log('🗑️ Orden eliminada')
+        }
       }
-
-      await updateOrderPaymentStatus(orderId, {
-        status: orderStatus,
-        payment_status: status,
-        mp_payment_id: paymentId,
-      })
+      
     } catch (error) {
-      console.error('Error actualizando orden:', error)
+      console.error('Error en handleStoreOrderPayment:', error)
     }
   }
 

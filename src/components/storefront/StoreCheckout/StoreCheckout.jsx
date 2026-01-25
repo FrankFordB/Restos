@@ -289,7 +289,7 @@ export default function StoreCheckout({
                       </h4>
                       <p>
                         {mpConfigured 
-                          ? 'Tarjeta, transferencia, efectivo en puntos de pago'
+                          ? 'Transferencia, efectivo en puntos de pago'
                           : 'No disponible en esta tienda'
                         }
                       </p>

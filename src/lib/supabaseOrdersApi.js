@@ -46,7 +46,17 @@ export async function listOrdersByTenantId(tenantId) {
 
   if (error) throw error
 
-  return (data || []).map((o) => ({
+  // FILTRAR: Excluir pedidos de MercadoPago que aún no están pagados
+  // Estos están esperando que el cliente complete el pago en MP
+  const filteredData = (data || []).filter(o => {
+    // Si es pago con mercadopago y NO está pagado, NO mostrar
+    if (o.payment_method === 'mercadopago' && !o.is_paid) {
+      return false
+    }
+    return true
+  })
+
+  return filteredData.map((o) => ({
     id: o.id,
     tenantId: o.tenant_id,
     status: o.status,
@@ -633,15 +643,41 @@ export async function decrementCategoryStockByProducts(tenantId, items) {
   return allResults
 }
 /**
+ * Estados de pago disponibles
+ */
+export const PAYMENT_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing_payment',
+  PAID: 'paid',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+  EXPIRED: 'expired',
+  REFUNDED: 'refunded',
+}
+
+/**
  * Actualiza el estado de pago de una orden (usado por MercadoPago callback)
  * @param {string} orderId - ID de la orden
  * @param {Object} paymentData - Datos del pago
  * @param {string} paymentData.status - Nuevo estado de la orden
- * @param {string} paymentData.payment_status - Estado del pago MP (approved, pending, rejected)
+ * @param {string} paymentData.payment_status - Estado del pago MP (pending, processing_payment, paid, rejected, etc)
  * @param {string} paymentData.mp_payment_id - ID del pago en MercadoPago
+ * @param {string} paymentData.mp_status - Estado raw de MercadoPago (approved, pending, etc)
+ * @param {string} paymentData.mp_status_detail - Detalle del estado MP
+ * @param {number} paymentData.mp_transaction_amount - Monto de la transacción
+ * @param {string} paymentData.mp_payer_email - Email del pagador
  * @returns {Promise<Object>}
  */
-export async function updateOrderPaymentStatus(orderId, { status, payment_status, mp_payment_id }) {
+export async function updateOrderPaymentStatus(orderId, { 
+  status, 
+  payment_status, 
+  mp_payment_id,
+  mp_status,
+  mp_status_detail,
+  mp_transaction_amount,
+  mp_payer_email,
+  is_paid,
+}) {
   if (!isSupabaseConfigured) {
     // Mock mode - update localStorage
     const key = `mock_orders`
@@ -649,9 +685,15 @@ export async function updateOrderPaymentStatus(orderId, { status, payment_status
       const orders = JSON.parse(localStorage.getItem(key) || '[]')
       const idx = orders.findIndex(o => o.id === orderId)
       if (idx !== -1) {
-        orders[idx].status = status
-        orders[idx].payment_status = payment_status
-        orders[idx].mp_payment_id = mp_payment_id
+        if (status) orders[idx].status = status
+        if (payment_status) orders[idx].payment_status = payment_status
+        if (mp_payment_id) orders[idx].mp_payment_id = mp_payment_id
+        if (mp_status) orders[idx].mp_status = mp_status
+        if (mp_status_detail) orders[idx].mp_status_detail = mp_status_detail
+        if (is_paid !== undefined) {
+          orders[idx].is_paid = is_paid
+          if (is_paid) orders[idx].paid_at = new Date().toISOString()
+        }
         orders[idx].updated_at = new Date().toISOString()
         localStorage.setItem(key, JSON.stringify(orders))
       }
@@ -662,16 +704,20 @@ export async function updateOrderPaymentStatus(orderId, { status, payment_status
   }
 
   const updateData = {
-    status,
     updated_at: new Date().toISOString(),
   }
 
-  // Solo agregar campos MP si no son undefined
-  if (payment_status) {
-    updateData.payment_status = payment_status
-  }
-  if (mp_payment_id) {
-    updateData.mp_payment_id = mp_payment_id
+  // Solo agregar campos si no son undefined
+  if (status) updateData.status = status
+  if (payment_status) updateData.payment_status = payment_status
+  if (mp_payment_id) updateData.mp_payment_id = mp_payment_id
+  if (mp_status) updateData.mp_status = mp_status
+  if (mp_status_detail) updateData.mp_status_detail = mp_status_detail
+  if (mp_transaction_amount !== undefined) updateData.mp_transaction_amount = mp_transaction_amount
+  if (mp_payer_email) updateData.mp_payer_email = mp_payer_email
+  if (is_paid !== undefined) {
+    updateData.is_paid = is_paid
+    if (is_paid) updateData.paid_at = new Date().toISOString()
   }
 
   const { data, error } = await supabase

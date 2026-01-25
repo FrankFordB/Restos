@@ -415,6 +415,16 @@ export default function UserDashboardPage() {
           filter: `tenant_id=eq.${user.tenantId}`,
         },
         (payload) => {
+          // NO reproducir sonido ni notificar si es pago con MercadoPago pendiente
+          // El sonido se reproducirá cuando se actualice a is_paid=true
+          const newOrder = payload.new
+          const isMPPendingPayment = newOrder?.payment_method === 'mercadopago' && !newOrder?.is_paid
+          
+          if (isMPPendingPayment) {
+            console.log('🔇 Orden MP pendiente de pago, sin notificación')
+            return // No hacer nada, esperar el UPDATE cuando pague
+          }
+          
           dispatch(fetchOrdersForTenant(user.tenantId))
           setGlobalNewOrdersCount((prev) => prev + 1)
           playNotificationSound()
@@ -428,7 +438,20 @@ export default function UserDashboardPage() {
           table: 'orders',
           filter: `tenant_id=eq.${user.tenantId}`,
         },
-        () => {
+        (payload) => {
+          // Si es una orden MP que acaba de ser pagada, notificar
+          const updatedOrder = payload.new
+          const oldOrder = payload.old
+          
+          // Si cambió de is_paid=false a is_paid=true, es un pago completado
+          if (updatedOrder?.payment_method === 'mercadopago' && 
+              updatedOrder?.is_paid === true && 
+              oldOrder?.is_paid === false) {
+            console.log('💰 ¡Pago MP completado! Notificando...')
+            setGlobalNewOrdersCount((prev) => prev + 1)
+            playNotificationSound()
+          }
+          
           dispatch(fetchOrdersForTenant(user.tenantId))
         }
       )

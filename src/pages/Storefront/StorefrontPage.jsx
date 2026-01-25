@@ -3215,9 +3215,61 @@ function CheckoutPage({
     setCheckoutError(null)
 
     try {
-      // Crear orden primero (en estado pendiente para MP)
-      const orderStatus = checkoutData.paymentMethod === 'qr' ? 'pending_payment' : 'pending'
-      
+      // Si es pago con MercadoPago, usar Edge Function que crea la orden Y la preferencia
+      // El dinero va DIRECTO al admin/tenant usando SU access_token
+      // La orden se crea en el backend para mayor seguridad (recalcula total)
+      if (checkoutData.paymentMethod === 'qr' && mpConfigured) {
+        try {
+          const { createCustomerPaymentPreference } = await import('../../lib/customerPaymentsApi')
+          
+          // Preparar items para la Edge Function
+          const mpItems = cartItems.map(item => ({
+            productId: item.productId || item.product?.id,
+            name: item.product?.name || item.name,
+            unitPrice: item.product?.price || item.price || item.unitPrice,
+            qty: item.quantity || item.qty || 1,
+            lineTotal: item.totalPrice || item.lineTotal || 
+              ((item.product?.price || item.price || item.unitPrice) * (item.quantity || item.qty || 1)),
+            extras: item.extras || [],
+            comment: item.comment || null,
+          }))
+
+          // Crear preferencia via Edge Function (seguro - recalcula total en backend)
+          // También crea la orden en la DB
+          const preferenceData = await createCustomerPaymentPreference({
+            tenantId,
+            items: mpItems,
+            customer: {
+              name: checkoutData.customerName,
+              phone: checkoutData.customerPhone,
+            },
+            deliveryType: checkoutData.deliveryType,
+            deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
+            deliveryNotes: checkoutData.deliveryNotes,
+          })
+
+          // Guardar datos en localStorage para recuperar después del pago
+          localStorage.setItem('mp_pending_order', JSON.stringify({
+            orderId: preferenceData.orderId,
+            tenantSlug,
+            preferenceId: preferenceData.preferenceId,
+            idempotencyKey: preferenceData.idempotencyKey,
+            total: preferenceData.total,
+            timestamp: Date.now(),
+          }))
+
+          // Redirigir a MercadoPago Checkout Pro
+          window.location.href = preferenceData.initPoint
+          return // El webhook confirmará el pago
+        } catch (mpError) {
+          console.error('Error creando pago MP:', mpError)
+          setCheckoutError(`Error al procesar pago: ${mpError.message}`)
+          setCheckoutLoading(false)
+          return
+        }
+      }
+
+      // Para otros métodos de pago (efectivo, tarjeta en local), crear orden normalmente
       const res = await dispatch(
         createPaidOrder({
           tenantId,
@@ -3231,66 +3283,11 @@ function CheckoutPage({
           deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
           deliveryNotes: checkoutData.deliveryNotes,
           paymentMethod: checkoutData.paymentMethod,
-          status: orderStatus,
+          status: 'pending',
         }),
       ).unwrap()
 
       const orderId = res?.order?.id || res?.id
-
-      // Si es pago con MercadoPago, crear preferencia y redirigir
-      if (checkoutData.paymentMethod === 'qr' && mpConfigured) {
-        try {
-          const { getTenantActiveCredentials } = await import('../../lib/supabaseMercadopagoApi')
-          const { createStoreOrderPreference } = await import('../../lib/mercadopago')
-          
-          const credentials = await getTenantActiveCredentials(tenantId)
-          
-          if (!credentials) {
-            throw new Error('El local no tiene configurado MercadoPago')
-          }
-
-          // Preparar items para MP
-          const mpItems = cartItems.map(item => ({
-            id: item.productId || item.product?.id,
-            name: item.product?.name || item.name,
-            description: item.product?.description || '',
-            quantity: item.quantity || 1,
-            unitPrice: item.product?.price || item.price,
-          }))
-
-          const preferenceData = await createStoreOrderPreference({
-            credentials,
-            order: {
-              id: orderId,
-              customerName: checkoutData.customerName,
-              customerPhone: checkoutData.customerPhone,
-            },
-            items: mpItems,
-            tenant: {
-              id: tenantId,
-              slug: tenantSlug,
-              name: tenant?.name || 'Tienda',
-            },
-          })
-
-          // Guardar datos en localStorage para recuperar después del pago
-          localStorage.setItem('mp_pending_order', JSON.stringify({
-            orderId,
-            tenantSlug,
-            preferenceId: preferenceData.preferenceId,
-            timestamp: Date.now(),
-          }))
-
-          // Redirigir a MercadoPago
-          window.location.href = preferenceData.initPoint
-          return // No hacer onSuccess aquí, se hará cuando vuelva de MP
-        } catch (mpError) {
-          console.error('Error creando pago MP:', mpError)
-          setCheckoutError(`Error al procesar pago: ${mpError.message}`)
-          setCheckoutLoading(false)
-          return
-        }
-      }
 
       // Para otros métodos de pago, completar normalmente
       onSuccess(orderId)

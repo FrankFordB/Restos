@@ -534,11 +534,16 @@ export default function OrdersManager({ tenantId }) {
     )
     
     let result = uniqueOrders.filter((o) => {
+      // Filtrar por método de pago
+      if ((o.payment_method === 'mercadopago' || o.payment_method === 'qr') && !o.is_paid) {
+        return false;
+      }
+      // Efectivo y transferencia se muestran siempre
       const matchesSearch =
         o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.customer_phone?.includes(searchTerm)
-      return matchesSearch
+        o.customer_phone?.includes(searchTerm);
+      return matchesSearch;
     })
 
     // Aplicar filtro según el tipo seleccionado

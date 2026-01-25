@@ -55,10 +55,10 @@ export async function upsertProfile({ userId, role, tenantId }) {
   return data
 }
 
+
 // Update user profile personal info
 export async function updateProfileInfo({ userId, fullName, phoneCountryCode, phoneNumber, documentType, documentNumber, billingAddress }) {
-  ensureSupabase()
-  
+  ensureSupabase();
   // Try to update with all fields first
   const { data, error } = await supabase
     .from('profiles')
@@ -72,52 +72,45 @@ export async function updateProfileInfo({ userId, fullName, phoneCountryCode, ph
     })
     .eq('user_id', userId)
     .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
-    .single()
+    .single();
 
   // If error (columns don't exist), try with only basic fields
   if (error && error.message?.includes('does not exist')) {
-    console.warn('updateProfileInfo: Some columns may not exist, updating only full_name', error.message)
+    console.warn('updateProfileInfo: Some columns may not exist, updating only full_name', error.message);
     const { data: basicData, error: basicError } = await supabase
       .from('profiles')
       .update({ full_name: fullName })
       .eq('user_id', userId)
       .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
-      .single()
-    
-    if (basicError) throw basicError
-    return basicData
+      .single();
+    if (basicError) throw basicError;
+    return basicData;
   }
-  
-  if (error) throw error
-  return data
+  if (error) throw error;
+  return data;
 }
 
-// Fetch profile with all fields (including optional new columns)
+// Fetch full profile (robust)
 export async function fetchFullProfile(userId) {
-  ensureSupabase()
-  
-  // First try with all fields
+  ensureSupabase();
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('user_id', userId)
-    .maybeSingle()
-
-  // If error (columns don't exist), fallback to basic fields
+    .maybeSingle();
   if (error) {
-    console.warn('fetchFullProfile: Some columns may not exist, using basic fields', error.message)
+    console.warn('fetchFullProfile: Some columns may not exist, using basic fields', error.message);
     const { data: basicData, error: basicError } = await supabase
       .from('profiles')
       .select('user_id, email, full_name, role, tenant_id, account_status, premium_until, premium_source')
       .eq('user_id', userId)
-      .maybeSingle()
-    
-    if (basicError) throw basicError
-    return basicData
+      .maybeSingle();
+    if (basicError) throw basicError;
+    return basicData;
   }
-  
-  return data
+  return data;
 }
+ 
 
 // -------------------------
 // Admin (super_admin)

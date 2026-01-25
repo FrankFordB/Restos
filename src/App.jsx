@@ -74,13 +74,18 @@ function AppRoutes() {
           <Route path="/tienda/:slug/terminos" element={<StoreTermsPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Páginas de resultado de pago de MercadoPago */}
+          {/* Páginas de resultado de pago de MercadoPago - Suscripciones */}
           <Route path="/payment/success" element={<PaymentResult />} />
           <Route path="/payment/failure" element={<PaymentResult />} />
           <Route path="/payment/pending" element={<PaymentResult />} />
+          
+          {/* Páginas de resultado de pago - Tiendas (compras de clientes) */}
           <Route path="/tienda/:slug/payment/success" element={<PaymentResult />} />
           <Route path="/tienda/:slug/payment/failure" element={<PaymentResult />} />
           <Route path="/tienda/:slug/payment/pending" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/checkout/success" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/checkout/failure" element={<PaymentResult />} />
+          <Route path="/tienda/:slug/checkout/pending" element={<PaymentResult />} />
 
           <Route element={<RequireAuth />}>
             <Route path="/dashboard" element={<UserDashboardPage />} />
