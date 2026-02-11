@@ -27,7 +27,7 @@ export const fetchOrdersForTenant = createAsyncThunk('orders/fetchOrdersForTenan
 
 export const createPaidOrder = createAsyncThunk(
   'orders/createPaidOrder',
-  async ({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }, { dispatch, getState }) => {
+  async ({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, deliveryLat, deliveryLng, paymentMethod }, { dispatch, getState }) => {
     if (!isSupabaseConfigured) {
       // En modo MOCK, disparamos acción para restar stock localmente
       const stockUpdates = items
@@ -78,6 +78,8 @@ export const createPaidOrder = createAsyncThunk(
           delivery_type: deliveryType || 'mostrador',
           delivery_address: deliveryAddress || null,
           delivery_notes: deliveryNotes || null,
+          delivery_lat: deliveryLat || null,
+          delivery_lng: deliveryLng || null,
           payment_method: paymentMethod || 'efectivo',
           items,
         },
@@ -86,7 +88,7 @@ export const createPaidOrder = createAsyncThunk(
       }
     }
 
-    const created = await createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod })
+    const created = await createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, deliveryLat, deliveryLng, paymentMethod })
     
     // Recargar categorías y productos para reflejar el nuevo stock
     dispatch(fetchCategoriesForTenant(tenantId))

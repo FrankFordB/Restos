@@ -125,6 +125,57 @@ export async function uploadProductImage({ tenantId, productId, file }) {
   return data.publicUrl
 }
 
+/**
+ * Sube una imagen para una categoría.
+ * Almacena en: {tenantId}/categories/{categoryId}/{timestamp}.ext
+ */
+export async function uploadCategoryImage({ tenantId, categoryId, file }) {
+  ensureSupabase()
+  if (!file) throw new Error('Archivo requerido')
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser()
+  if (userErr) throw userErr
+  const userId = userData?.user?.id
+  if (!userId) throw new Error('No hay usuario autenticado para subir imagen')
+
+  const { data: profile, error: profileErr } = await supabase
+    .from('profiles')
+    .select('tenant_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (profileErr) throw profileErr
+  const profileTenantId = profile?.tenant_id || null
+  if (!profileTenantId) {
+    throw new Error('Tu usuario no tiene tenant asignado.')
+  }
+
+  // Usar un ID temporal si no hay categoryId (categoría nueva)
+  const folderName = categoryId || `cat_${Date.now()}`
+  const categoryFolder = `${profileTenantId}/categories/${folderName}`
+  await deleteExistingFiles(categoryFolder)
+
+  const ext = safeExtFromFile(file)
+  const filename = `${Date.now()}${ext || ''}`
+  const path = `${profileTenantId}/categories/${folderName}/${filename}`
+
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: '3600',
+  })
+
+  if (uploadError) {
+    const base = uploadError?.message ? String(uploadError.message) : 'Error subiendo imagen de categoría'
+    throw new Error(base)
+  }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  if (!data?.publicUrl) throw new Error('No se pudo obtener publicUrl de la imagen')
+
+  return data.publicUrl
+}
+
 export async function uploadHeroImage({ tenantId, file }) {
   ensureSupabase()
   if (!file) throw new Error('Archivo requerido')

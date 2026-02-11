@@ -55,6 +55,8 @@ export const MP_STATUS_MAP = {
  * @param {string} params.deliveryType - 'mostrador' | 'domicilio' | 'mesa'
  * @param {string} params.deliveryAddress - Dirección (solo para domicilio)
  * @param {string} params.deliveryNotes - Notas adicionales
+ * @param {number|null} params.deliveryLat - Latitud GPS del cliente
+ * @param {number|null} params.deliveryLng - Longitud GPS del cliente
  * @returns {Promise<Object>} { orderId, preferenceId, initPoint, total }
  */
 export async function createCustomerPaymentPreference({
@@ -64,6 +66,8 @@ export async function createCustomerPaymentPreference({
   deliveryType = 'mostrador',
   deliveryAddress = null,
   deliveryNotes = null,
+  deliveryLat = null,
+  deliveryLng = null,
 }) {
   // Validaciones
   if (!isSupabaseConfigured) {
@@ -138,6 +142,11 @@ export async function createCustomerPaymentPreference({
     currency: 'ARS',
     customer_name: customer.name || null,
     customer_phone: customer.phone || null,
+    delivery_type: deliveryType || 'mostrador',
+    delivery_address: deliveryAddress || null,
+    delivery_notes: deliveryNotes || null,
+    delivery_lat: deliveryLat || null,
+    delivery_lng: deliveryLng || null,
     is_paid: false, // Importante: marcamos como NO pagado
     payment_method: 'mercadopago', // Para filtrar en el dashboard
   }
@@ -164,6 +173,8 @@ export async function createCustomerPaymentPreference({
     unit_price: item.unitPrice,
     qty: item.qty,
     line_total: item.lineTotal,
+    extras: item.extras || [],
+    comment: item.comment || null,
   }))
 
   const { error: itemsError } = await supabase
@@ -219,6 +230,7 @@ export async function createCustomerPaymentPreference({
       pending: `${appUrl}/tienda/${tenant.slug}/checkout/pending?order=${orderId}`,
     },
     auto_return: 'approved', // Solo retorna automático en approved
+    notification_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/store-payment-webhook?tenant_id=${tenantId}`,
     statement_descriptor: (tenant.name || 'TIENDA').substring(0, 22).toUpperCase(),
     expires: true,
     expiration_date_from: new Date().toISOString(),

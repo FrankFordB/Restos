@@ -19,6 +19,7 @@ import {
 } from '../../../lib/mercadopago'
 import {
   createPlatformSubscription,
+  updatePlatformSubscriptionById,
   updateTenantSubscriptionTier,
   scheduleTierChange,
 } from '../../../lib/supabaseMercadopagoApi'
@@ -148,7 +149,16 @@ export default function SubscriptionCheckout({
 
       const amount = getPrice()
 
-      // Crear preferencia de pago en MP
+      // 1. Crear suscripción pendiente PRIMERO (para tener el ID)
+      const subscription = await createPlatformSubscription({
+        tenantId,
+        preferenceId: null, // Se actualiza después
+        planTier: selectedPlan,
+        billingPeriod,
+        amount,
+      })
+
+      // 2. Crear preferencia de pago en MP CON el subscriptionId
       const preference = await createSubscriptionPreference({
         tenantId,
         tenantName,
@@ -156,15 +166,12 @@ export default function SubscriptionCheckout({
         billingPeriod,
         amount,
         payerEmail: userEmail,
+        subscriptionId: subscription.id,
       })
 
-      // Guardar suscripción pendiente
-      await createPlatformSubscription({
-        tenantId,
-        preferenceId: preference.preferenceId,
-        planTier: selectedPlan,
-        billingPeriod,
-        amount,
+      // 3. Actualizar la suscripción con el preferenceId
+      await updatePlatformSubscriptionById(subscription.id, {
+        mp_preference_id: preference.preferenceId,
       })
 
       // Redirigir a MercadoPago

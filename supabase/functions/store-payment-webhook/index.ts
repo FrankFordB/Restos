@@ -170,6 +170,20 @@ serve(async (req) => {
       orderId = payload.data.metadata.order_id
     }
 
+    // Verificar query params de la URL (tenant_id se envía en notification_url)
+    if (!tenantId) {
+      try {
+        const reqUrl = new URL(req.url)
+        const urlTenantId = reqUrl.searchParams.get('tenant_id')
+        if (urlTenantId) {
+          console.log('📎 tenant_id obtenido de URL params:', urlTenantId)
+          tenantId = urlTenantId
+        }
+      } catch (e) {
+        console.warn('⚠️ Error parseando URL params:', e)
+      }
+    }
+
     // Si aún no tenemos tenant, intentar buscar órdenes pendientes recientes
     if (!tenantId) {
       console.warn('⚠️ No se pudo determinar tenant_id directamente')
@@ -417,6 +431,26 @@ serve(async (req) => {
         });
       updateResult = update.data;
       updateError = update.error;
+
+      // Guardar datos adicionales del pago y marcar como confirmado
+      if (!updateError) {
+        const { error: extraErr } = await supabase
+          .from('orders')
+          .update({
+            mp_payment_id: paymentId,
+            mp_status: payment.status,
+            mp_status_detail: payment.status_detail,
+            payment_status: 'paid',
+            status: 'confirmed',
+          })
+          .eq('id', orderId)
+
+        if (extraErr) {
+          console.warn('⚠️ No se pudieron guardar campos adicionales:', extraErr.message)
+        } else {
+          console.log('✅ Datos adicionales del pago guardados en la orden')
+        }
+      }
     } else {
       console.log('ℹ️ Pago no aprobado, no se marca como pagado:', payment.status);
     }

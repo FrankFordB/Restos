@@ -3539,6 +3539,47 @@
   color: #22c55e;
 }
 
+/* Map link & Delivery button */
+.orderDetailModal__mapLink {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.orderDetailModal__mapLink:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.orderDetailModal__deliveryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orderDetailModal__deliveryBtn:hover {
+  background: linear-gradient(135deg, #20bd5a, #0f7a6e);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
 .orderDetailModal__phoneRow {
   display: flex;
   align-items: center;

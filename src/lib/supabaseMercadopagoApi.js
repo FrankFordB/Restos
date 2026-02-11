@@ -305,6 +305,41 @@ export const updatePlatformSubscription = async (preferenceId, updates) => {
 }
 
 /**
+ * Actualiza una suscripción por su ID (no por preferenceId)
+ * Útil para actualizar el preferenceId después de crear la preferencia MP
+ * @param {string} subscriptionId - ID de la suscripción
+ * @param {Object} updates - Campos a actualizar
+ * @returns {Promise<Object>}
+ */
+export const updatePlatformSubscriptionById = async (subscriptionId, updates) => {
+  if (!isSupabaseConfigured) {
+    const key = 'platform_subscriptions_mock'
+    const data = JSON.parse(localStorage.getItem(key) || '[]')
+    const idx = data.findIndex(s => s.id === subscriptionId)
+    if (idx >= 0) {
+      data[idx] = { ...data[idx], ...updates, updated_at: new Date().toISOString() }
+      localStorage.setItem(key, JSON.stringify(data))
+      return data[idx]
+    }
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('platform_subscriptions')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', subscriptionId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error actualizando suscripción por ID:', error)
+    throw error
+  }
+
+  return data
+}
+
+/**
  * Obtiene las suscripciones de un tenant
  * @param {string} tenantId 
  * @returns {Promise<Array>}

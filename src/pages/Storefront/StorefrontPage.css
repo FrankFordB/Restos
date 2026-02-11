@@ -439,7 +439,15 @@
     grid-template-columns: 1fr;
   }
   .store__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 540px) {
+  .store__grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 
@@ -2936,6 +2944,90 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* GPS Button */
+.checkoutPage__gpsBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.checkoutPage__gpsBtn:hover:not(:disabled) {
+  border-color: var(--accent, #3b82f6);
+  color: var(--accent, #3b82f6);
+  background: rgba(var(--accent-rgb, 59, 130, 246), 0.06);
+}
+
+.checkoutPage__gpsBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkoutPage__gpsBtn--active {
+  border-color: #22c55e;
+  border-style: solid;
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.checkoutPage__gpsBtn--active:hover:not(:disabled) {
+  border-color: #22c55e;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.checkoutPage__locationError {
+  color: #ef4444;
+  font-size: 0.8rem;
+  margin: -8px 0 0 0;
+  padding: 0 4px;
+}
+
+.checkoutPage__mapContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkoutPage__mapHint {
+  color: #6b7280;
+  font-size: 0.78rem;
+  margin: 0;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.checkoutPage__mapsLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  color: #0284c7;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.checkoutPage__mapsLink:hover {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 /* Payment Options */

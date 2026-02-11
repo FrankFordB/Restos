@@ -70,6 +70,12 @@ const DELIVERY_TYPES = {
 }
 
 const STATUS_CONFIG = {
+  confirmed: { 
+    color: '#10b981', 
+    icon: <CheckCircle size={16} />, 
+    label: 'Confirmado',
+    gradient: 'linear-gradient(135deg, #34d399 0%, #059669 100%)'
+  },
   pending: { 
     color: '#f97316', 
     icon: <Clock size={16} />, 
@@ -104,6 +110,7 @@ const PAYMENT_METHODS = {
 }
 
 const ORDER_STATUSES = {
+  confirmed: 'Confirmado',
   pending: 'Pendiente',
   in_progress: 'En curso',
   completed: 'Completado',
@@ -548,7 +555,12 @@ export default function OrdersManager({ tenantId }) {
 
     // Aplicar filtro según el tipo seleccionado
     if (filterType === 'status' && filterStatus !== 'all') {
-      result = result.filter((o) => o.status === filterStatus)
+      if (filterStatus === 'pending') {
+        // 'confirmed' (pago MP confirmado) se muestra junto con 'pending'
+        result = result.filter((o) => o.status === 'pending' || o.status === 'confirmed')
+      } else {
+        result = result.filter((o) => o.status === filterStatus)
+      }
     }
 
     if (filterType === 'delivery' && filterDelivery !== 'all') {
@@ -568,7 +580,7 @@ export default function OrdersManager({ tenantId }) {
   const counts = useMemo(
     () => ({
       all: uniqueOrders.length,
-      pending: uniqueOrders.filter((o) => o.status === 'pending').length,
+      pending: uniqueOrders.filter((o) => o.status === 'pending' || o.status === 'confirmed').length,
       in_progress: uniqueOrders.filter((o) => o.status === 'in_progress').length,
       completed: uniqueOrders.filter((o) => o.status === 'completed').length,
       cancelled: uniqueOrders.filter((o) => o.status === 'cancelled').length,
@@ -1857,7 +1869,7 @@ function OrderCard({ order, tenantId, tenant, onOpenDetail, isSelected = false, 
         {/* Fila inferior: Acciones */}
         <div className="orderCard__actionsRow" onClick={(e) => e.stopPropagation()}>
           {/* Botón principal de estado */}
-          {order.status === 'pending' && (
+          {(order.status === 'pending' || order.status === 'confirmed') && (
             <Button 
               size="sm" 
               disabled={isUpdating}
@@ -2562,11 +2574,67 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
                   <strong>{order.delivery_address}</strong>
                 </div>
               )}
+              {order.delivery_lat && order.delivery_lng && (
+                <div className="orderDetailModal__row">
+                  <span>GPS:</span>
+                  <a 
+                    href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="orderDetailModal__mapLink"
+                  >
+                    📍 Ver en Google Maps
+                  </a>
+                </div>
+              )}
               {order.delivery_notes && (
                 <div className="orderDetailModal__row">
                   <span>Notas:</span>
                   <strong>{order.delivery_notes}</strong>
                 </div>
+              )}
+              {/* Botón enviar info al delivery */}
+              {order.delivery_type === 'domicilio' && (
+                <button
+                  className="orderDetailModal__deliveryBtn"
+                  onClick={() => {
+                    const items = (order.items || editedItems || []).map(it => 
+                      `• ${it.qty || it.quantity || 1}x ${it.name || it.product_name}`
+                    ).join('\n')
+                    const mapsLink = order.delivery_lat && order.delivery_lng 
+                      ? `\n\n📍 *Ubicación GPS:*\nhttps://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`
+                      : ''
+                    
+                    // Payment status
+                    const paymentLabel = order.payment_method === 'efectivo' ? 'Efectivo 💵' 
+                      : order.payment_method === 'mercadopago' ? 'MercadoPago' 
+                      : order.payment_method === 'transferencia' ? 'Transferencia'
+                      : order.payment_method === 'tarjeta' ? 'Tarjeta' 
+                      : order.payment_method || 'N/A'
+                    
+                    const isPaid = isPaymentConfirmed || order.status === 'completed'
+                    const paymentStatus = isPaid 
+                      ? `✅ *PAGADO* (${paymentLabel})` 
+                      : `⚠️ *PENDIENTE DE COBRO* - $${Number(order.total || 0).toLocaleString()} (${paymentLabel})`
+
+                    const msg = `🛵 *PEDIDO PARA DELIVERY*\n\n` +
+                      `📋 Pedido: #${order.id?.slice(0, 8).toUpperCase()}\n` +
+                      `👤 Cliente: ${order.customer_name || 'N/A'}\n` +
+                      `📞 Tel: ${order.customer_phone || 'N/A'}\n` +
+                      `🏠 Dirección: ${order.delivery_address || 'N/A'}\n` +
+                      (order.delivery_notes ? `📝 Notas: ${order.delivery_notes}\n` : '') +
+                      `\n🛒 *Productos:*\n${items}\n` +
+                      `\n💰 Total: $${Number(order.total || 0).toLocaleString()}` +
+                      `\n💳 ${paymentStatus}` +
+                      mapsLink
+                    
+                    const encodedMsg = encodeURIComponent(msg)
+                    window.open(`https://wa.me/?text=${encodedMsg}`, '_blank')
+                  }}
+                >
+                  <Truck size={16} />
+                  📤 Enviar info al delivery
+                </button>
               )}
             </div>
           </div>

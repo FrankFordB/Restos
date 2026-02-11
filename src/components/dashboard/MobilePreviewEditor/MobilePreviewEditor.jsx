@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './MobilePreviewEditor.css'
 import Card from '../../ui/Card/Card'
 import Button from '../../ui/Button/Button'
@@ -146,6 +146,68 @@ const MOBILE_CARD_DESIGNS = {
   },
 }
 
+// Configuraciones de Cards para CATEGORÍAS PORTADA
+const MOBILE_CATEGORY_CARD_DESIGNS = {
+  // Premium
+  gridSquare: {
+    id: 'gridSquare',
+    name: 'Grid cuadrado',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Cuadrícula de categorías con imagen cuadrada',
+    preview: { cols: 2, ratio: '100%', style: 'square' },
+  },
+  pillBanner: {
+    id: 'pillBanner',
+    name: 'Banner píldora',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Banners horizontales redondeados con icono',
+    preview: { cols: 1, ratio: '35%', style: 'pill' },
+  },
+  circleIcon: {
+    id: 'circleIcon',
+    name: 'Círculos con icono',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Iconos redondos con nombre debajo',
+    preview: { cols: 3, ratio: '100%', style: 'circle' },
+  },
+  overlayText: {
+    id: 'overlayText',
+    name: 'Texto sobre imagen',
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Imagen de fondo con nombre superpuesto',
+    preview: { cols: 2, ratio: '70%', style: 'overlay' },
+  },
+  // Premium Pro
+  glassTile: {
+    id: 'glassTile',
+    name: 'Mosaico cristal',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Efecto vidrio esmerilado sobre imagen',
+    preview: { cols: 2, ratio: '80%', style: 'glass' },
+  },
+  neonOutline: {
+    id: 'neonOutline',
+    name: 'Contorno neón',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Borde luminoso con efecto hover',
+    preview: { cols: 2, ratio: '100%', style: 'neon' },
+  },
+  stackedScroll: {
+    id: 'stackedScroll',
+    name: 'Scroll apilado',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Categorías en scroll horizontal con efecto 3D',
+    preview: { cols: 1, ratio: '50%', style: 'stacked' },
+  },
+  fullCard: {
+    id: 'fullCard',
+    name: 'Tarjeta completa',
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Card grande con descripción y producto destacado',
+    preview: { cols: 1, ratio: '45%', style: 'full' },
+  },
+}
+
 // Configuraciones de espaciado/tamaño
 const MOBILE_SPACING_OPTIONS = {
   // Premium
@@ -287,6 +349,7 @@ export default function MobilePreviewEditor({
   // Estado de configuración
   const [headerDesign, setHeaderDesign] = useState('centered')
   const [cardDesign, setCardDesign] = useState('stackedFull')
+  const [categoryCardDesign, setCategoryCardDesign] = useState('default')
   const [spacingOption, setSpacingOption] = useState('balanced')
   const [typographyOption, setTypographyOption] = useState('standard')
   const [carouselOptions, setCarouselOptions] = useState({ showTitle: true, showSubtitle: true, showCta: true })
@@ -296,6 +359,7 @@ export default function MobilePreviewEditor({
   
   // Estado de secciones expandidas
   const [expandedSection, setExpandedSection] = useState('header')
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
   
   // Estado de cambios
   const [hasChanges, setHasChanges] = useState(false)
@@ -340,6 +404,7 @@ export default function MobilePreviewEditor({
           if (saved) {
             setHeaderDesign(saved.headerDesign || 'centered')
             setCardDesign(saved.cardDesign || 'stackedFull')
+            setCategoryCardDesign(saved.categoryCardDesign || 'default')
             setSpacingOption(saved.spacingOption || 'balanced')
             setTypographyOption(saved.typographyOption || 'standard')
             setCarouselOptions(saved.carouselOptions || { showTitle: true, showSubtitle: true, showCta: true })
@@ -351,6 +416,7 @@ export default function MobilePreviewEditor({
           if (saved) {
             setHeaderDesign(saved.headerDesign || 'centered')
             setCardDesign(saved.cardDesign || 'stackedFull')
+            setCategoryCardDesign(saved.categoryCardDesign || 'default')
             setSpacingOption(saved.spacingOption || 'balanced')
             setTypographyOption(saved.typographyOption || 'standard')
             setCarouselOptions(saved.carouselOptions || { showTitle: true, showSubtitle: true, showCta: true })
@@ -381,12 +447,13 @@ export default function MobilePreviewEditor({
     const changed = 
       headerDesign !== (originalSettings.headerDesign || 'centered') ||
       cardDesign !== (originalSettings.cardDesign || 'stackedFull') ||
+      categoryCardDesign !== (originalSettings.categoryCardDesign || 'default') ||
       spacingOption !== (originalSettings.spacingOption || 'balanced') ||
       typographyOption !== (originalSettings.typographyOption || 'standard') ||
       carouselChanged
     
     setHasChanges(changed)
-  }, [headerDesign, cardDesign, spacingOption, typographyOption, carouselOptions, originalSettings])
+  }, [headerDesign, cardDesign, categoryCardDesign, spacingOption, typographyOption, carouselOptions, originalSettings])
 
   // Guardar cambios
   const handleSave = async () => {
@@ -395,6 +462,7 @@ export default function MobilePreviewEditor({
       const settings = {
         headerDesign,
         cardDesign,
+        categoryCardDesign,
         spacingOption,
         typographyOption,
         carouselOptions,
@@ -406,6 +474,7 @@ export default function MobilePreviewEditor({
           tenantId,
           headerDesign,
           cardDesign,
+          categoryCardDesign,
           spacingOption,
           typographyOption,
           carouselOptions,
@@ -429,6 +498,7 @@ export default function MobilePreviewEditor({
     if (originalSettings) {
       setHeaderDesign(originalSettings.headerDesign || 'centered')
       setCardDesign(originalSettings.cardDesign || 'stackedFull')
+      setCategoryCardDesign(originalSettings.categoryCardDesign || 'default')
       setSpacingOption(originalSettings.spacingOption || 'balanced')
       setTypographyOption(originalSettings.typographyOption || 'standard')
       setCarouselOptions(originalSettings.carouselOptions || { showTitle: true, showSubtitle: true, showCta: true })
@@ -571,7 +641,7 @@ export default function MobilePreviewEditor({
             )}
           </div>
 
-          {/* Cards Section */}
+          {/* Cards de Productos */}
           <div className={`mobileEditor__section ${expandedSection === 'cards' ? 'expanded' : ''}`}>
             <button 
               type="button" 
@@ -579,8 +649,8 @@ export default function MobilePreviewEditor({
               onClick={() => toggleSection('cards')}
             >
               <div className="mobileEditor__sectionTitle">
-                <Grid3X3 size={18} />
-                <span>Diseño de Productos</span>
+                <Package size={18} />
+                <span>Cards de Productos</span>
                 <InfoTooltip 
                   text="Configura cómo se muestran las tarjetas de productos: apilado, grid, lista horizontal, carrusel, etc."
                   position="right"
@@ -594,6 +664,55 @@ export default function MobilePreviewEditor({
                 {renderDesignSelector(MOBILE_CARD_DESIGNS, cardDesign, setCardDesign, 'Cards')}
                 <p className="mobileEditor__currentDesc">
                   {MOBILE_CARD_DESIGNS[cardDesign]?.description}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Cards de Categorías Portada */}
+          <div className={`mobileEditor__section ${expandedSection === 'categoryCards' ? 'expanded' : ''}`}>
+            <button 
+              type="button" 
+              className="mobileEditor__sectionHeader"
+              onClick={() => toggleSection('categoryCards')}
+            >
+              <div className="mobileEditor__sectionTitle">
+                <Layers size={18} />
+                <span>Cards de Categorías Portada</span>
+                <InfoTooltip 
+                  text="Elige cómo se ven las categorías en la portada de tu tienda. Los usuarios free usan el estilo por defecto."
+                  position="right"
+                  size={14}
+                />
+              </div>
+              {expandedSection === 'categoryCards' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+            {expandedSection === 'categoryCards' && (
+              <div className="mobileEditor__sectionBody">
+                {/* Default option for free users */}
+                <div className="mobileEditor__tierGroup">
+                  <div className="mobileEditor__tierLabel" style={{ color: '#6b7280' }}>
+                    <Grid3X3 size={14} />
+                    Gratis
+                  </div>
+                  <div className="mobileEditor__designGrid">
+                    <button
+                      type="button"
+                      className={`mobileEditor__designBtn ${categoryCardDesign === 'default' ? 'selected' : ''}`}
+                      onClick={() => setCategoryCardDesign('default')}
+                      title="Estilo por defecto"
+                    >
+                      {categoryCardDesign === 'default' && <span className="mobileEditor__checkIcon"><Check size={14} /></span>}
+                      <span className="mobileEditor__designName">Por defecto</span>
+                    </button>
+                  </div>
+                </div>
+                {renderDesignSelector(MOBILE_CATEGORY_CARD_DESIGNS, categoryCardDesign, setCategoryCardDesign, 'Category Cards')}
+                <p className="mobileEditor__currentDesc">
+                  {categoryCardDesign === 'default' 
+                    ? 'Estilo estándar de categorías con imagen y nombre'
+                    : MOBILE_CATEGORY_CARD_DESIGNS[categoryCardDesign]?.description
+                  }
                 </p>
               </div>
             )}
@@ -736,43 +855,56 @@ export default function MobilePreviewEditor({
         </div>
 
         {/* Preview del móvil */}
-        <div className="mobileEditor__preview">
+        <div className={`mobileEditor__preview ${showMobilePreview ? 'mobileEditor__preview--open' : ''}`}>
+          {/* Toggle button for mobile */}
+          <button 
+            type="button"
+            className="mobileEditor__previewToggle"
+            onClick={() => setShowMobilePreview(prev => !prev)}
+          >
+            <Eye size={16} />
+            <span>{showMobilePreview ? 'Ocultar vista previa' : 'Ver vista previa'}</span>
+            <ChevronDown size={16} className={`mobileEditor__previewToggleIcon ${showMobilePreview ? 'mobileEditor__previewToggleIcon--open' : ''}`} />
+          </button>
+          
           <div className="mobileEditor__previewHeader">
             <Smartphone size={16} />
             <span>Vista previa</span>
           </div>
-          <div className="mobileEditor__phoneFrame">
-            <div className="mobileEditor__phoneNotch"></div>
-            <div className="mobileEditor__phoneScreen">
-              {/* Header preview */}
-              <MobileHeaderPreview 
-                design={headerDesign}
-                tenantName={tenantName}
-                tenantLogo={tenantLogo}
-              />
-              
-              {/* Products preview */}
-              <MobileCardsPreview 
-                design={cardDesign}
-                spacing={MOBILE_SPACING_OPTIONS[spacingOption]?.values}
-                typography={MOBILE_TYPOGRAPHY_OPTIONS[typographyOption]?.values}
-              />
+          <div className="mobileEditor__previewBody">
+            <div className="mobileEditor__phoneFrame">
+              <div className="mobileEditor__phoneNotch"></div>
+              <div className="mobileEditor__phoneScreen">
+                {/* Header preview */}
+                <MobileHeaderPreview 
+                  design={headerDesign}
+                  tenantName={tenantName}
+                  tenantLogo={tenantLogo}
+                />
+                
+                {/* Products preview */}
+                <MobileCardsPreview 
+                  design={cardDesign}
+                  spacing={MOBILE_SPACING_OPTIONS[spacingOption]?.values}
+                  typography={MOBILE_TYPOGRAPHY_OPTIONS[typographyOption]?.values}
+                />
+              </div>
+              <div className="mobileEditor__phoneHomeBar"></div>
             </div>
-            <div className="mobileEditor__phoneHomeBar"></div>
+            
+            {/* Link to store */}
+            {tenantSlug && (
+              <a 
+                href={`/store/${tenantSlug}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="mobileEditor__openStore"
+              >
+                <Eye size={14} />
+                Ver tienda en nueva pestaña
+              </a>
+            )}
           </div>
-          
-          {/* Link to store */}
-          {tenantSlug && (
-            <a 
-              href={`/store/${tenantSlug}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="mobileEditor__openStore"
-            >
-              <Eye size={14} />
-              Ver tienda en nueva pestaña
-            </a>
-          )}
         </div>
       </div>
 
@@ -897,6 +1029,7 @@ function MobileCardsPreview({ design, spacing, typography }) {
 export { 
   MOBILE_HEADER_DESIGNS, 
   MOBILE_CARD_DESIGNS, 
+  MOBILE_CATEGORY_CARD_DESIGNS,
   MOBILE_SPACING_OPTIONS, 
   MOBILE_TYPOGRAPHY_OPTIONS 
 }

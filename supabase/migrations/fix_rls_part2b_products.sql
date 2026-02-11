@@ -1,0 +1,2 @@
+-- PARTE 2b: REPLICA IDENTITY para products
+ALTER TABLE public.products REPLICA IDENTITY FULL;

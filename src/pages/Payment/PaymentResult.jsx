@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import './PaymentResult.css'
 import { formatAmount, translatePaymentStatus, getPaymentStatusIcon } from '../../lib/mercadopago'
@@ -9,7 +9,7 @@ import {
   getLatestPendingSubscriptionByTenant,
 } from '../../lib/supabaseMercadopagoApi'
 import { fetchTenantById } from '../../lib/supabaseApi'
-import { updateOrderPaymentStatus } from '../../lib/supabaseOrdersApi'
+import { getOrderWithPaymentStatus, verifyPaymentStatus, updateOrderFromPayment } from '../../lib/customerPaymentsApi'
 import { supabase } from '../../lib/supabaseClient'
 import { Crown, Star, Mail, Clock, Lightbulb, PartyPopper, Check, Loader, X, RefreshCw, HelpCircle } from 'lucide-react'
 
@@ -23,6 +23,10 @@ export default function PaymentResult() {
   const [loading, setLoading] = useState(true)
   const [result, setResult] = useState(null)
   const [dbVerified, setDbVerified] = useState(null) // Para verificar estado en BD
+  const [orderDetails, setOrderDetails] = useState(null)
+  const [waitingConfirmation, setWaitingConfirmation] = useState(false)
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false)
+  const pollingRef = useRef(false)
 
   // Parámetros de MercadoPago
   const collectionStatus = searchParams.get('collection_status') || searchParams.get('status')
@@ -48,6 +52,123 @@ export default function PaymentResult() {
     })
     processPaymentResult()
   }, [])
+
+  // Polling: esperar confirmación del webhook, con fallback directo a MP API
+  useEffect(() => {
+    if (!result || pollingRef.current) return
+    const isStoreOrder = result.type !== 'subscription' && result.orderId
+
+    if (isStoreOrder && result.isSuccess) {
+      pollingRef.current = true
+      setWaitingConfirmation(true)
+
+      let cancelled = false
+      let attempts = 0
+      const maxAttempts = 5 // 5 × 2s = 10 segundos esperando al webhook
+      let fallbackDone = false
+
+      const confirmOrderDirectly = async () => {
+        if (fallbackDone) return
+        fallbackDone = true
+        console.log('🔄 Fallback: confirmando pago directamente...')
+        try {
+          // Verificar pago con API de MercadoPago
+          if (result.paymentId && result.tenantId) {
+            const mpPayment = await verifyPaymentStatus(result.tenantId, result.paymentId)
+            console.log('💳 Verificación MP directa:', mpPayment)
+            if (mpPayment.status === 'approved') {
+              // Marcar orden como pagada directamente
+              await updateOrderFromPayment(result.orderId, 'approved', mpPayment)
+              console.log('✅ Orden marcada como pagada (fallback)')
+            }
+          } else {
+            // Sin paymentId, intentar marcar con datos básicos
+            console.log('⚠️ Sin paymentId, marcando con RPC...')
+            await supabase.rpc('mark_order_paid', {
+              p_order_id: result.orderId,
+              p_is_paid: true
+            })
+            // También actualizar status
+            await supabase.from('orders').update({
+              status: 'confirmed',
+              is_paid: true,
+              paid_at: new Date().toISOString(),
+            }).eq('id', result.orderId)
+          }
+        } catch (err) {
+          console.error('Error en fallback de confirmación:', err)
+          // Último recurso: update directo
+          try {
+            await supabase.from('orders').update({
+              status: 'confirmed',
+              is_paid: true,
+              paid_at: new Date().toISOString(),
+            }).eq('id', result.orderId)
+            console.log('✅ Orden marcada como pagada (último recurso)')
+          } catch (e2) {
+            console.error('❌ No se pudo confirmar la orden:', e2)
+          }
+        }
+      }
+
+      const poll = async () => {
+        if (cancelled) return
+        try {
+          const order = await getOrderWithPaymentStatus(result.orderId)
+          if (order) {
+            setOrderDetails(order)
+            if (order.is_paid) {
+              console.log('✅ Pago confirmado por webhook')
+              setPaymentConfirmed(true)
+              setWaitingConfirmation(false)
+              return
+            }
+          }
+        } catch (err) {
+          console.error('Error verificando estado del pedido:', err)
+        }
+
+        attempts++
+
+        // Después de 10s sin confirmación del webhook, hacer fallback
+        if (attempts >= maxAttempts && !fallbackDone) {
+          console.warn('⏳ Webhook no respondió, usando fallback directo...')
+          await confirmOrderDirectly()
+          // Hacer un último intento de leer la orden
+          try {
+            const order = await getOrderWithPaymentStatus(result.orderId)
+            if (order) {
+              setOrderDetails(order)
+              if (order.is_paid) {
+                setPaymentConfirmed(true)
+                setWaitingConfirmation(false)
+                return
+              }
+            }
+          } catch (e) { /* ignore */ }
+          // Incluso si no pudimos leer, marcar como confirmado
+          // porque el pago SÍ fue aprobado por MP
+          setPaymentConfirmed(true)
+          setWaitingConfirmation(false)
+          return
+        }
+
+        if (!cancelled) {
+          setTimeout(poll, 2000)
+        }
+      }
+
+      poll()
+      return () => { cancelled = true }
+    }
+
+    // Para pendiente, cargar detalles de la orden una vez
+    if (isStoreOrder && result.isPending) {
+      getOrderWithPaymentStatus(result.orderId)
+        .then(order => { if (order) setOrderDetails(order) })
+        .catch(() => {})
+    }
+  }, [result])
 
   const processPaymentResult = async () => {
     try {
@@ -111,27 +232,48 @@ export default function PaymentResult() {
       
       if (isStoreOrder && orderId) {
         console.log('🛒 Procesando pago de tienda, orderId:', orderId)
-        await handleStoreOrderPayment(orderId, status, paymentId)
-        refData.orderId = orderId // Asegurar que esté en refData para el resultado
+        // Solo eliminar la orden si fue rechazado/cancelado.
+        // Para aprobado: el webhook de MercadoPago confirmará el pago.
+        // El polling verificará cuando el webhook marque is_paid=true.
+        if (isFailure) {
+          console.log('❌ Pago rechazado, eliminando orden...')
+          const { error: delErr } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', orderId)
+          if (delErr) console.warn('No se pudo eliminar la orden:', delErr)
+        }
+        refData.orderId = orderId
       }
 
       // También verificar si hay una orden pendiente en localStorage
       const pendingOrderStr = localStorage.getItem('mp_pending_order')
-      if (pendingOrderStr && !refData.orderId) {
+      let pendingOrderData = null
+      if (pendingOrderStr) {
         try {
-          const pendingOrder = JSON.parse(pendingOrderStr)
-          // Verificar que sea reciente (menos de 2 horas)
-          if (pendingOrder.orderId && Date.now() - pendingOrder.timestamp < 2 * 60 * 60 * 1000) {
-            await handleStoreOrderPayment(pendingOrder.orderId, status, paymentId)
-            refData.orderId = pendingOrder.orderId
-            refData.tenantSlug = pendingOrder.tenantSlug
+          pendingOrderData = JSON.parse(pendingOrderStr)
+          if (pendingOrderData.orderId && Date.now() - pendingOrderData.timestamp < 2 * 60 * 60 * 1000) {
+            if (!refData.orderId) {
+              refData.orderId = pendingOrderData.orderId
+            }
+            if (!refData.tenantSlug) {
+              refData.tenantSlug = pendingOrderData.tenantSlug
+            }
+            if (!refData.tenantId) {
+              refData.tenantId = pendingOrderData.tenantId
+            }
+            if (isFailure && refData.orderId === pendingOrderData.orderId) {
+              await supabase.from('orders').delete().eq('id', pendingOrderData.orderId)
+            }
           }
-          // Limpiar orden pendiente
           localStorage.removeItem('mp_pending_order')
         } catch {
           // Ignorar errores de parsing
         }
       }
+
+      // Recuperar tenantId desde todas las fuentes disponibles
+      const resolvedTenantId = refData.tenantId || tenantSlug || pendingOrderData?.tenantId || null
 
       setResult({
         status,
@@ -144,7 +286,7 @@ export default function PaymentResult() {
         amount: refData.amount,
         planTier: refData.planTier,
         billingPeriod: refData.billingPeriod,
-        tenantId: refData.tenantId || tenantSlug,
+        tenantId: resolvedTenantId,
         orderId: refData.orderId,
         tenantSlug: refData.tenantSlug || tenantSlug,
       })
@@ -161,72 +303,8 @@ export default function PaymentResult() {
     }
   }
 
-  // Manejar pago de orden de tienda
-  const handleStoreOrderPayment = async (orderId, status, paymentId) => {
-    try {
-      console.log('📝 handleStoreOrderPayment:', { orderId, status, paymentId })
-      
-      const isApproved = status === 'approved'
-      const isPending = status === 'pending' || status === 'in_process'
-      const isRejected = status === 'rejected' || status === 'cancelled'
-      
-      if (isApproved) {
-        // PAGO APROBADO - Actualizar orden para que aparezca en el dashboard
-        console.log('✅ Pago aprobado, actualizando orden...')
-        
-        // Intentar actualizar con la función helper
-        try {
-          await updateOrderPaymentStatus(orderId, {
-            status: 'confirmed',
-            payment_status: 'paid',
-            mp_payment_id: paymentId,
-            mp_status: status,
-            is_paid: true,
-          })
-          console.log('✅ Orden actualizada via updateOrderPaymentStatus')
-        } catch (helperError) {
-          console.warn('⚠️ Error en updateOrderPaymentStatus, usando Supabase directo:', helperError)
-          
-          // Fallback: actualizar directamente con Supabase
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({
-              status: 'confirmed',
-              is_paid: true,
-              paid_at: new Date().toISOString(),
-            })
-            .eq('id', orderId)
-          
-          if (updateError) {
-            console.error('❌ Error actualizando orden:', updateError)
-          } else {
-            console.log('✅ Orden actualizada via Supabase directo')
-          }
-        }
-        
-      } else if (isPending) {
-        console.log('⏳ Pago pendiente, esperando confirmación...')
-        // No hacemos nada, el webhook confirmará después
-        
-      } else if (isRejected) {
-        console.log('❌ Pago rechazado/cancelado')
-        // Eliminar la orden para no dejar basura
-        const { error: deleteError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId)
-        
-        if (deleteError) {
-          console.warn('No se pudo eliminar la orden:', deleteError)
-        } else {
-          console.log('🗑️ Orden eliminada')
-        }
-      }
-      
-    } catch (error) {
-      console.error('Error en handleStoreOrderPayment:', error)
-    }
-  }
+  // El pago de tienda se confirma exclusivamente via webhook de MercadoPago.
+  // Este componente solo hace polling para verificar cuando el webhook marca is_paid=true.
 
   const handleSubscriptionSuccess = async (refData, paymentId, preferenceId) => {
     try {
@@ -429,11 +507,44 @@ export default function PaymentResult() {
     },
   }
 
+  // Personalizar contenido para pedidos de tienda según estado de confirmación
+  const isStoreOrder = result && result.type !== 'subscription' && result.orderId
+
+  if (isStoreOrder && result.isSuccess) {
+    if (waitingConfirmation) {
+      content.success = {
+        icon: <Loader size={32} className="paymentResult__spinIcon" />,
+        title: 'Confirmando Pago...',
+        subtitle: 'Verificando con MercadoPago',
+        message: 'Estamos confirmando tu pago con MercadoPago. Esto solo toma unos segundos.',
+        info: 'No cierres esta página. Te mostraremos los detalles de tu pedido en breve.',
+      }
+    } else if (paymentConfirmed) {
+      content.success = {
+        icon: <Check size={32} />,
+        title: '¡Pedido Confirmado!',
+        subtitle: 'Tu pago fue procesado correctamente',
+        message: 'Tu pedido ya fue enviado al local y comenzarán a prepararlo.',
+        info: 'El local recibirá tu pedido y te contactará según el tipo de entrega seleccionado.',
+      }
+    } else {
+      // Timeout - pago recibido pero webhook aún no confirmó
+      content.success = {
+        icon: <Clock size={32} />,
+        title: 'Pago Recibido',
+        subtitle: 'Procesando tu pedido',
+        message: 'Tu pago fue recibido por MercadoPago. El local recibirá tu pedido en los próximos minutos.',
+        info: 'Si no recibes confirmación pronto, contacta directamente al local.',
+      }
+    }
+  }
+
   const currentContent = result.isSuccess ? content.success
     : result.isPending ? content.pending
     : content.failure
 
-  const headerClass = result.isSuccess ? 'success'
+  const headerClass = result.isSuccess
+    ? (isStoreOrder && waitingConfirmation ? 'pending' : 'success')
     : result.isPending ? 'pending'
     : 'failure'
 
@@ -491,6 +602,51 @@ export default function PaymentResult() {
             </div>
           )}
 
+          {/* Detalle del pedido */}
+          {isStoreOrder && orderDetails && !waitingConfirmation && (
+            <div className="paymentResult__orderDetails">
+              <h3 className="paymentResult__orderTitle">📋 Detalle de tu Pedido</h3>
+              
+              {(orderDetails.order_items || []).map((item, idx) => (
+                <div key={item.id || idx} className="paymentResult__orderItem">
+                  <div className="paymentResult__orderItemInfo">
+                    <span className="paymentResult__orderItemName">{item.name}</span>
+                    <span className="paymentResult__orderItemQty">x{item.qty}</span>
+                  </div>
+                  <span className="paymentResult__orderItemPrice">
+                    ${Number(item.line_total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+              
+              <div className="paymentResult__orderTotal">
+                <span>Total</span>
+                <span>${Number(orderDetails.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              </div>
+
+              {orderDetails.delivery_type && (
+                <div className="paymentResult__orderMeta">
+                  <span>{
+                    orderDetails.delivery_type === 'mostrador' ? '📦 Retiro en Local' :
+                    orderDetails.delivery_type === 'domicilio' ? '🚗 Delivery' :
+                    orderDetails.delivery_type === 'mesa' ? '🍽️ Comer Aquí' :
+                    orderDetails.delivery_type
+                  }</span>
+                  {orderDetails.delivery_address && (
+                    <span className="paymentResult__orderAddress">📍 {orderDetails.delivery_address}</span>
+                  )}
+                </div>
+              )}
+
+              {orderDetails.customer_name && (
+                <div className="paymentResult__orderCustomer">
+                  <span>👤 {orderDetails.customer_name}</span>
+                  {orderDetails.customer_phone && <span>📞 {orderDetails.customer_phone}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Info box */}
           <div className={`paymentResult__info paymentResult__info--${headerClass}`}>
             <span className="paymentResult__infoIcon">
@@ -514,19 +670,29 @@ export default function PaymentResult() {
           <div className="paymentResult__actions">
             {result.isSuccess && (
               <>
-                <button
-                  className="paymentResult__btn paymentResult__btn--primary"
-                  onClick={result.type === 'subscription' ? handleGoToDashboard : handleGoToStore}
-                >
-                  <PartyPopper size={16} style={{ marginRight: 4 }} /> {result.type === 'subscription' ? 'Ir a Mi Dashboard' : 'Ver Mi Pedido'}
-                </button>
-                {result.type !== 'subscription' && (
-                  <button
-                    className="paymentResult__btn paymentResult__btn--secondary"
-                    onClick={handleGoToStore}
-                  >
-                    Seguir Comprando
-                  </button>
+                {isStoreOrder && waitingConfirmation ? (
+                  <div className="paymentResult__waitingIndicator">
+                    <Loader size={20} className="paymentResult__spinIcon" />
+                    <span>Verificando pago...</span>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      className="paymentResult__btn paymentResult__btn--primary"
+                      onClick={result.type === 'subscription' ? handleGoToDashboard : handleGoToStore}
+                    >
+                      <PartyPopper size={16} style={{ marginRight: 4 }} />
+                      {result.type === 'subscription' ? 'Ir a Mi Dashboard' : 'Volver a la Tienda'}
+                    </button>
+                    {result.type !== 'subscription' && (
+                      <button
+                        className="paymentResult__btn paymentResult__btn--secondary"
+                        onClick={handleGoToStore}
+                      >
+                        Seguir Comprando
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

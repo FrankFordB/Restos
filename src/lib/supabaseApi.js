@@ -1205,7 +1205,7 @@ export async function fetchMobilePreviewSettings(tenantId) {
   try {
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
+      .select('id, mobile_header_design, mobile_card_design, mobile_category_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
       .eq('id', tenantId)
       .single()
 
@@ -1214,6 +1214,7 @@ export async function fetchMobilePreviewSettings(tenantId) {
     return {
       headerDesign: data?.mobile_header_design || 'centered',
       cardDesign: data?.mobile_card_design || 'stackedFull',
+      categoryCardDesign: data?.mobile_category_card_design || 'default',
       spacingOption: data?.mobile_spacing_option || 'balanced',
       typographyOption: data?.mobile_typography_option || 'standard',
       carouselOptions,
@@ -1224,6 +1225,7 @@ export async function fetchMobilePreviewSettings(tenantId) {
     return {
       headerDesign: 'centered',
       cardDesign: 'stackedFull',
+      categoryCardDesign: 'default',
       spacingOption: 'balanced',
       typographyOption: 'standard',
       carouselOptions: { showTitle: true, showSubtitle: true, showCta: true },
@@ -1232,12 +1234,13 @@ export async function fetchMobilePreviewSettings(tenantId) {
 }
 
 // Update mobile preview settings for a tenant
-export async function updateMobilePreviewSettings({ tenantId, headerDesign, cardDesign, spacingOption, typographyOption, carouselOptions }) {
+export async function updateMobilePreviewSettings({ tenantId, headerDesign, cardDesign, categoryCardDesign, spacingOption, typographyOption, carouselOptions }) {
   ensureSupabase()
   
   const patch = {}
   if (headerDesign !== undefined) patch.mobile_header_design = headerDesign
   if (cardDesign !== undefined) patch.mobile_card_design = cardDesign
+  if (categoryCardDesign !== undefined) patch.mobile_category_card_design = categoryCardDesign
   if (spacingOption !== undefined) patch.mobile_spacing_option = spacingOption
   if (typographyOption !== undefined) patch.mobile_typography_option = typographyOption
   if (carouselOptions !== undefined) patch.mobile_carousel_options = carouselOptions
@@ -1251,7 +1254,7 @@ export async function updateMobilePreviewSettings({ tenantId, headerDesign, card
       .from('tenants')
       .update(patch)
       .eq('id', tenantId)
-      .select('id, mobile_header_design, mobile_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
+      .select('id, mobile_header_design, mobile_card_design, mobile_category_card_design, mobile_spacing_option, mobile_typography_option, mobile_carousel_options')
       .single()
 
     if (error) throw error
@@ -1259,6 +1262,7 @@ export async function updateMobilePreviewSettings({ tenantId, headerDesign, card
     return {
       headerDesign: data?.mobile_header_design || 'centered',
       cardDesign: data?.mobile_card_design || 'stackedFull',
+      categoryCardDesign: data?.mobile_category_card_design || 'default',
       spacingOption: data?.mobile_spacing_option || 'balanced',
       typographyOption: data?.mobile_typography_option || 'standard',
       carouselOptions: carouselOpts,

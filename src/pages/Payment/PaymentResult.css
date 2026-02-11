@@ -342,3 +342,113 @@
   flex-shrink: 0;
   color: #d97706;
 }
+
+/* Order Details */
+.paymentResult__orderDetails {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.paymentResult__orderTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.paymentResult__orderItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.paymentResult__orderItem:last-of-type {
+  border-bottom: none;
+}
+
+.paymentResult__orderItemInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.paymentResult__orderItemName {
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.paymentResult__orderItemQty {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.paymentResult__orderItemPrice {
+  color: #111827;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.paymentResult__orderTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 2px solid #d1d5db;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.paymentResult__orderMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.paymentResult__orderAddress {
+  color: #374151;
+}
+
+.paymentResult__orderCustomer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* Waiting Indicator */
+.paymentResult__waitingIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Spin Animation for Loader icon */
+.paymentResult__spinIcon {
+  animation: spin 1.5s linear infinite;
+}

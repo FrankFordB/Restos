@@ -68,6 +68,8 @@ export async function listOrdersByTenantId(tenantId) {
     delivery_type: o.delivery_type,
     delivery_address: o.delivery_address,
     delivery_notes: o.delivery_notes,
+    delivery_lat: o.delivery_lat || null,
+    delivery_lng: o.delivery_lng || null,
     payment_method: o.payment_method,
     is_paid: o.is_paid || false,
     paid_at: o.paid_at || null,
@@ -88,7 +90,7 @@ export async function listOrdersByTenantId(tenantId) {
   }))
 }
 
-export async function createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, paymentMethod }) {
+export async function createOrderWithItems({ tenantId, items, total, customer, deliveryType, deliveryAddress, deliveryNotes, deliveryLat, deliveryLng, paymentMethod }) {
   ensureSupabase()
 
   // Preparar items para validación
@@ -121,9 +123,11 @@ export async function createOrderWithItems({ tenantId, items, total, customer, d
       delivery_type: deliveryType || 'mostrador',
       delivery_address: deliveryAddress || null,
       delivery_notes: deliveryNotes || null,
+      delivery_lat: deliveryLat || null,
+      delivery_lng: deliveryLng || null,
       payment_method: paymentMethod || 'efectivo',
     })
-    .select('id, tenant_id, status, total, currency, created_at, customer_name, customer_phone, delivery_type, delivery_address, delivery_notes, payment_method')
+    .select('id, tenant_id, status, total, currency, created_at, customer_name, customer_phone, delivery_type, delivery_address, delivery_notes, delivery_lat, delivery_lng, payment_method')
     .single()
 
   if (orderError) throw orderError
@@ -166,6 +170,8 @@ export async function createOrderWithItems({ tenantId, items, total, customer, d
     delivery_type: order.delivery_type,
     delivery_address: order.delivery_address,
     delivery_notes: order.delivery_notes,
+    delivery_lat: order.delivery_lat || null,
+    delivery_lng: order.delivery_lng || null,
     payment_method: order.payment_method,
     items,
   }
@@ -190,6 +196,8 @@ export async function updateOrderStatus(orderId, newStatus) {
       delivery_type,
       delivery_address,
       delivery_notes,
+      delivery_lat,
+      delivery_lng,
       payment_method,
       order_items (
         id,
@@ -218,6 +226,8 @@ export async function updateOrderStatus(orderId, newStatus) {
     delivery_type: data.delivery_type,
     delivery_address: data.delivery_address,
     delivery_notes: data.delivery_notes,
+    delivery_lat: data.delivery_lat || null,
+    delivery_lng: data.delivery_lng || null,
     payment_method: data.payment_method,
     items: (data.order_items || []).map((item) => ({
       id: item.id,
@@ -265,45 +275,44 @@ export async function decrementProductStock(items) {
   
   console.log('[Stock] Decrementando stock de productos:', items)
   
-  // Para cada item, decrementar el stock del producto
+  // Para cada item, decrementar el stock del producto usando RPC segura
   const updates = items.map(async (item) => {
     if (!item.productId) {
       console.log('[Stock] Item sin productId:', item)
       return null
     }
     
-    // Primero obtenemos el stock actual
-    const { data: product, error: fetchError } = await supabase
-      .from('products')
-      .select('id, stock, name')
-      .eq('id', item.productId)
-      .single()
+    const quantity = item.quantity || 1
     
-    if (fetchError || !product) {
-      console.log('[Stock] Producto no encontrado:', item.productId, fetchError)
+    // Usar RPC segura (SECURITY DEFINER) para decrementar stock
+    const { error: rpcError } = await supabase
+      .rpc('decrement_product_stock', {
+        p_product_id: item.productId,
+        p_quantity: quantity,
+      })
+    
+    if (rpcError) {
+      console.log('[Stock] Error RPC decrementando:', item.productId, rpcError)
+      // Fallback: intentar UPDATE directo (por si la RPC no existe aún)
+      const { data: product } = await supabase
+        .from('products')
+        .select('id, stock, name')
+        .eq('id', item.productId)
+        .single()
+      
+      if (product && product.stock !== null && product.stock !== undefined) {
+        const newStock = Math.max(0, (product.stock || 0) - quantity)
+        await supabase
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', item.productId)
+        return { productId: item.productId, newStock }
+      }
       return null
     }
     
-    // Si no tiene stock definido, no hacemos nada
-    if (product.stock === null || product.stock === undefined) {
-      console.log('[Stock] Producto sin stock configurado:', product.name)
-      return null
-    }
-    
-    const newStock = Math.max(0, (product.stock || 0) - (item.quantity || 1))
-    console.log(`[Stock] ${product.name}: ${product.stock} -> ${newStock} (restando ${item.quantity})`)
-    
-    const { error: updateError } = await supabase
-      .from('products')
-      .update({ stock: newStock })
-      .eq('id', item.productId)
-    
-    if (updateError) {
-      console.log('[Stock] Error actualizando:', updateError)
-      return null
-    }
-    
-    return { productId: item.productId, newStock }
+    console.log(`[Stock] Producto ${item.productId}: decrementado ${quantity} unidades via RPC`)
+    return { productId: item.productId, decremented: quantity }
   })
   
   return Promise.all(updates)
@@ -371,15 +380,28 @@ export async function decrementCategoryStock(categoryId, quantity, allCategories
     const newStock = Math.max(0, (cat.current_stock || 0) - quantity)
     console.log(`[CategoryStock] ${cat.name}: ${cat.current_stock} -> ${newStock}`)
     
-    const { error: updateError } = await supabase
-      .from('product_categories')
-      .update({ current_stock: newStock })
-      .eq('id', cat.id)
+    // Usar RPC segura (SECURITY DEFINER) para decrementar stock
+    const { error: rpcError } = await supabase
+      .rpc('decrement_category_stock', {
+        p_category_id: cat.id,
+        p_quantity: quantity,
+      })
     
-    if (!updateError) {
-      results.push({ categoryId: cat.id, categoryName: cat.name, oldStock: cat.current_stock, newStock })
+    if (rpcError) {
+      console.log('[CategoryStock] RPC no disponible, usando UPDATE directo:', rpcError)
+      // Fallback: UPDATE directo
+      const { error: updateError } = await supabase
+        .from('product_categories')
+        .update({ current_stock: newStock })
+        .eq('id', cat.id)
+      
+      if (!updateError) {
+        results.push({ categoryId: cat.id, categoryName: cat.name, oldStock: cat.current_stock, newStock })
+      } else {
+        console.log('[CategoryStock] Error actualizando:', cat.name, updateError)
+      }
     } else {
-      console.log('[CategoryStock] Error actualizando:', cat.name, updateError)
+      results.push({ categoryId: cat.id, categoryName: cat.name, oldStock: cat.current_stock, newStock })
     }
   }
   
@@ -895,6 +917,8 @@ export async function updateOrderItems(orderId, items, newTotal, originalItems =
       delivery_type, 
       delivery_address, 
       delivery_notes, 
+      delivery_lat,
+      delivery_lng,
       payment_method,
       is_paid,
       paid_at,
@@ -929,6 +953,8 @@ export async function updateOrderItems(orderId, items, newTotal, originalItems =
     delivery_type: data.delivery_type,
     delivery_address: data.delivery_address,
     delivery_notes: data.delivery_notes,
+    delivery_lat: data.delivery_lat || null,
+    delivery_lng: data.delivery_lng || null,
     payment_method: data.payment_method,
     is_paid: data.is_paid || false,
     paid_at: data.paid_at || null,

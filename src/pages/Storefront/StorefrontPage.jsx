@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
 import './StorefrontPage.css'
 import { useAppSelector } from '../../app/hooks'
@@ -111,6 +111,8 @@ import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
 import StoreCategoryNav from '../../components/storefront/StoreCategoryNav/StoreCategoryNav'
 import CategoryModal from '../../components/dashboard/CategoryModal/CategoryModal'
 import { Search } from 'lucide-react'
+
+const LocationMapPicker = lazy(() => import('../../components/storefront/LocationMapPicker/LocationMapPicker'))
 
 export default function StorefrontPage() {
   const { slug } = useParams()
@@ -521,6 +523,8 @@ export default function StorefrontPage() {
     deliveryType: 'mostrador',
     deliveryAddress: '',
     deliveryNotes: '',
+    deliveryLat: null,
+    deliveryLng: null,
     paymentMethod: 'efectivo',
   })
   const [checkoutLoading, setCheckoutLoading] = useState(false)
@@ -1599,6 +1603,13 @@ export default function StorefrontPage() {
           heroShowCta,
           heroCarouselButtonStyle,
         }}
+        mobileSettings={tenantFullData ? {
+          headerDesign: tenantFullData.mobile_header_design,
+          cardDesign: tenantFullData.mobile_card_design,
+          spacingOption: tenantFullData.mobile_spacing_option,
+          typographyOption: tenantFullData.mobile_typography_option,
+          carouselOptions: tenantFullData.mobile_carousel_options,
+        } : null}
         tenantId={tenantId}
       />
       
@@ -2830,7 +2841,7 @@ export default function StorefrontPage() {
             setLastOrderId(orderId)
             setCart({})
             // Solo borrar datos cuando se confirma exitosamente
-            setCheckoutData({ customerName: '', customerPhone: '', deliveryType: 'mostrador', deliveryAddress: '', deliveryNotes: '', paymentMethod: 'efectivo' })
+            setCheckoutData({ customerName: '', customerPhone: '', deliveryType: 'mostrador', deliveryAddress: '', deliveryNotes: '', deliveryLat: null, deliveryLng: null, paymentMethod: 'efectivo' })
             setIsCheckingOut(false)
             setShowSuccessModal(true) // Mostrar modal de éxito
           }}
@@ -3118,6 +3129,8 @@ function CheckoutPage({
 }) {
   const [mpConfigured, setMpConfigured] = useState(false)
   const [mpLoading, setMpLoading] = useState(true)
+  const [gettingLocation, setGettingLocation] = useState(false)
+  const [locationError, setLocationError] = useState(null)
 
   // Verificar si el tenant tiene MercadoPago configurado
   useEffect(() => {
@@ -3193,6 +3206,65 @@ function CheckoutPage({
   
   const isAllDataValid = isNameValid && isPhoneValid && isAddressValid && isDeliveryTypeEnabled && stockValidation.isValid
   
+  // Obtener ubicación GPS del cliente
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Tu navegador no soporta geolocalización')
+      return
+    }
+    
+    setGettingLocation(true)
+    setLocationError(null)
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords
+        console.log(`📍 GPS obtenido: ${latitude}, ${longitude} (precisión: ${Math.round(accuracy)}m)`)
+        
+        setCheckoutData(prev => ({
+          ...prev,
+          deliveryLat: latitude,
+          deliveryLng: longitude,
+        }))
+        setGettingLocation(false)
+        
+        // Siempre actualizar la dirección con reverse geocoding
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=18`)
+          .then(res => res.json())
+          .then(data => {
+            if (data?.display_name) {
+              setCheckoutData(prev => ({
+                ...prev,
+                deliveryAddress: data.display_name,
+              }))
+            }
+          })
+          .catch(() => {})
+      },
+      (error) => {
+        setGettingLocation(false)
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Permiso de ubicación denegado. Activalo en la configuración del navegador.')
+            break
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('No se pudo obtener la ubicación.')
+            break
+          case error.TIMEOUT:
+            setLocationError('Tiempo de espera agotado. Intentá de nuevo.')
+            break
+          default:
+            setLocationError('Error al obtener ubicación.')
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    )
+  }
+  
   // Boton procesar pago habilitado solo si todos los datos están válidos
   const canProcessPayment = isAllDataValid && !checkoutLoading
 
@@ -3246,11 +3318,14 @@ function CheckoutPage({
             deliveryType: checkoutData.deliveryType,
             deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
             deliveryNotes: checkoutData.deliveryNotes,
+            deliveryLat: checkoutData.deliveryLat || null,
+            deliveryLng: checkoutData.deliveryLng || null,
           })
 
           // Guardar datos en localStorage para recuperar después del pago
           localStorage.setItem('mp_pending_order', JSON.stringify({
             orderId: preferenceData.orderId,
+            tenantId,
             tenantSlug,
             preferenceId: preferenceData.preferenceId,
             idempotencyKey: preferenceData.idempotencyKey,
@@ -3282,6 +3357,8 @@ function CheckoutPage({
           deliveryType: checkoutData.deliveryType,
           deliveryAddress: checkoutData.deliveryType === 'domicilio' ? checkoutData.deliveryAddress : null,
           deliveryNotes: checkoutData.deliveryNotes,
+          deliveryLat: checkoutData.deliveryLat || null,
+          deliveryLng: checkoutData.deliveryLng || null,
           paymentMethod: checkoutData.paymentMethod,
           status: 'pending',
         }),
@@ -3466,15 +3543,82 @@ function CheckoutPage({
                       disabled={checkoutLoading}
                     />
                   </div>
+                  
+                  {/* Botón GPS */}
+                  <button
+                    type="button"
+                    className={`checkoutPage__gpsBtn ${checkoutData.deliveryLat ? 'checkoutPage__gpsBtn--active' : ''}`}
+                    onClick={handleGetLocation}
+                    disabled={checkoutLoading || gettingLocation}
+                  >
+                    {gettingLocation ? (
+                      <>
+                        <span className="checkoutPage__spinner" style={{ width: 16, height: 16 }}></span>
+                        Obteniendo ubicación...
+                      </>
+                    ) : checkoutData.deliveryLat ? (
+                      <>
+                        <CheckCircle size={16} />
+                        Ubicación GPS compartida ✓
+                      </>
+                    ) : (
+                      <>
+                        <MapPin size={16} />
+                        📍 Compartir mi ubicación GPS
+                      </>
+                    )}
+                  </button>
+                  {locationError && (
+                    <p className="checkoutPage__locationError">{locationError}</p>
+                  )}
+                  {checkoutData.deliveryLat && (
+                    <div className="checkoutPage__mapContainer">
+                      <Suspense fallback={<div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', borderRadius: 12 }}>Cargando mapa...</div>}>
+                        <LocationMapPicker
+                          lat={checkoutData.deliveryLat}
+                          lng={checkoutData.deliveryLng}
+                          onPositionChange={(lat, lng) => {
+                            setCheckoutData(prev => ({
+                              ...prev,
+                              deliveryLat: lat,
+                              deliveryLng: lng,
+                            }))
+                            // Reverse geocode the new position
+                            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=18`)
+                              .then(res => res.json())
+                              .then(data => {
+                                if (data?.display_name) {
+                                  setCheckoutData(prev => ({
+                                    ...prev,
+                                    deliveryAddress: data.display_name,
+                                  }))
+                                }
+                              })
+                              .catch(() => {})
+                          }}
+                        />
+                      </Suspense>
+                      <p className="checkoutPage__mapHint">📍 Arrastrá el pin o tocá el mapa para ajustar tu ubicación</p>
+                      <a
+                        href={`https://www.google.com/maps?q=${checkoutData.deliveryLat},${checkoutData.deliveryLng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="checkoutPage__mapsLink"
+                      >
+                        🗺️ Ver en Google Maps
+                      </a>
+                    </div>
+                  )}
+                  
                   <div className="checkoutPage__field">
                     <label className="checkoutPage__label">
                       <span className="checkoutPage__labelIcon"><FileText size={16} /></span>
-                      Indicaciones (opcional)
+                      Referencias e indicaciones (opcional)
                     </label>
                     <textarea
                       value={checkoutData.deliveryNotes}
                       onChange={(e) => setCheckoutData({ ...checkoutData, deliveryNotes: e.target.value })}
-                      placeholder="Ej: Timbre no funciona, llamar al llegar"
+                      placeholder="Ej: Casa azul con portón negro, timbre no funciona, llamar al llegar"
                       className="checkoutPage__textarea"
                       disabled={checkoutLoading}
                       rows="2"

@@ -229,11 +229,14 @@ export default function UserDashboardPage() {
   const alertAudioRef = useRef(null) // Sonido de alerta para límite de pedidos
   const [globalNewOrdersCount, setGlobalNewOrdersCount] = useState(0)
   const [soundEnabled, setSoundEnabled] = useState(true) // Toggle local de sonido
+  const [userHasInteracted, setUserHasInteracted] = useState(false) // Para autoplay
   const [soundConfig, setSoundConfig] = useState({
     enabled: true,
     repeatCount: 3,
     delayMs: 1500,
   })
+  // Ref estable para el callback de sonido (evita re-crear el canal realtime)
+  const playNotificationSoundRef = useRef(null)
   
   // ========== LÍMITES DE PEDIDOS ==========
   const [orderLimitsStatus, setOrderLimitsStatus] = useState({
@@ -246,6 +249,37 @@ export default function UserDashboardPage() {
   })
   const [showOrderLimitModal, setShowOrderLimitModal] = useState(false)
   const prevOrdersRemainingRef = useRef(null) // Para detectar cuando llega a 0
+
+  // Detectar interacción del usuario para permitir autoplay de audio
+  useEffect(() => {
+    const handleInteraction = () => {
+      setUserHasInteracted(true)
+      // Pre-cargar el audio con volumen 0 para "desbloquear" autoplay
+      if (audioRef.current) {
+        audioRef.current.volume = 0
+        audioRef.current.play().then(() => {
+          audioRef.current.pause()
+          audioRef.current.currentTime = 0
+          audioRef.current.volume = 1
+          console.log('🔊 Audio desbloqueado por interacción del usuario')
+        }).catch(() => {})
+      }
+      // Remover listeners después de la primera interacción
+      document.removeEventListener('click', handleInteraction)
+      document.removeEventListener('touchstart', handleInteraction)
+      document.removeEventListener('keydown', handleInteraction)
+    }
+    
+    document.addEventListener('click', handleInteraction)
+    document.addEventListener('touchstart', handleInteraction)
+    document.addEventListener('keydown', handleInteraction)
+    
+    return () => {
+      document.removeEventListener('click', handleInteraction)
+      document.removeEventListener('touchstart', handleInteraction)
+      document.removeEventListener('keydown', handleInteraction)
+    }
+  }, [])
 
   // Cargar configuración de sonido
   useEffect(() => {
@@ -276,24 +310,85 @@ export default function UserDashboardPage() {
     loadSoundConfig()
   }, [user?.tenantId])
 
+  // Generar sonido con Web Audio API (fallback confiable)
+  const playBeepSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return false
+      
+      const ctx = new AudioContext()
+      const oscillator = ctx.createOscillator()
+      const gainNode = ctx.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(ctx.destination)
+      
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime) // La5 - tono agudo de alerta
+      oscillator.type = 'sine'
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+      
+      oscillator.start(ctx.currentTime)
+      oscillator.stop(ctx.currentTime + 0.5)
+      
+      // Segundo tono más alto para que suene como notificación
+      const osc2 = ctx.createOscillator()
+      const gain2 = ctx.createGain()
+      osc2.connect(gain2)
+      gain2.connect(ctx.destination)
+      osc2.frequency.setValueAtTime(1100, ctx.currentTime + 0.15)
+      osc2.type = 'sine'
+      gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15)
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.65)
+      osc2.start(ctx.currentTime + 0.15)
+      osc2.stop(ctx.currentTime + 0.65)
+      
+      // Limpiar contexto después
+      setTimeout(() => ctx.close().catch(() => {}), 1000)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
   // Función para reproducir sonido
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) {
-      return
-    }
-    if (!audioRef.current) {
+      console.log('🔇 Sonido desactivado por el usuario')
       return
     }
     
+    console.log('🔔 Reproduciendo sonido de notificación...')
     let played = 0
     const playOnce = () => {
       if (played >= soundConfig.repeatCount) return
       
-      audioRef.current.currentTime = 0
-      audioRef.current.play()
-        .catch((err) => {
-          // Silently handle autoplay restrictions
-        })
+      // Intentar con el elemento <audio> primero
+      const audioEl = audioRef.current
+      let audioPlayed = false
+      
+      if (audioEl && audioEl.readyState >= 2) { // HAVE_CURRENT_DATA
+        audioEl.currentTime = 0
+        audioEl.play()
+          .then(() => {
+            console.log('🔊 Sonido MP3 reproducido correctamente')
+          })
+          .catch((err) => {
+            console.warn('⚠️ MP3 falló, usando Web Audio API:', err.message)
+            playBeepSound()
+          })
+        audioPlayed = true
+      }
+      
+      // Si el audio no está listo, usar Web Audio API directamente
+      if (!audioPlayed) {
+        console.log('🔊 Usando Web Audio API (audio MP3 no disponible)')
+        const beeped = playBeepSound()
+        if (!beeped && navigator.vibrate) {
+          navigator.vibrate([200, 100, 200])
+        }
+      }
+      
       played++
       
       if (played < soundConfig.repeatCount) {
@@ -302,7 +397,12 @@ export default function UserDashboardPage() {
     }
     
     playOnce()
-  }, [soundEnabled, soundConfig.repeatCount, soundConfig.delayMs])
+  }, [soundEnabled, soundConfig.repeatCount, soundConfig.delayMs, playBeepSound])
+  
+  // Mantener ref sincronizada para evitar re-crear canales realtime
+  useEffect(() => {
+    playNotificationSoundRef.current = playNotificationSound
+  }, [playNotificationSound])
 
   // Función para reproducir sonido de alerta (límite de pedidos)
   const playAlertSound = useCallback(() => {
@@ -404,6 +504,8 @@ export default function UserDashboardPage() {
   useEffect(() => {
     if (!user?.tenantId || !isSupabaseConfigured) return
     
+    console.log('📡 Iniciando suscripción realtime para tenant:', user.tenantId)
+    
     const channel = supabase
       .channel(`global-orders-${user.tenantId}`)
       .on(
@@ -415,6 +517,7 @@ export default function UserDashboardPage() {
           filter: `tenant_id=eq.${user.tenantId}`,
         },
         (payload) => {
+          console.log('📥 Realtime INSERT recibido:', payload.new?.id, payload.new?.payment_method, payload.new?.is_paid)
           // NO reproducir sonido ni notificar si es pago con MercadoPago pendiente
           // El sonido se reproducirá cuando se actualice a is_paid=true
           const newOrder = payload.new
@@ -422,12 +525,13 @@ export default function UserDashboardPage() {
           
           if (isMPPendingPayment) {
             console.log('🔇 Orden MP pendiente de pago, sin notificación')
-            return // No hacer nada, esperar el UPDATE cuando pague
+            dispatch(fetchOrdersForTenant(user.tenantId))
+            return // No hacer sonido, esperar el UPDATE cuando pague
           }
           
           dispatch(fetchOrdersForTenant(user.tenantId))
           setGlobalNewOrdersCount((prev) => prev + 1)
-          playNotificationSound()
+          playNotificationSoundRef.current?.()
         }
       )
       .on(
@@ -439,17 +543,31 @@ export default function UserDashboardPage() {
           filter: `tenant_id=eq.${user.tenantId}`,
         },
         (payload) => {
-          // Si es una orden MP que acaba de ser pagada, notificar
+          console.log('📝 Realtime UPDATE recibido:', payload.new?.id, 'is_paid:', payload.new?.is_paid, 'old is_paid:', payload.old?.is_paid)
           const updatedOrder = payload.new
-          const oldOrder = payload.old
+          const oldOrder = payload.old || {}
           
-          // Si cambió de is_paid=false a is_paid=true, es un pago completado
-          if (updatedOrder?.payment_method === 'mercadopago' && 
-              updatedOrder?.is_paid === true && 
-              oldOrder?.is_paid === false) {
-            console.log('💰 ¡Pago MP completado! Notificando...')
+          // Detectar pago MP completado:
+          // 1) Si payload.old tiene datos (REPLICA IDENTITY FULL): comparar is_paid
+          // 2) Si payload.old está vacío (sin REPLICA IDENTITY): verificar si is_paid=true y payment_method=mercadopago
+          const hasOldData = Object.keys(oldOrder).length > 0
+          const isMPPaymentCompleted = updatedOrder?.payment_method === 'mercadopago' && updatedOrder?.is_paid === true
+          
+          if (isMPPaymentCompleted) {
+            // Con REPLICA IDENTITY FULL: verificamos que cambió
+            // Sin REPLICA IDENTITY: notificamos siempre que is_paid=true (puede haber duplicado pero es mejor que perder la notificación)
+            if (!hasOldData || oldOrder.is_paid === false) {
+              console.log('💰 ¡Pago MP completado! Notificando...')
+              setGlobalNewOrdersCount((prev) => prev + 1)
+              playNotificationSoundRef.current?.()
+            }
+          }
+          
+          // También notificar si el status cambió a 'confirmed' (orden confirmada por webhook)
+          if (updatedOrder?.status === 'confirmed' && (!hasOldData || oldOrder.status !== 'confirmed')) {
+            console.log('✅ Orden confirmada! Notificando...')
             setGlobalNewOrdersCount((prev) => prev + 1)
-            playNotificationSound()
+            playNotificationSoundRef.current?.()
           }
           
           dispatch(fetchOrdersForTenant(user.tenantId))
@@ -464,15 +582,26 @@ export default function UserDashboardPage() {
           filter: `tenant_id=eq.${user.tenantId}`,
         },
         () => {
+          console.log('🗑️ Realtime DELETE recibido')
           dispatch(fetchOrdersForTenant(user.tenantId))
         }
       )
-      .subscribe()
+      .subscribe((status, err) => {
+        console.log('📡 Estado del canal realtime:', status)
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscripción realtime ACTIVA para órdenes')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en canal realtime:', err)
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⏰ Timeout en suscripción realtime, reintentando...')
+        }
+      })
 
     return () => {
+      console.log('🔌 Desconectando canal realtime')
       supabase.removeChannel(channel)
     }
-  }, [user?.tenantId, dispatch, playNotificationSound])
+  }, [user?.tenantId, dispatch])  // NO incluir playNotificationSound - usar ref
 
   // Limpiar contador de nuevos pedidos
   const clearGlobalNotifications = useCallback(() => {
@@ -637,9 +766,21 @@ export default function UserDashboardPage() {
   return (
     <div className={`dash dash--withSidebar ${sidebarCollapsed ? 'dash--sidebarCollapsed' : ''}`}>
       {/* Audio global para notificaciones de pedidos */}
-      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
+      <audio 
+        ref={audioRef} 
+        src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
+        preload="auto" 
+        crossOrigin="anonymous"
+        onError={() => console.warn('⚠️ No se pudo cargar el audio MP3 (se usará Web Audio API)')}
+      />
       {/* Audio de alerta para límite de pedidos agotado */}
-      <audio ref={alertAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3" preload="auto" />
+      <audio 
+        ref={alertAudioRef} 
+        src="https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3" 
+        preload="auto" 
+        crossOrigin="anonymous"
+        onError={() => console.warn('⚠️ No se pudo cargar el audio de alerta')}
+      />
       
       {/* Indicador global de notificaciones - fijo en pantalla */}
       <div 

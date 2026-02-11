@@ -1,0 +1,6 @@
+-- PARTE 2c: REPLICA IDENTITY para el resto de tablas
+ALTER TABLE public.product_categories REPLICA IDENTITY FULL;
+ALTER TABLE public.tenants REPLICA IDENTITY FULL;
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+ALTER TABLE public.extra_groups REPLICA IDENTITY FULL;
+ALTER TABLE public.extras REPLICA IDENTITY FULL;

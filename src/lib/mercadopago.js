@@ -124,7 +124,12 @@ export const createSubscriptionPreference = async ({
 
   // notification_url solo funciona con URLs públicas (no localhost)
   if (!isLocalhost) {
-    preference.notification_url = `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    if (supabaseUrl) {
+      preference.notification_url = `${supabaseUrl}/functions/v1/mercadopago-webhook`
+    } else {
+      preference.notification_url = `${MP_CONFIG.appUrl}/api/webhooks/mercadopago`
+    }
   }
 
   const apiUrl = 'https://api.mercadopago.com/checkout/preferences'

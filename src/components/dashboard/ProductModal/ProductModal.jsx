@@ -308,7 +308,11 @@ export default function ProductModal({
       if (imageFile && isSupabaseConfigured) {
         setUploading(true)
         try {
-          finalImageUrl = await uploadProductImage(imageFile, tenantId)
+          finalImageUrl = await uploadProductImage({ 
+            tenantId, 
+            productId: product?.id || `new_${Date.now()}`, 
+            file: imageFile 
+          })
         } catch (uploadError) {
           console.error('Error uploading image:', uploadError)
           setError('Error al subir la imagen. El producto se guardará sin imagen.')

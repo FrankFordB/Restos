@@ -19,7 +19,7 @@ import {
   selectCategoriesForTenant,
 } from '../../../features/categories/categoriesSlice'
 import { selectProductsForTenant } from '../../../features/products/productsSlice'
-import { uploadProductImage } from '../../../lib/supabaseStorage'
+import { uploadCategoryImage } from '../../../lib/supabaseStorage'
 import { isSupabaseConfigured } from '../../../lib/supabaseClient'
 import Button from '../../ui/Button/Button'
 import Input from '../../ui/Input/Input'
@@ -210,7 +210,11 @@ export default function CategoryModal({
       if (imageFile && isSupabaseConfigured) {
         setUploading(true)
         try {
-          finalImageUrl = await uploadProductImage(imageFile, tenantId)
+          finalImageUrl = await uploadCategoryImage({ 
+            tenantId, 
+            categoryId: category?.id || null, 
+            file: imageFile 
+          })
         } catch (uploadError) {
           console.error('Error uploading image:', uploadError)
           setError('Error al subir la imagen. La categoría se guardará sin imagen.')
