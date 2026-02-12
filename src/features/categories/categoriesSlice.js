@@ -160,6 +160,7 @@ export const createCategory = createAsyncThunk(
         level: category.parentId ? (parentCategory?.level ?? 0) + 1 : 0,
         path: null,
         image_url: category.imageUrl || null,
+        focal_point: category.focalPoint || null,
         icon: category.icon || null,
         has_products: false,
         has_children: false,
@@ -190,6 +191,10 @@ export const patchCategory = createAsyncThunk(
       if ('maxStock' in patch) localPatch.maxStock = patch.maxStock
       if ('current_stock' in patch) localPatch.currentStock = patch.current_stock
       if ('currentStock' in patch) localPatch.currentStock = patch.currentStock
+      if ('imageUrl' in patch) localPatch.imageUrl = patch.imageUrl
+      if ('focalPoint' in patch) localPatch.focalPoint = patch.focalPoint
+      if ('icon' in patch) localPatch.icon = patch.icon
+      if ('shortDescription' in patch) localPatch.shortDescription = patch.shortDescription
       return { tenantId, categoryId, row: null, patch: localPatch }
     }
     const row = await updateCategoryRow({ tenantId, categoryId, patch })
@@ -245,6 +250,7 @@ function mapCategoryRow(r) {
     level: r.level ?? 0,
     path: r.path ?? r.id,
     imageUrl: r.image_url ?? null,
+    focalPoint: r.focal_point ?? null,
     icon: r.icon ?? null,
     // Reglas tipo carpetas
     hasProducts: r.has_products ?? false,

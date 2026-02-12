@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './WelcomeModalEditor.css'
 import Button from '../../ui/Button/Button'
 import Input from '../../ui/Input/Input'
-import ImageCropperModal from '../../ui/ImageCropperModal/ImageCropperModal'
+import ImageUploaderWithEditor from '../../ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
 import { 
   Eye, EyeOff, Upload, X, Image, Clock, Star, MapPin, 
   Sparkles, Zap, Heart, Coffee, Truck, Shield, Award, Gift,
@@ -112,13 +112,7 @@ export default function WelcomeModalEditor({
   const [features, setFeatures] = useState(welcomeModalFeatures || DEFAULT_FEATURES)
   const [selectedDesign, setSelectedDesign] = useState(welcomeModalFeaturesDesign || 'pills')
   const [editingFeature, setEditingFeature] = useState(null)
-  const imageInputRef = useRef(null)
-  
-  // Image cropper state
-  const [showImageCropper, setShowImageCropper] = useState(false)
-  const [cropperImage, setCropperImage] = useState(null)
-  const [showUrlInput, setShowUrlInput] = useState(false)
-  const [imageUrlInput, setImageUrlInput] = useState('')
+  const welcomeUploaderRef = useRef(null)
 
   // Sincronizar features cuando cambian externamente
   useEffect(() => {
@@ -165,33 +159,14 @@ export default function WelcomeModalEditor({
     onFeaturesDesignChange?.(designId)
   }
 
-  // Image handlers con cropper
-  const handleImageFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
+  // Image handler – convierte el File a data URL para mantener el flujo existente
+  const handleImageReady = (file, focalPoint) => {
+    if (!file) return // Solo ajuste de encuadre, sin archivo nuevo
     const reader = new FileReader()
     reader.onload = () => {
-      setCropperImage(reader.result)
-      setShowImageCropper(true)
+      onImageChange?.(reader.result)
     }
     reader.readAsDataURL(file)
-    e.target.value = ''
-  }
-
-  const handleImageUrlSubmit = () => {
-    if (imageUrlInput.trim()) {
-      setCropperImage(imageUrlInput.trim())
-      setShowImageCropper(true)
-      setShowUrlInput(false)
-      setImageUrlInput('')
-    }
-  }
-
-  const handleImageCropComplete = (croppedImage) => {
-    setShowImageCropper(false)
-    setCropperImage(null)
-    onImageChange?.(croppedImage)
   }
 
   // Verificar si un diseño está disponible
@@ -256,7 +231,7 @@ export default function WelcomeModalEditor({
               <label className="welcomeEditor__label">Mensaje</label>
               <textarea
                 className="welcomeEditor__textarea"
-                value={welcomeModalMessage}
+                value={welcomeModalMessage ?? ''}
                 onChange={(e) => onMessageChange?.(e.target.value)}
                 placeholder="Explora nuestro menú y realiza tu pedido."
                 rows={3}
@@ -285,62 +260,35 @@ export default function WelcomeModalEditor({
                     <Image size={24} />
                   </div>
                 )}
-                <input
-                  type="file"
-                  ref={imageInputRef}
-                  accept="image/*"
-                  onChange={handleImageFileSelect}
-                  style={{ display: 'none' }}
-                />
                 <div className="welcomeEditor__imageActions">
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={uploadingImage}
-                  >
-                    <Upload size={14} />
-                    {uploadingImage ? 'Subiendo...' : 'Subir'}
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={() => setShowUrlInput(!showUrlInput)}
-                    disabled={uploadingImage}
-                  >
-                    <Link2 size={14} />
-                    URL
-                  </Button>
                   {welcomeModalImage && (
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       size="sm"
-                      onClick={() => {
-                        setCropperImage(welcomeModalImage)
-                        setShowImageCropper(true)
-                      }}
+                      onClick={() => welcomeUploaderRef.current?.openEditor(welcomeModalImage)}
                       disabled={uploadingImage}
                     >
                       <Crop size={14} />
-                      Recortar
+                      Editar
                     </Button>
                   )}
-                </div>
-                
-                {showUrlInput && (
-                  <div className="welcomeEditor__urlInput">
-                    <input
-                      type="url"
-                      value={imageUrlInput}
-                      onChange={(e) => setImageUrlInput(e.target.value)}
-                      placeholder="https://ejemplo.com/imagen.jpg"
-                      onKeyDown={(e) => e.key === 'Enter' && handleImageUrlSubmit()}
-                    />
-                    <Button size="sm" onClick={handleImageUrlSubmit}>
-                      Cargar
+                  <ImageUploaderWithEditor
+                    ref={welcomeUploaderRef}
+                    aspect={16 / 9}
+                    modalTitle="Ajustar imagen de fondo"
+                    disabled={uploadingImage}
+                    onImageReady={(file, focalPoint) => handleImageReady(file, focalPoint)}
+                  >
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      disabled={uploadingImage}
+                    >
+                      <Upload size={14} />
+                      {uploadingImage ? 'Subiendo...' : 'Subir'}
                     </Button>
-                  </div>
-                )}
+                  </ImageUploaderWithEditor>
+                </div>
               </div>
             </div>
 
@@ -395,7 +343,7 @@ export default function WelcomeModalEditor({
                         <input
                           type="text"
                           className="welcomeEditor__featureText"
-                          value={feature.text}
+                          value={feature.text ?? ''}
                           onChange={(e) => handleUpdateFeature(feature.id, { text: e.target.value })}
                           placeholder="Texto del beneficio"
                         />
@@ -504,21 +452,6 @@ export default function WelcomeModalEditor({
           )}
         </div>
       </div>
-
-      {/* Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={showImageCropper}
-        onClose={() => {
-          setShowImageCropper(false)
-          setCropperImage(null)
-        }}
-        onCropComplete={handleImageCropComplete}
-        initialImage={cropperImage}
-        aspectRatio={16/9}
-        title="Ajustar imagen de fondo"
-        allowUrl={false}
-        allowUpload={false}
-      />
     </div>
   )
 }

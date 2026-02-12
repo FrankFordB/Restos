@@ -1,0 +1,209 @@
+.paymentMethodsConfig {
+  margin-top: 1.5rem;
+}
+
+.paymentMethodsConfig__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.paymentMethodsConfig__header {
+  margin-bottom: 1.25rem;
+}
+
+.paymentMethodsConfig__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+}
+
+.paymentMethodsConfig__subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.paymentMethodsConfig__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.paymentMethodsConfig__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.paymentMethodsConfig__item--enabled {
+  border-color: #d1fae5;
+  background: #f0fdf4;
+}
+
+.paymentMethodsConfig__item--mpDisabled {
+  opacity: 0.6;
+}
+
+.paymentMethodsConfig__itemIcon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.04);
+  border-radius: 10px;
+  transition: color 0.2s;
+}
+
+.paymentMethodsConfig__item--enabled .paymentMethodsConfig__itemIcon {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.paymentMethodsConfig__itemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.paymentMethodsConfig__itemLabel {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.paymentMethodsConfig__itemDesc {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.paymentMethodsConfig__mpWarning {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #f59e0b;
+  margin-top: 4px;
+}
+
+.paymentMethodsConfig__toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #d1d5db;
+  transition: color 0.2s;
+  padding: 4px;
+}
+
+.paymentMethodsConfig__toggle--on {
+  color: #10b981;
+}
+
+.paymentMethodsConfig__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.paymentMethodsConfig__actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.paymentMethodsConfig__saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.paymentMethodsConfig__saveBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.paymentMethodsConfig__saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.paymentMethodsConfig__toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  z-index: 9999;
+  animation: pmcToastIn 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.paymentMethodsConfig__toast--success {
+  background: #10b981;
+  color: white;
+}
+
+.paymentMethodsConfig__toast--error {
+  background: #ef4444;
+  color: white;
+}
+
+@keyframes pmcToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .paymentMethodsConfig__item {
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .paymentMethodsConfig__itemIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .paymentMethodsConfig__toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    justify-content: center;
+  }
+}

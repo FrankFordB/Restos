@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import ImageUploaderWithEditor from '../../ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
 import { 
   X, 
   Upload, 
@@ -19,6 +20,7 @@ import {
   GripVertical,
   ChevronDown,
   Sparkles,
+  Crop,
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { 
@@ -61,7 +63,7 @@ export default function ProductModal({
   const allCategories = useAppSelector(selectCategoriesForTenant(tenantId))
   const leafCategories = useAppSelector(selectLeafCategories(tenantId))
   
-  const fileInputRef = useRef(null)
+  const uploaderRef = useRef(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -84,6 +86,7 @@ export default function ProductModal({
   const [imageMode, setImageMode] = useState('upload') // 'upload' | 'url'
   const [imagePreview, setImagePreview] = useState(null)
   const [imageFile, setImageFile] = useState(null)
+  const [imageFocalPoint, setImageFocalPoint] = useState(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
@@ -157,6 +160,7 @@ export default function ProductModal({
         sizes: product.sizes || [],
       })
       setImagePreview(product.imageUrl || null)
+      setImageFocalPoint(product.focalPoint || null)
     } else {
       // Modo creación
       let categoryName = defaultCategoryName || ''
@@ -186,6 +190,10 @@ export default function ProductModal({
     }
 
     setImageFile(null)
+    // Solo resetear focalPoint en modo creación (en edición ya se asignó arriba)
+    if (!product) {
+      setImageFocalPoint(null)
+    }
     setError(null)
   }, [isOpen, product, defaultCategoryId, defaultCategoryName, preselectedCategory])
 
@@ -229,30 +237,16 @@ export default function ProductModal({
     }
   }
 
-  // Manejar selección de archivo
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validar tipo
-    if (!file.type.startsWith('image/')) {
-      setError('Solo se permiten archivos de imagen')
-      return
+  // Manejar imagen editada desde ImageUploaderWithEditor
+  const handleImageReady = (file, focalPoint) => {
+    if (file) {
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
     }
-
-    // Validar tamaño (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La imagen no puede superar 5MB')
-      return
+    if (focalPoint) {
+      setImageFocalPoint(focalPoint)
     }
-
-    setImageFile(file)
     setError(null)
-
-    // Preview
-    const reader = new FileReader()
-    reader.onload = (e) => setImagePreview(e.target?.result)
-    reader.readAsDataURL(file)
   }
 
   // Manejar cambio de URL de imagen
@@ -331,6 +325,7 @@ export default function ProductModal({
         costPrice: formData.costPrice ? parseFloat(formData.costPrice) : null,
         stock: formData.unlimitedStock ? null : parseInt(formData.stock),
         imageUrl: finalImageUrl || null,
+        focalPoint: imageFocalPoint || null,
         active: true,
         discount: formData.discount ? parseFloat(formData.discount) : null,
         hasSizes: formData.hasSizes || false,
@@ -764,39 +759,66 @@ export default function ProductModal({
 
             {imageMode === 'upload' ? (
               <div className="productModal__uploadArea">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  style={{ display: 'none' }}
-                />
-                
                 {imagePreview ? (
                   <div className="productModal__imagePreview">
-                    <img src={imagePreview} alt="Preview" />
-                    <button 
-                      className="productModal__removeImage"
-                      onClick={() => {
-                        setImagePreview(null)
-                        setImageFile(null)
-                        handleChange('imageUrl', '')
-                      }}
-                      type="button"
-                    >
-                      <X size={16} />
-                    </button>
+                    <img src={imagePreview} alt="Preview"
+                      style={imageFocalPoint ? { objectFit: 'cover', objectPosition: `${imageFocalPoint.x}% ${imageFocalPoint.y}%` } : undefined}
+                    />
+                    <div className="productModal__imageActions">
+                      <button
+                        className="productModal__changeImage"
+                        type="button"
+                        title="Re-editar encuadre"
+                        onClick={() => uploaderRef.current?.openEditor(imagePreview)}
+                      >
+                        <Crop size={14} />
+                        Editar
+                      </button>
+                      <ImageUploaderWithEditor
+                        ref={uploaderRef}
+                        aspect={1}
+                        modalTitle="Editar imagen del producto"
+                        onImageReady={handleImageReady}
+                      >
+                        <button
+                          className="productModal__changeImage"
+                          type="button"
+                          title="Subir nueva imagen"
+                        >
+                          <Upload size={14} />
+                          Cambiar
+                        </button>
+                      </ImageUploaderWithEditor>
+                      <button 
+                        className="productModal__removeImage"
+                        onClick={() => {
+                          setImagePreview(null)
+                          setImageFile(null)
+                          handleChange('imageUrl', '')
+                        }}
+                        type="button"
+                        title="Eliminar imagen"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button 
-                    className="productModal__uploadButton"
-                    onClick={() => fileInputRef.current?.click()}
-                    type="button"
+                  <ImageUploaderWithEditor
+                    ref={uploaderRef}
+                    aspect={1}
+                    modalTitle="Editar imagen del producto"
+                    onImageReady={handleImageReady}
                   >
-                    <Upload size={24} />
-                    <span>Click para subir imagen</span>
-                    <span className="productModal__uploadHint">PNG, JPG hasta 5MB</span>
-                  </button>
+                    <button 
+                      className="productModal__uploadButton"
+                      type="button"
+                    >
+                      <Upload size={24} />
+                      <span>Click para subir imagen</span>
+                      <span className="productModal__uploadHint">PNG, JPG hasta 5MB</span>
+                    </button>
+                  </ImageUploaderWithEditor>
                 )}
               </div>
             ) : (
@@ -808,7 +830,16 @@ export default function ProductModal({
                 />
                 {imagePreview && formData.imageUrl && (
                   <div className="productModal__urlPreview">
-                    <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)} />
+                    <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)}
+                      style={imageFocalPoint ? { objectFit: 'cover', objectPosition: `${imageFocalPoint.x}% ${imageFocalPoint.y}%` } : undefined}
+                    />
+                    <button
+                      type="button"
+                      className="productModal__changeImage"
+                      onClick={() => uploaderRef.current?.openEditor(formData.imageUrl)}
+                    >
+                      <Crop size={14} /> Ajustar encuadre
+                    </button>
                   </div>
                 )}
               </div>

@@ -1328,6 +1328,108 @@
   margin: 0;
 }
 
+/* Delivery Pricing Section */
+.deliveryConfig__pricingSection {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.deliveryConfig__pricingTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.deliveryConfig__pricingOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.deliveryConfig__pricingOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 200ms ease;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.deliveryConfig__pricingOption:hover {
+  border-color: var(--border-hover);
+}
+
+.deliveryConfig__pricingOption--selected {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb, 59, 130, 246), 0.05);
+}
+
+.deliveryConfig__pricingOption input[type="radio"] {
+  accent-color: var(--primary);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.deliveryConfig__pricingOptionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deliveryConfig__pricingOptionInfo strong {
+  font-size: 0.95rem;
+}
+
+.deliveryConfig__pricingOptionInfo span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.deliveryConfig__pricingInput {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.deliveryConfig__pricingInput label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.deliveryConfig__input {
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg);
+  transition: border-color 200ms ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.deliveryConfig__input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.deliveryConfig__inputHint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Estilos para configuración de stock global */
 .stockConfig__list {
   display: grid;

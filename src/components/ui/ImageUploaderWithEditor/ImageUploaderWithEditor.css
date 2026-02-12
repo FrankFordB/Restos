@@ -1,0 +1,94 @@
+.imageUploader__wrapper {
+  display: inline-flex;
+  position: relative;
+  cursor: pointer;
+}
+
+.imageUploader__wrapper:focus-visible {
+  outline: 2px solid var(--accent, #6c5ce7);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* Input oculto dentro del wrapper */
+.imageUploader__hiddenInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Evitar que los children capturen clicks */
+.imageUploader__wrapper > *:not(.imageUploader__hiddenInput) {
+  pointer-events: none;
+}
+
+.imageUploader__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent, #6c5ce7);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.imageUploader__trigger:hover {
+  filter: brightness(1.12);
+}
+
+.imageUploader__trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Loading state */
+.imageUploader__wrapper--loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.imageUploader__loadingOverlay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.imageUploader__spinner {
+  animation: imageUploader__spin 0.8s linear infinite;
+}
+
+@keyframes imageUploader__spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Error message */
+.imageUploader__error {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 12px;
+  line-height: 1.4;
+  animation: imageUploader__errorIn 0.2s ease-out;
+}
+
+@keyframes imageUploader__errorIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

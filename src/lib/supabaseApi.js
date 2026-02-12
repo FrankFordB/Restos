@@ -1359,7 +1359,7 @@ export async function fetchThemeByTenantId(tenantId) {
   ensureSupabase()
   const { data, error } = await supabase
     .from('tenant_themes')
-    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
+    .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, category_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -1369,34 +1369,43 @@ export async function fetchThemeByTenantId(tenantId) {
 
 export async function upsertTheme({ tenantId, theme }) {
   ensureSupabase()
+  // Build the upsert payload, only including fields that are explicitly set
+  // to avoid overwriting existing values with null/undefined
+  const fieldMap = {
+    primary_color: theme.primary,
+    accent_color: theme.accent,
+    background_color: theme.background,
+    text_color: theme.text,
+    radius: theme.radius,
+    font_family: theme.fontFamily,
+    card_style: theme.cardStyle,
+    button_style: theme.buttonStyle,
+    layout_style: theme.layoutStyle,
+    product_card_layout: theme.productCardLayout,
+    category_card_layout: theme.categoryCardLayout,
+    card_bg: theme.cardBg,
+    card_text: theme.cardText,
+    card_desc: theme.cardDesc,
+    card_price: theme.cardPrice,
+    card_button: theme.cardButton,
+    hero_style: theme.heroStyle,
+    hero_slides: theme.heroSlides,
+    hero_title_position: theme.heroTitlePosition,
+    hero_overlay_opacity: theme.heroOverlayOpacity,
+    hero_show_title: theme.heroShowTitle,
+    hero_show_subtitle: theme.heroShowSubtitle,
+    hero_carousel_button_style: theme.heroCarouselButtonStyle,
+  }
+  // Filter out undefined values so they don't overwrite existing DB data
+  const payload = { tenant_id: tenantId }
+  for (const [key, value] of Object.entries(fieldMap)) {
+    if (value !== undefined) {
+      payload[key] = value
+    }
+  }
   const { data, error } = await supabase
     .from('tenant_themes')
-    .upsert({
-      tenant_id: tenantId,
-      primary_color: theme.primary,
-      accent_color: theme.accent,
-      background_color: theme.background,
-      text_color: theme.text,
-      radius: theme.radius,
-      font_family: theme.fontFamily,
-      card_style: theme.cardStyle,
-      button_style: theme.buttonStyle,
-      layout_style: theme.layoutStyle,
-      product_card_layout: theme.productCardLayout,
-      category_card_layout: theme.categoryCardLayout,
-      card_bg: theme.cardBg,
-      card_text: theme.cardText,
-      card_desc: theme.cardDesc,
-      card_price: theme.cardPrice,
-      card_button: theme.cardButton,
-      hero_style: theme.heroStyle,
-      hero_slides: theme.heroSlides,
-      hero_title_position: theme.heroTitlePosition,
-      hero_overlay_opacity: theme.heroOverlayOpacity,
-      hero_show_title: theme.heroShowTitle,
-      hero_show_subtitle: theme.heroShowSubtitle,
-      hero_carousel_button_style: theme.heroCarouselButtonStyle,
-    })
+    .upsert(payload, { onConflict: 'tenant_id' })
     .select('tenant_id, primary_color, accent_color, background_color, text_color, radius, font_family, card_style, button_style, layout_style, product_card_layout, category_card_layout, card_bg, card_text, card_desc, card_price, card_button, hero_style, hero_slides, hero_title_position, hero_overlay_opacity, hero_show_title, hero_show_subtitle, hero_show_cta, hero_carousel_button_style')
     .single()
 
@@ -1434,6 +1443,64 @@ export async function updateDeliveryConfig(tenantId, deliveryConfig) {
 }
 
 // -------------------------
+// Payment Methods Config
+// -------------------------
+
+export async function fetchPaymentMethodsConfig(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('payment_methods_config')
+    .eq('id', tenantId)
+    .single()
+
+  if (error) throw error
+  return data?.payment_methods_config || { efectivo: true, tarjeta: true, qr: true }
+}
+
+export async function updatePaymentMethodsConfig(tenantId, config) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .update({ payment_methods_config: config })
+    .eq('id', tenantId)
+    .select('payment_methods_config')
+    .single()
+
+  if (error) throw error
+  return data?.payment_methods_config
+}
+
+// -------------------------
+// Delivery Pricing Config
+// -------------------------
+
+export async function fetchDeliveryPricing(tenantId) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('delivery_pricing')
+    .eq('id', tenantId)
+    .single()
+
+  if (error) throw error
+  return data?.delivery_pricing || { type: 'free', fixedPrice: 0, freeThreshold: 0 }
+}
+
+export async function updateDeliveryPricing(tenantId, pricing) {
+  ensureSupabase()
+  const { data, error } = await supabase
+    .from('tenants')
+    .update({ delivery_pricing: pricing })
+    .eq('id', tenantId)
+    .select('delivery_pricing')
+    .single()
+
+  if (error) throw error
+  return data?.delivery_pricing
+}
+
+// -------------------------
 // Categories (with subcategories support)
 // -------------------------
 
@@ -1443,7 +1510,7 @@ export async function fetchCategoriesByTenantId(tenantId) {
   // Intentar con campos de subcategorías y reglas de carpetas
   let { data, error } = await supabase
     .from('product_categories')
-    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, focal_point, has_products, has_children')
     .eq('tenant_id', tenantId)
     .order('level', { ascending: true })
     .order('sort_order', { ascending: true })
@@ -1503,12 +1570,15 @@ export async function insertCategory({ tenantId, category }) {
   if ('shortDescription' in category) {
     insertData.short_description = category.shortDescription || null
   }
+  if ('focalPoint' in category) {
+    insertData.focal_point = category.focalPoint || null
+  }
   
   // Intentar con campos de subcategorías y reglas
   let { data, error } = await supabase
     .from('product_categories')
     .insert(insertData)
-    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, focal_point, has_products, has_children')
     .single()
 
   // Si falla por regla de carpetas (tiene productos y se intenta crear subcategoría)
@@ -1573,13 +1643,15 @@ export async function updateCategoryRow({ tenantId, categoryId, patch }) {
   if ('icon' in patch) updateData.icon = patch.icon
   if ('shortDescription' in patch) updateData.short_description = patch.shortDescription
   if ('short_description' in patch) updateData.short_description = patch.short_description
+  if ('focalPoint' in patch) updateData.focal_point = patch.focalPoint || null
+  if ('focal_point' in patch) updateData.focal_point = patch.focal_point || null
   
   let { data, error } = await supabase
     .from('product_categories')
     .update(updateData)
     .eq('tenant_id', tenantId)
     .eq('id', categoryId)
-    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, has_products, has_children')
+    .select('id, tenant_id, name, description, short_description, sort_order, active, max_stock, current_stock, parent_id, level, path, image_url, icon, focal_point, has_products, has_children')
     .single()
 
   // Si falla por columnas inexistentes, usar query sin subcategorías
@@ -2289,6 +2361,28 @@ export async function upsertStoreFooterSettings({ tenantId, settings }) {
     .single()
 
   if (error) throw error
+
+  // Sync location_lat, location_lng, address to tenants table so it's available everywhere
+  if (settings.location_lat != null || settings.location_lng != null || settings.location_address != null || settings.address != null) {
+    try {
+      const tenantUpdate = {}
+      if (settings.location_lat != null) tenantUpdate.location_lat = settings.location_lat
+      if (settings.location_lng != null) tenantUpdate.location_lng = settings.location_lng
+      // Sync address: use the map address or the manual address field
+      if (settings.location_address) tenantUpdate.address = settings.location_address
+      else if (settings.address) tenantUpdate.address = settings.address
+
+      if (Object.keys(tenantUpdate).length > 0) {
+        await supabase
+          .from('tenants')
+          .update(tenantUpdate)
+          .eq('id', tenantId)
+      }
+    } catch (syncErr) {
+      console.warn('Could not sync location to tenants table:', syncErr)
+    }
+  }
+
   return data
 }
 

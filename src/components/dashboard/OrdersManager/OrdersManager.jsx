@@ -15,7 +15,7 @@ import { fetchOrdersForTenant, selectOrdersForTenant, createPaidOrder, updateOrd
 import { fetchProductsForTenant, selectProductsForTenant } from '../../../features/products/productsSlice'
 import { fetchCategoriesForTenant, selectCategoriesForTenant, patchCategory } from '../../../features/categories/categoriesSlice'
 import { fetchExtrasForTenant, selectExtrasForTenant, fetchExtraGroupsForTenant, selectExtraGroupsForTenant } from '../../../features/extras/extrasSlice'
-import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus, fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseApi'
+import { fetchDeliveryConfig, updateDeliveryConfig, fetchTenantPauseStatus, updateTenantPauseStatus, fetchTutorialVideo, upsertTutorialVideo, fetchDeliveryPricing, updateDeliveryPricing } from '../../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient'
 import { loadJson, saveJson } from '../../../shared/storage'
 import ProductCard from '../../storefront/ProductCard/ProductCard'
@@ -175,6 +175,7 @@ export default function OrdersManager({ tenantId }) {
     mesa: true,
   })
   const [loadingConfig, setLoadingConfig] = useState(true)
+  const [deliveryPricing, setDeliveryPricing] = useState({ type: 'free', fixedPrice: 0, freeThreshold: 0 })
   
   // Estado de pausa de la tienda
   const [showPauseModal, setShowPauseModal] = useState(false)
@@ -201,6 +202,10 @@ export default function OrdersManager({ tenantId }) {
           setDeliveryConfig(config)
           // También guardamos en localStorage como cache
           saveJson(deliveryConfigKey, config)
+
+          // Cargar pricing de delivery
+          const pricing = await fetchDeliveryPricing(tenantId)
+          setDeliveryPricing(pricing)
           
           // Cargar estado de pausa
           const pauseStatus = await fetchTenantPauseStatus(tenantId)
@@ -570,11 +575,17 @@ export default function OrdersManager({ tenantId }) {
     return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   }, [orders, searchTerm, filterType, filterStatus, filterDelivery])
 
-  // Pedidos únicos para conteos
-  const uniqueOrders = useMemo(() => 
-    Array.from(new Map(orders.map(o => [o.id, o])).values()),
-    [orders]
-  )
+  // Pedidos únicos para conteos (filtrando MP pendientes de pago para evitar pedidos "invisibles")
+  const uniqueOrders = useMemo(() => {
+    const all = Array.from(new Map(orders.map(o => [o.id, o])).values())
+    // Aplicar el mismo filtro que filteredOrders: excluir MP/QR sin pagar
+    return all.filter(o => {
+      if ((o.payment_method === 'mercadopago' || o.payment_method === 'qr') && !o.is_paid) {
+        return false
+      }
+      return true
+    })
+  }, [orders])
 
   // Contar estados por tipo de envío
   const counts = useMemo(
@@ -684,6 +695,18 @@ export default function OrdersManager({ tenantId }) {
         // Si falla, revertir al estado anterior
         setDeliveryConfig(deliveryConfig)
         saveJson(deliveryConfigKey, deliveryConfig)
+      }
+    }
+  }
+
+  // Guardar pricing de delivery
+  const handleDeliveryPricingChange = async (newPricing) => {
+    setDeliveryPricing(newPricing)
+    if (isSupabaseConfigured) {
+      try {
+        await updateDeliveryPricing(tenantId, newPricing)
+      } catch (err) {
+        console.error('Error saving delivery pricing:', err)
       }
     }
   }
@@ -1528,6 +1551,8 @@ export default function OrdersManager({ tenantId }) {
           deliveryConfig={deliveryConfig}
           onToggle={handleToggleDeliveryType}
           onClose={() => setShowConfigModal(false)}
+          deliveryPricing={deliveryPricing}
+          onDeliveryPricingChange={handleDeliveryPricingChange}
         />
       )}
 
@@ -1710,9 +1735,22 @@ function OrderCard({ order, tenantId, tenant, onOpenDetail, isSelected = false, 
         markAsPaid()
       }
       await dispatch(updateOrder({ tenantId, orderId: order.id, newStatus: 'completed' }))
-      // Solo abrir WhatsApp si es delivery
-      if (order.delivery_type === 'domicilio' && order.customer_phone) {
-        sendWhatsAppMessage(order.customer_phone, 'Tu pedido lo tiene el delivery y será entregado a la brevedad')
+      // Enviar WhatsApp según tipo de entrega
+      if (order.customer_phone) {
+        if (order.delivery_type === 'domicilio') {
+          sendWhatsAppMessage(order.customer_phone, 'Tu pedido lo tiene el delivery y será entregado a la brevedad')
+        } else if (order.delivery_type === 'mostrador') {
+          // Para retiro en local, enviar ubicación del local
+          let pickupMsg = `¡Hola ${order.customer_name || ''}! Tu pedido #${order.id?.slice(0, 8).toUpperCase()} está listo para retirar.`
+          if (tenant?.address) {
+            pickupMsg += `\n\n📍 Dirección: ${tenant.address}`
+          }
+          if (tenant?.location_lat && tenant?.location_lng) {
+            pickupMsg += `\n\n🗺️ Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=${tenant.location_lat},${tenant.location_lng}`
+          }
+          pickupMsg += `\n\n¡Te esperamos!`
+          sendWhatsAppMessage(order.customer_phone, pickupMsg)
+        }
       }
     } finally {
       setIsUpdating(false)
@@ -2474,7 +2512,19 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
   const handleCompleteOrder = () => {
     handleStatusChange('completed')
     if (order.customer_phone) {
-      sendWhatsAppMessage(order.customer_phone, 'Tu pedido lo tiene el delivery y sera entregado a la brevedad')
+      if (order.delivery_type === 'domicilio') {
+        sendWhatsAppMessage(order.customer_phone, 'Tu pedido lo tiene el delivery y sera entregado a la brevedad')
+      } else if (order.delivery_type === 'mostrador') {
+        let pickupMsg = `¡Hola ${order.customer_name || ''}! Tu pedido #${order.id?.slice(0, 8).toUpperCase()} está listo para retirar.`
+        if (tenant?.address) {
+          pickupMsg += `\n\n📍 Dirección: ${tenant.address}`
+        }
+        if (tenant?.location_lat && tenant?.location_lng) {
+          pickupMsg += `\n\n🗺️ Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=${tenant.location_lat},${tenant.location_lng}`
+        }
+        pickupMsg += `\n\n¡Te esperamos!`
+        sendWhatsAppMessage(order.customer_phone, pickupMsg)
+      }
     }
   }
 
@@ -3192,8 +3242,9 @@ function OrderDetailModal({ order, tenantId, tenant, onClose, products = [], ext
   )
 }
 
-// Modal para configurar tipos de envío
-function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
+// Modal para configurar tipos de envío y precios de delivery
+function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose, deliveryPricing, onDeliveryPricingChange }) {
+  const [localPricing, setLocalPricing] = useState(deliveryPricing || { type: 'free', fixedPrice: 0, freeThreshold: 0 })
   const deliveryTypes = [
     {
       key: 'mostrador',
@@ -3263,6 +3314,94 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
             </div>
           )}
 
+          {/* Delivery Pricing Section */}
+          {deliveryConfig.domicilio && (
+            <div className="deliveryConfig__pricingSection">
+              <h4 className="deliveryConfig__pricingTitle">
+                <DollarSign size={18} /> Precio del Delivery
+              </h4>
+              <p className="muted" style={{ marginBottom: '12px', fontSize: '0.85rem' }}>
+                Configura cuánto cobra tu tienda por el envío a domicilio
+              </p>
+
+              <div className="deliveryConfig__pricingOptions">
+                <label className={`deliveryConfig__pricingOption ${localPricing.type === 'free' ? 'deliveryConfig__pricingOption--selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="deliveryPricingType"
+                    checked={localPricing.type === 'free'}
+                    onChange={() => setLocalPricing({ ...localPricing, type: 'free' })}
+                  />
+                  <div className="deliveryConfig__pricingOptionInfo">
+                    <strong>🆓 Envío Gratis</strong>
+                    <span>Sin costo adicional para el cliente</span>
+                  </div>
+                </label>
+
+                <label className={`deliveryConfig__pricingOption ${localPricing.type === 'fixed' ? 'deliveryConfig__pricingOption--selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="deliveryPricingType"
+                    checked={localPricing.type === 'fixed'}
+                    onChange={() => setLocalPricing({ ...localPricing, type: 'fixed' })}
+                  />
+                  <div className="deliveryConfig__pricingOptionInfo">
+                    <strong>💲 Precio Fijo</strong>
+                    <span>Un monto fijo por cada envío</span>
+                  </div>
+                </label>
+
+                <label className={`deliveryConfig__pricingOption ${localPricing.type === 'threshold' ? 'deliveryConfig__pricingOption--selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="deliveryPricingType"
+                    checked={localPricing.type === 'threshold'}
+                    onChange={() => setLocalPricing({ ...localPricing, type: 'threshold' })}
+                  />
+                  <div className="deliveryConfig__pricingOptionInfo">
+                    <strong>🎯 Gratis a partir de...</strong>
+                    <span>Envío gratis cuando el pedido supera un monto</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Input de precio fijo */}
+              {(localPricing.type === 'fixed' || localPricing.type === 'threshold') && (
+                <div className="deliveryConfig__pricingInput">
+                  <label>Precio del envío ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={localPricing.fixedPrice || ''}
+                    onChange={(e) => setLocalPricing({ ...localPricing, fixedPrice: Number(e.target.value) || 0 })}
+                    placeholder="Ej: 500"
+                    className="deliveryConfig__input"
+                  />
+                </div>
+              )}
+
+              {/* Input de umbral para envío gratis */}
+              {localPricing.type === 'threshold' && (
+                <div className="deliveryConfig__pricingInput">
+                  <label>Envío gratis a partir de ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={localPricing.freeThreshold || ''}
+                    onChange={(e) => setLocalPricing({ ...localPricing, freeThreshold: Number(e.target.value) || 0 })}
+                    placeholder="Ej: 5000"
+                    className="deliveryConfig__input"
+                  />
+                  <span className="deliveryConfig__inputHint">
+                    Pedidos mayores a ${localPricing.freeThreshold || 0} tendrán envío gratis
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="modal__actions">
             <Button variant="secondary" onClick={(e) => {
               e.preventDefault()
@@ -3274,6 +3413,9 @@ function ConfigDeliveryModal({ deliveryConfig, onToggle, onClose }) {
             <Button disabled={enabledCount === 0} onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
+              if (onDeliveryPricingChange) {
+                onDeliveryPricingChange(localPricing)
+              }
               onClose()
             }}>
               <Check size={16} /> Guardar Configuración

@@ -8,7 +8,7 @@ export default function Input({ label, value, onChange, type = 'text', placehold
         className="input__control"
         name={name}
         type={type}
-        value={value}
+        value={value ?? ''}
         placeholder={placeholder}
         onChange={(e) => onChange?.(e.target.value)}
         {...rest}

@@ -325,9 +325,15 @@
 .storeHeader__carouselDot {
   width: 10px;
   height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: rgba(255,255,255,0.4);
   border: none;
+  padding: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
   cursor: pointer;
   transition: all 200ms;
 }

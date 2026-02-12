@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import ImageUploaderWithEditor from '../../ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './ProductsManager.css'
 import Card from '../../ui/Card/Card'
 import Input from '../../ui/Input/Input'
@@ -29,7 +30,7 @@ import {
   selectCategoryTree,
   selectCategoryDescendants,
 } from '../../../features/categories/categoriesSlice'
-import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut, Plus, Link2, Upload, X, ChevronRight, ChevronDown, FolderOpen, Home, Edit2, Trash2, Save, FolderPlus, Settings, Image, Tag, Layers, LayoutGrid, FolderTree } from 'lucide-react'
+import { Package, AlertTriangle, List, Grid3X3, Move, ZoomIn, ZoomOut, Plus, Link2, Upload, X, ChevronRight, ChevronDown, FolderOpen, Home, Edit2, Trash2, Save, FolderPlus, Settings, Image, Tag, Layers, LayoutGrid, FolderTree, Crop } from 'lucide-react'
 
 // Constantes de zoom
 const ZOOM_MIN = 0.5
@@ -171,7 +172,7 @@ export default function ProductsManager({ tenantId }) {
   const categories = useAppSelector(selectCategoriesForTenant(tenantId))
   const categoryTree = useAppSelector(selectCategoryTree(tenantId))
 
-  const createFileInputRef = useRef(null)
+  // createFileInputRef eliminado — ImageUploaderWithEditor lo maneja
   
   // Tutorial video state
   const [tutorialVideo, setTutorialVideo] = useState({ url: '', type: 'youtube' })
@@ -238,6 +239,7 @@ export default function ProductsManager({ tenantId }) {
   const [stock, setStock] = useState('')
   const [stockUnlimited, setStockUnlimited] = useState(true)
   const [imageFile, setImageFile] = useState(null)
+  const [createFocalPoint, setCreateFocalPoint] = useState(null)
   const [photoStatus, setPhotoStatus] = useState(null)
   
   // Estados para crear nueva categoría
@@ -263,7 +265,7 @@ export default function ProductsManager({ tenantId }) {
   const [editIsActive, setEditIsActive] = useState(true)
   const [editImageFile, setEditImageFile] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
-  const editFileInputRef = useRef(null)
+  // editFileInputRef eliminado — ImageUploaderWithEditor lo maneja
 
   function parsePrice(raw) {
     const s = String(raw ?? '').trim()
@@ -307,6 +309,8 @@ export default function ProductsManager({ tenantId }) {
   
   const focalAreaRef = useRef(null)
   const isDraggingRef = useRef(false)
+  const createUploaderRef = useRef(null)
+  const editUploaderRef = useRef(null)
 
   function formatPhotoError(err) {
     const msg = err?.message ? String(err.message) : 'Error subiendo foto'
@@ -1007,6 +1011,7 @@ export default function ProductsManager({ tenantId }) {
                       costPrice: parsedCostPrice,
                       stock: stockUnlimited ? null : (stock.trim() ? parseInt(stock, 10) : null),
                       ...(finalImageUrl ? { imageUrl: finalImageUrl } : null),
+                      ...(createFocalPoint ? { focalPoint: createFocalPoint } : null),
                     },
                   }),
                 ).unwrap()
@@ -1048,6 +1053,7 @@ export default function ProductsManager({ tenantId }) {
               setStock('')
               setStockUnlimited(true)
               setImageFile(null)
+              setCreateFocalPoint(null)
               setImageUrl('')
               setImageMode('file')
               if (createFileInputRef.current) createFileInputRef.current.value = ''
@@ -1257,23 +1263,26 @@ export default function ProductsManager({ tenantId }) {
               </div>
               
               {imageMode === 'file' ? (
-                <label className="products__fileBtn">
-                  <Upload size={16} />
-                  <span>Elegir imagen</span>
-                  <input
-                    ref={createFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null
-                      if (!file) return
-                      setImageUrl('') // Limpiar URL si había
-                      setPhotoStatus('Hacé clic en la imagen para definir el punto focal.')
-                      openFocalPointEditor({ file, mode: 'create' })
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
+                <ImageUploaderWithEditor
+                  ref={createUploaderRef}
+                  aspect={1}
+                  modalTitle="Ajustar encuadre del producto"
+                  onImageReady={(file, focalPoint) => {
+                    if (file) {
+                      setImageUrl('')
+                      setImageFile(file)
+                    }
+                    if (focalPoint) {
+                      setCreateFocalPoint(focalPoint)
+                    }
+                    setPhotoStatus('Imagen lista')
+                  }}
+                >
+                  <label className="products__fileBtn">
+                    <Upload size={16} />
+                    <span>Elegir imagen</span>
+                  </label>
+                </ImageUploaderWithEditor>
               ) : (
                 <div className="products__urlInput">
                   <input
@@ -1302,8 +1311,19 @@ export default function ProductsManager({ tenantId }) {
 
           {(imageFile || imageUrl) && (
             <div className="products__imageRow">
-              <img className="products__thumb" src={imageUrl || previewUrl || ''} alt="" />
+              <img className="products__thumb" src={imageUrl || previewUrl || ''} alt=""
+                style={createFocalPoint ? { objectFit: 'cover', objectPosition: `${createFocalPoint.x}% ${createFocalPoint.y}%` } : undefined}
+              />
               <span className="products__hint">Vista previa</span>
+              {imageFile && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => createUploaderRef.current?.openEditor()}
+                >
+                  <Crop size={14} /> Ajustar encuadre
+                </Button>
+              )}
             </div>
           )}
 
@@ -1995,26 +2015,37 @@ export default function ProductsManager({ tenantId }) {
                   ) : (
                     <span className="products__noImage">Sin foto</span>
                   )}
-                  <label className="products__file">
-                    <span className="products__fileLabel">Cambiar foto</span>
-                    <input
-                      ref={editFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          openFocalPointEditor({
-                            file,
-                            mode: 'edit',
-                            productId: editingProduct.id,
-                            productName: editingProduct.name,
-                          })
-                        }
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
+                  <ImageUploaderWithEditor
+                    ref={editUploaderRef}
+                    aspect={1}
+                    modalTitle="Ajustar encuadre del producto"
+                    onImageReady={(file, focalPoint) => {
+                      if (file) {
+                        setEditImageFile(file)
+                      }
+                      if (focalPoint && editingProduct) {
+                        // Guardar focalPoint directamente en el producto
+                        dispatch(patchProduct({
+                          tenantId,
+                          productId: editingProduct.id,
+                          patch: { focalPoint },
+                        }))
+                      }
+                    }}
+                  >
+                    <label className="products__file">
+                      <span className="products__fileLabel">Cambiar foto</span>
+                    </label>
+                  </ImageUploaderWithEditor>
+                  {editingProduct.imageUrl && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => editUploaderRef.current?.openEditor(editingProduct.imageUrl)}
+                    >
+                      <Crop size={14} /> Ajustar encuadre
+                    </Button>
+                  )}
                   {editImageFile && (
                     <span className="products__hint">Nueva imagen seleccionada: {editImageFile.name}</span>
                   )}

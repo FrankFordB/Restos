@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button/Button'
 import InfoTooltip from '../../components/ui/InfoTooltip/InfoTooltip'
 import PageTutorialButton from '../../components/dashboard/PageTutorialButton/PageTutorialButton'
 import WelcomeModalEditor from '../../components/dashboard/WelcomeModalEditor/WelcomeModalEditor'
-import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
+import ImageUploaderWithEditor from '../../components/ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
 import ThemeManager from '../../components/dashboard/ThemeManager/ThemeManager'
 import StoreFooterEditor from '../../components/dashboard/StoreFooterEditor/StoreFooterEditor'
 import TutorialSection from '../../components/dashboard/TutorialSection/TutorialSection'
@@ -66,13 +66,7 @@ export default function StoreEditor() {
   const [editingHourIndex, setEditingHourIndex] = useState(null) // Para edición
   const [hourError, setHourError] = useState('') // Para errores de validación
   
-  // Image Cropper states
-  const [showLogoCropper, setShowLogoCropper] = useState(false)
-  const [logoCropperImage, setLogoCropperImage] = useState(null)
-  const [showLogoUrlInput, setShowLogoUrlInput] = useState(false)
-  const [logoUrlInput, setLogoUrlInput] = useState('')
-  
-  const logoInputRef = useRef(null)
+  // Logo upload (ImageUploaderWithEditor se encarga del cropper)
   
   // Sound notification config
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -80,6 +74,7 @@ export default function StoreEditor() {
   const [soundDelayMs, setSoundDelayMs] = useState(1500)
   const [savingSound, setSavingSound] = useState(false)
   const audioRef = useRef(null)
+  const logoUploaderRef = useRef(null)
 
   // Load tenant customization data
   useEffect(() => {
@@ -188,58 +183,14 @@ export default function StoreEditor() {
     }
   }
 
-  // Abre el cropper con el archivo seleccionado
-  const handleLogoFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    const reader = new FileReader()
-    reader.onload = () => {
-      setLogoCropperImage(reader.result)
-      setShowLogoCropper(true)
-    }
-    reader.readAsDataURL(file)
-    e.target.value = '' // Permite seleccionar el mismo archivo
-  }
-
-  // Abre el cropper con una URL
-  const handleLogoUrlSubmit = () => {
-    if (logoUrlInput.trim()) {
-      setLogoCropperImage(logoUrlInput.trim())
-      setShowLogoCropper(true)
-      setShowLogoUrlInput(false)
-      setLogoUrlInput('')
-    }
-  }
-
-  // Cuando el usuario termina de ajustar el logo
-  const handleLogoCropComplete = async (imageSrc, focalPoint) => {
-    setShowLogoCropper(false)
-    setLogoCropperImage(null)
+  // Cuando el usuario confirma el logo editado
+  const handleLogoReady = async (file, focalPoint) => {
+    if (!file) return // Solo ajuste de encuadre, sin archivo nuevo
     setUploadingLogo(true)
     setError(null)
 
     try {
       if (isSupabaseConfigured) {
-        // Convertir base64/URL a File para subir
-        let blob
-        try {
-          const response = await fetch(imageSrc)
-          if (!response.ok) {
-            throw new Error(`Error al obtener imagen: ${response.status}`)
-          }
-          blob = await response.blob()
-        } catch (fetchErr) {
-          // Si falla fetch (CORS), intentar con un enfoque alternativo para base64
-          if (imageSrc.startsWith('data:')) {
-            const base64Response = await fetch(imageSrc)
-            blob = await base64Response.blob()
-          } else {
-            throw new Error('No se pudo cargar la imagen. Intenta subir un archivo desde tu dispositivo.')
-          }
-        }
-        
-        const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' })
         const logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
         setTenantLogo(logoUrl)
         
@@ -249,8 +200,8 @@ export default function StoreEditor() {
           logo: logoUrl,
         })
       } else {
-        // Mock: usar directamente el data URL
-        setTenantLogo(imageSrc)
+        // Mock: usar objectURL
+        setTenantLogo(URL.createObjectURL(file))
       }
     } catch (e) {
       console.error('Error subiendo logo:', e)
@@ -625,62 +576,35 @@ export default function StoreEditor() {
                   <span>Sin logo</span>
                 </div>
               )}
-              <input
-                type="file"
-                ref={logoInputRef}
-                accept="image/*"
-                onChange={handleLogoFileSelect}
-                style={{ display: 'none' }}
-              />
               <div className="account__logoActions">
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={() => logoInputRef.current?.click()}
-                  disabled={uploadingLogo}
-                >
-                  <Upload size={16} />
-                  {uploadingLogo ? 'Subiendo...' : 'Subir archivo'}
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={() => setShowLogoUrlInput(!showLogoUrlInput)}
-                  disabled={uploadingLogo}
-                >
-                  <Link2 size={16} />
-                  Desde URL
-                </Button>
                 {tenantLogo && (
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     size="sm"
-                    onClick={() => {
-                      setLogoCropperImage(tenantLogo)
-                      setShowLogoCropper(true)
-                    }}
+                    onClick={() => logoUploaderRef.current?.openEditor(tenantLogo)}
                     disabled={uploadingLogo}
                   >
                     <Crop size={16} />
-                    Ajustar
+                    Editar
                   </Button>
                 )}
-              </div>
-              
-              {showLogoUrlInput && (
-                <div className="account__urlInput">
-                  <input
-                    type="url"
-                    value={logoUrlInput}
-                    onChange={(e) => setLogoUrlInput(e.target.value)}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogoUrlSubmit()}
-                  />
-                  <Button size="sm" onClick={handleLogoUrlSubmit}>
-                    Cargar
+                <ImageUploaderWithEditor
+                  ref={logoUploaderRef}
+                  aspect={1}
+                  modalTitle="Ajustar Logo"
+                  disabled={uploadingLogo}
+                  onImageReady={handleLogoReady}
+                >
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    disabled={uploadingLogo}
+                  >
+                    <Upload size={16} />
+                    {uploadingLogo ? 'Subiendo...' : 'Subir archivo'}
                   </Button>
-                </div>
-              )}
+                </ImageUploaderWithEditor>
+              </div>
             </div>
           </div>
 
@@ -1011,20 +935,6 @@ export default function StoreEditor() {
         />
       </div>
 
-      {/* Modal de Recorte de Logo */}
-      <ImageCropperModal
-        isOpen={showLogoCropper}
-        onClose={() => {
-          setShowLogoCropper(false)
-          setLogoCropperImage(null)
-        }}
-        onCropComplete={handleLogoCropComplete}
-        initialImage={logoCropperImage}
-        aspectRatio={1}
-        title="Ajustar Logo"
-        allowUrl={false}
-        allowUpload={false}
-      />
     </div>
   )
 }

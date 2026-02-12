@@ -214,10 +214,10 @@ export default function UserDashboardPage() {
   // Obtener pedidos para contar los pendientes
   const orders = useAppSelector(selectOrdersForTenant(user?.tenantId))
   const pendingOrdersCount = useMemo(() => {
-    return orders.filter(o => o.status === 'pending').length
+    return orders.filter(o => o.status === 'pending' && !((o.payment_method === 'mercadopago' || o.payment_method === 'qr') && !o.is_paid)).length
   }, [orders])
   const pendingOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'pending')
+    return orders.filter(o => o.status === 'pending' && !((o.payment_method === 'mercadopago' || o.payment_method === 'qr') && !o.is_paid))
   }, [orders])
 
   // Obtener productos

@@ -27,7 +27,7 @@ import StoreClosedModal from '../../components/storefront/StoreClosedModal/Store
 import FloatingCart from '../../components/storefront/FloatingCart/FloatingCart'
 import CartToast, { useCartToast } from '../../components/storefront/CartToast/CartToast'
 import { loadJson, saveJson } from '../../shared/storage'
-import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug, fetchOrderLimitsStatusBySlug, subscribeToOrderLimits } from '../../lib/supabaseApi'
+import { fetchDeliveryConfig, fetchTenantBySlugFull, fetchTenantPauseStatusBySlug, fetchOrderLimitsStatusBySlug, subscribeToOrderLimits, fetchPaymentMethodsConfig, fetchDeliveryPricing } from '../../lib/supabaseApi'
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient'
 import { checkIsStoreOpen } from '../../shared/openingHours'
 import {
@@ -42,7 +42,7 @@ import {
   hasUnlimitedOrders,
 } from '../../shared/subscriptions'
 import { uploadHeroImage, uploadProductImage } from '../../lib/supabaseStorage'
-import ImageCropperModal from '../../components/ui/ImageCropperModal/ImageCropperModal'
+import ImageUploaderWithEditor from '../../components/ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
 import {
   Wrench,
   Eye,
@@ -110,7 +110,7 @@ import StoreFooter from '../../components/storefront/StoreFooter/StoreFooter'
 import { fetchPublicStoreFooter } from '../../lib/supabaseApi'
 import StoreCategoryNav from '../../components/storefront/StoreCategoryNav/StoreCategoryNav'
 import CategoryModal from '../../components/dashboard/CategoryModal/CategoryModal'
-import { Search } from 'lucide-react'
+import { Search, Crop } from 'lucide-react'
 
 const LocationMapPicker = lazy(() => import('../../components/storefront/LocationMapPicker/LocationMapPicker'))
 
@@ -484,6 +484,7 @@ export default function StorefrontPage() {
   const [paid, setPaid] = useState(false)
   const [lastOrderId, setLastOrderId] = useState(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false) // Modal de compra exitosa
+  const [lastDeliveryType, setLastDeliveryType] = useState('mostrador')
   const checkoutRef = useRef(null)
 
   // Product detail modal state (for customer)
@@ -538,6 +539,22 @@ export default function StorefrontPage() {
     mesa: true,
   })
   const [loadingDeliveryConfig, setLoadingDeliveryConfig] = useState(true)
+  
+  // Payment methods config (loaded from Supabase)
+  const paymentMethodsConfigKey = `paymentMethodsConfig.${tenantId}`
+  const [paymentMethodsConfig, setPaymentMethodsConfig] = useState({
+    efectivo: true,
+    tarjeta: true,
+    qr: true,
+  })
+  
+  // Delivery pricing config (loaded from Supabase)
+  const deliveryPricingKey = `deliveryPricing.${tenantId}`
+  const [deliveryPricing, setDeliveryPricing] = useState({
+    type: 'free', // 'free' | 'fixed' | 'threshold'
+    fixedPrice: 0,
+    freeThreshold: 0,
+  })
 
   // Hero customization panel state - declared early for use in effects
   const [showHeroPanel, setShowHeroPanel] = useState(false)
@@ -545,10 +562,11 @@ export default function StorefrontPage() {
   const [heroPreviewMode, setHeroPreviewMode] = useState(false)
   const [uploadingHeroImage, setUploadingHeroImage] = useState(null) // slide index being uploaded
   const [showAdminMenu, setShowAdminMenu] = useState(false) // Mobile admin dropdown
-  const heroFileInputRef = useRef(null)
+  // heroFileInputRef removed — replaced by ImageUploaderWithEditor
   const heroPanelRef = useRef(null)
   const cardPanelRef = useRef(null)
   const adminMenuRef = useRef(null)
+  const heroUploaderRef = useRef(null)
 
   // Store open/closed status based on opening hours
   const [storeStatus, setStoreStatus] = useState({ isOpen: true, noSchedule: true, nextOpen: null })
@@ -751,27 +769,43 @@ export default function StorefrontPage() {
     return () => clearInterval(interval)
   }, [tenantFullData?.opening_hours])
 
-  // Cargar deliveryConfig desde Supabase cuando cambia el tenantId
+  // Cargar deliveryConfig, paymentMethodsConfig y deliveryPricing desde Supabase cuando cambia el tenantId
   useEffect(() => {
     const loadConfig = async () => {
       if (!tenantId) return
       setLoadingDeliveryConfig(true)
       try {
         if (isSupabaseConfigured) {
-          const config = await fetchDeliveryConfig(tenantId)
+          const [config, pmConfig, dpConfig] = await Promise.all([
+            fetchDeliveryConfig(tenantId),
+            fetchPaymentMethodsConfig(tenantId),
+            fetchDeliveryPricing(tenantId),
+          ])
           setDeliveryConfig(config)
+          setPaymentMethodsConfig(pmConfig)
+          setDeliveryPricing(dpConfig)
           // Guardar en localStorage como cache
           saveJson(deliveryConfigKey, config)
+          saveJson(paymentMethodsConfigKey, pmConfig)
+          saveJson(deliveryPricingKey, dpConfig)
         } else {
           // Fallback a localStorage si no hay Supabase
           const cached = loadJson(deliveryConfigKey, { mostrador: true, domicilio: true, mesa: true })
           setDeliveryConfig(cached)
+          const cachedPM = loadJson(paymentMethodsConfigKey, { efectivo: true, tarjeta: true, qr: true })
+          setPaymentMethodsConfig(cachedPM)
+          const cachedDP = loadJson(deliveryPricingKey, { type: 'free', fixedPrice: 0, freeThreshold: 0 })
+          setDeliveryPricing(cachedDP)
         }
       } catch (err) {
-        console.error('Error loading delivery config:', err)
+        console.error('Error loading configs:', err)
         // Fallback a localStorage
         const cached = loadJson(deliveryConfigKey, { mostrador: true, domicilio: true, mesa: true })
         setDeliveryConfig(cached)
+        const cachedPM = loadJson(paymentMethodsConfigKey, { efectivo: true, tarjeta: true, qr: true })
+        setPaymentMethodsConfig(cachedPM)
+        const cachedDP = loadJson(deliveryPricingKey, { type: 'free', fixedPrice: 0, freeThreshold: 0 })
+        setDeliveryPricing(cachedDP)
       } finally {
         setLoadingDeliveryConfig(false)
       }
@@ -935,12 +969,24 @@ export default function StorefrontPage() {
   const cardTheme = localCardTheme || theme || {}
   const cardLayout = cardTheme?.productCardLayout || 'classic'
   const categoryLayout = cardTheme?.categoryCardLayout || 'grid'
+  
+  // Card colors: only override CSS defaults when explicitly set by user
+  // null/undefined = use CSS defaults (glass bg, theme accent, etc.)
   const cardColors = {
-    cardBg: cardTheme?.cardBg || '#ffffff',
-    cardText: cardTheme?.cardText || '#1f2937',
-    cardDesc: cardTheme?.cardDesc || '#6b7280',
-    cardPrice: cardTheme?.cardPrice || '#059669',
-    cardButton: cardTheme?.cardButton || theme?.accent || '#f59e0b',
+    cardBg: cardTheme?.cardBg || null,
+    cardText: cardTheme?.cardText || null,
+    cardDesc: cardTheme?.cardDesc || null,
+    cardPrice: cardTheme?.cardPrice || null,
+    cardButton: cardTheme?.cardButton || null,
+  }
+  
+  // Color picker display values (show current effective color for the picker UI)
+  const cardColorDefaults = {
+    cardBg: '#ffffff',
+    cardText: '#1f2937',
+    cardDesc: '#6b7280',
+    cardPrice: '#059669',
+    cardButton: theme?.accent || '#f59e0b',
   }
 
   // Update local card theme (for live preview)
@@ -1010,8 +1056,10 @@ export default function StorefrontPage() {
   }
 
   // Handle hero image file upload
-  const handleHeroImageUpload = async (index, file) => {
-    if (!file || !canUploadHeroImage) return
+  const handleHeroImageUpload = async (index, file, focalPoint) => {
+    // Si solo se ajustó el encuadre (sin archivo nuevo), no subir
+    if (!file) return
+    if (!canUploadHeroImage) return
     setUploadingHeroImage(index)
     try {
       const publicUrl = await uploadHeroImage({ tenantId, file })
@@ -1633,7 +1681,7 @@ export default function StorefrontPage() {
 
       <div className={`store__layout ${showHeroPanel ? 'store__layout--heroEditing' : ''}`} id="productos">
         <section className="store__products" aria-label="Productos">
-          {isAdmin && (
+          {isAdmin && !heroPreviewMode && (
             <div className="store__adminBar" ref={adminMenuRef}>
               <div className="store__adminHeader">
                 <span className="store__adminLabel"><Wrench size={14} /> Modo administrador</span>
@@ -1650,7 +1698,16 @@ export default function StorefrontPage() {
                 <Button 
                   size="sm" 
                   variant={heroPreviewMode ? 'primary' : 'secondary'}
-                  onClick={() => { setHeroPreviewMode(!heroPreviewMode); setShowAdminMenu(false); }}
+                  onClick={() => { 
+                    const entering = !heroPreviewMode
+                    setHeroPreviewMode(entering)
+                    setShowAdminMenu(false)
+                    // Al entrar en vista previa, ocultar todos los paneles de edición
+                    if (entering) {
+                      setShowCardPanel(false)
+                      setShowHeroPanel(false)
+                    }
+                  }}
                 >
                   {heroPreviewMode ? <><Pencil size={14} /> Salir de vista previa</> : <><Eye size={14} /> Ver como cliente</>}
                 </Button>
@@ -1868,7 +1925,7 @@ export default function StorefrontPage() {
                               <span className="store__categoryCount">{categoryCounts[cat.name] || 0}</span>
                             )}
                           </button>
-                          {isAdmin && (
+                          {isAdmin && !heroPreviewMode && (
                             <button
                               type="button"
                               className="store__categoryEditBtn"
@@ -1902,7 +1959,7 @@ export default function StorefrontPage() {
             )}
             
             {/* Add category button (only for admin) */}
-            {isAdmin && (
+            {isAdmin && !heroPreviewMode && (
               creatingCategory ? (
                 <div className="store__categoryEdit">
                   <input
@@ -2156,20 +2213,27 @@ export default function StorefrontPage() {
                                 onChange={(e) => updateHeroSlide(index, 'imageUrl', e.target.value)}
                                 className="store__heroSlideInput"
                               />
-                              <label className="store__heroUploadBtn">
-                                {uploadingHeroImage === index ? <Loader2 size={16} className="icon-spin" /> : <FolderUp size={16} />}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) handleHeroImageUpload(index, file)
-                                    e.target.value = ''
-                                  }}
-                                  disabled={uploadingHeroImage !== null}
-                                  hidden
-                                />
-                              </label>
+                              <ImageUploaderWithEditor
+                                ref={heroUploaderRef}
+                                aspect={16 / 9}
+                                modalTitle="Ajustar encuadre del hero"
+                                disabled={uploadingHeroImage !== null}
+                                onImageReady={(file, focalPoint) => handleHeroImageUpload(index, file, focalPoint)}
+                              >
+                                <span className="store__heroUploadBtn">
+                                  {uploadingHeroImage === index ? <Loader2 size={16} className="icon-spin" /> : <FolderUp size={16} />}
+                                </span>
+                              </ImageUploaderWithEditor>
+                              {slide.imageUrl && (
+                                <button
+                                  type="button"
+                                  className="store__heroUploadBtn"
+                                  title="Editar recorte"
+                                  onClick={() => heroUploaderRef.current?.openEditor(slide.imageUrl)}
+                                >
+                                  <Crop size={16} />
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <div className="store__heroLockedField">
@@ -2582,7 +2646,7 @@ export default function StorefrontPage() {
                     <div className="store__colorItem">
                       <input
                         type="color"
-                        value={cardColors.cardBg}
+                        value={cardColors.cardBg || cardColorDefaults.cardBg}
                         onChange={(e) => updateCardTheme({ cardBg: e.target.value })}
                         className="store__colorInput"
                       />
@@ -2591,7 +2655,7 @@ export default function StorefrontPage() {
                     <div className="store__colorItem">
                       <input
                         type="color"
-                        value={cardColors.cardText}
+                        value={cardColors.cardText || cardColorDefaults.cardText}
                         onChange={(e) => updateCardTheme({ cardText: e.target.value })}
                         className="store__colorInput"
                       />
@@ -2600,7 +2664,7 @@ export default function StorefrontPage() {
                     <div className="store__colorItem">
                       <input
                         type="color"
-                        value={cardColors.cardDesc}
+                        value={cardColors.cardDesc || cardColorDefaults.cardDesc}
                         onChange={(e) => updateCardTheme({ cardDesc: e.target.value })}
                         className="store__colorInput"
                       />
@@ -2609,7 +2673,7 @@ export default function StorefrontPage() {
                     <div className="store__colorItem">
                       <input
                         type="color"
-                        value={cardColors.cardPrice}
+                        value={cardColors.cardPrice || cardColorDefaults.cardPrice}
                         onChange={(e) => updateCardTheme({ cardPrice: e.target.value })}
                         className="store__colorInput"
                       />
@@ -2618,7 +2682,7 @@ export default function StorefrontPage() {
                     <div className="store__colorItem">
                       <input
                         type="color"
-                        value={cardColors.cardButton}
+                        value={cardColors.cardButton || cardColorDefaults.cardButton}
                         onChange={(e) => updateCardTheme({ cardButton: e.target.value })}
                         className="store__colorInput"
                       />
@@ -2725,7 +2789,7 @@ export default function StorefrontPage() {
                   onConfigExtras={() => openProductExtrasConfig(p)}
                   layout={cardLayout}
                   colors={cardColors}
-                  isEditable={isAdmin}
+                  isEditable={isAdmin && !heroPreviewMode}
                   onEdit={openEditProduct}
                   onDelete={handleDeleteProduct}
                   hasExtras={(() => {
@@ -2745,7 +2809,7 @@ export default function StorefrontPage() {
             })}
             
             {/* Add product card for admin */}
-            {isAdmin && (
+            {isAdmin && !heroPreviewMode && (
               <button 
                 className="store__addProductCard"
                 onClick={openAddProduct}
@@ -2821,6 +2885,7 @@ export default function StorefrontPage() {
           cartTotal={cartTotal}
           tenantId={tenantId}
           tenant={tenant}
+          tenantFullData={tenantFullData}
           tenantSlug={slug}
           orderItemsPayload={orderItemsPayload}
           checkoutData={checkoutData}
@@ -2828,22 +2893,23 @@ export default function StorefrontPage() {
           checkoutLoading={checkoutLoading}
           checkoutError={checkoutError}
           deliveryConfig={deliveryConfig}
+          paymentMethodsConfig={paymentMethodsConfig}
+          deliveryPricing={deliveryPricing}
           globalStockStatus={globalStockStatus}
           getCategoryStockInfo={getCategoryStockInfo}
           onBack={() => {
             setIsCheckingOut(false)
             setCheckoutError(null)
-            // No borrar los datos - el usuario puede continuar luego
           }}
           onSuccess={(orderId) => {
-            justPurchasedRef.current = true // Marcar que acaba de comprar para no mostrar modal de agotado
+            justPurchasedRef.current = true
             setPaid(true)
             setLastOrderId(orderId)
+            setLastDeliveryType(checkoutData.deliveryType)
             setCart({})
-            // Solo borrar datos cuando se confirma exitosamente
             setCheckoutData({ customerName: '', customerPhone: '', deliveryType: 'mostrador', deliveryAddress: '', deliveryNotes: '', deliveryLat: null, deliveryLng: null, paymentMethod: 'efectivo' })
             setIsCheckingOut(false)
-            setShowSuccessModal(true) // Mostrar modal de éxito
+            setShowSuccessModal(true)
           }}
           dispatch={dispatch}
           setCheckoutLoading={setCheckoutLoading}
@@ -2999,6 +3065,12 @@ export default function StorefrontPage() {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         tenant={tenantFullData}
+        deliveryType={lastDeliveryType}
+        storeLocation={{
+          lat: storeFooterData?.location_lat || tenantFullData?.location_lat,
+          lng: storeFooterData?.location_lng || tenantFullData?.location_lng,
+          address: storeFooterData?.location_address || storeFooterData?.address || tenantFullData?.address,
+        }}
       />
 
       {/* Store Closed Modal with schedule */}
@@ -3112,6 +3184,7 @@ function CheckoutPage({
   cartTotal, 
   tenantId,
   tenant,
+  tenantFullData,
   tenantSlug,
   orderItemsPayload, 
   checkoutData, 
@@ -3119,6 +3192,8 @@ function CheckoutPage({
   checkoutLoading,
   checkoutError,
   deliveryConfig,
+  paymentMethodsConfig,
+  deliveryPricing,
   globalStockStatus,
   getCategoryStockInfo,
   onBack,
@@ -3349,7 +3424,7 @@ function CheckoutPage({
         createPaidOrder({
           tenantId,
           items: orderItemsPayload,
-          total: Math.round(cartTotal * 100) / 100,
+          total: Math.round(finalTotal * 100) / 100,
           customer: {
             name: checkoutData.customerName,
             phone: checkoutData.customerPhone,
@@ -3375,27 +3450,6 @@ function CheckoutPage({
     }
   }
 
-  const deliveryTypes = [
-    { key: 'mostrador', label: 'Retiro en Local', icon: <UtensilsCrossed size={20} />, desc: 'Paso a buscar mi pedido' },
-    { key: 'domicilio', label: 'Delivery', icon: <Truck size={20} />, desc: 'Enviar a mi dirección' },
-    { key: 'mesa', label: 'Comer Aquí', icon: <Armchair size={20} />, desc: 'Para consumir en el lugar' },
-  ]
-
-  // Filtrar métodos de pago - solo mostrar MP si está configurado
-  const paymentMethods = useMemo(() => {
-    const methods = [
-      { key: 'efectivo', label: 'Efectivo', icon: <Banknote size={20} /> },
-      { key: 'tarjeta', label: 'Tarjeta (en local)', icon: <CreditCard size={20} /> },
-    ]
-    
-    // Solo agregar MercadoPago si está configurado
-    if (mpConfigured && !mpLoading) {
-      methods.push({ key: 'qr', label: 'Mercado Pago', icon: <Smartphone size={20} />, highlight: true })
-    }
-    
-    return methods
-  }, [mpConfigured, mpLoading])
-
   // Format price helper
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -3405,6 +3459,76 @@ function CheckoutPage({
       maximumFractionDigits: 0,
     }).format(price)
   }
+
+  // Generar label de costo de envío para el botón de delivery
+  const deliveryCostLabel = useMemo(() => {
+    if (!deliveryPricing || deliveryPricing.type === 'free') return 'Envío gratis'
+    if (deliveryPricing.type === 'fixed') return `Envío ${formatPrice(deliveryPricing.fixedPrice || 0)}`
+    if (deliveryPricing.type === 'threshold') {
+      if (cartTotal >= (deliveryPricing.freeThreshold || 0)) {
+        return '¡Envío gratis!'
+      }
+      const remaining = (deliveryPricing.freeThreshold || 0) - cartTotal
+      return `Envío ${formatPrice(deliveryPricing.fixedPrice || 0)} · Gratis desde ${formatPrice(deliveryPricing.freeThreshold || 0)}`
+    }
+    return null
+  }, [deliveryPricing, cartTotal])
+
+  const deliveryTypes = [
+    { key: 'mostrador', label: 'Retiro en Local', icon: <UtensilsCrossed size={20} />, desc: 'Paso a buscar mi pedido' },
+    { key: 'domicilio', label: 'Delivery', icon: <Truck size={20} />, desc: 'Enviar a mi dirección', costLabel: deliveryCostLabel },
+    { key: 'mesa', label: 'Comer Aquí', icon: <Armchair size={20} />, desc: 'Para consumir en el lugar' },
+  ]
+
+  // Filtrar métodos de pago - respetar config del dueño + solo mostrar MP si está configurado
+  const paymentMethods = useMemo(() => {
+    const allMethods = [
+      { key: 'efectivo', label: 'Efectivo', icon: <Banknote size={20} /> },
+      { key: 'tarjeta', label: 'Tarjeta (en local)', icon: <CreditCard size={20} /> },
+    ]
+    
+    // Solo agregar MercadoPago si está configurado
+    if (mpConfigured && !mpLoading) {
+      allMethods.push({ key: 'qr', label: 'Mercado Pago', icon: <Smartphone size={20} />, highlight: true })
+    }
+    
+    // Filtrar según la configuración del dueño de la tienda
+    const filtered = allMethods.filter(m => {
+      if (!paymentMethodsConfig) return true
+      return paymentMethodsConfig[m.key] !== false
+    })
+    
+    return filtered
+  }, [mpConfigured, mpLoading, paymentMethodsConfig])
+  
+  // Si el método de pago actual no está habilitado, seleccionar el primero disponible
+  useEffect(() => {
+    if (paymentMethods.length > 0 && !paymentMethods.find(m => m.key === checkoutData.paymentMethod)) {
+      setCheckoutData(prev => ({ ...prev, paymentMethod: paymentMethods[0].key }))
+    }
+  }, [paymentMethods, checkoutData.paymentMethod, setCheckoutData])
+
+  // Calcular costo de delivery
+  const deliveryCost = useMemo(() => {
+    if (checkoutData.deliveryType !== 'domicilio') return 0
+    if (!deliveryPricing) return 0
+    
+    switch (deliveryPricing.type) {
+      case 'free':
+        return 0
+      case 'fixed':
+        return deliveryPricing.fixedPrice || 0
+      case 'threshold':
+        // Envío gratis si el total supera el umbral
+        if (cartTotal >= (deliveryPricing.freeThreshold || 0)) return 0
+        return deliveryPricing.fixedPrice || 0
+      default:
+        return 0
+    }
+  }, [checkoutData.deliveryType, deliveryPricing, cartTotal])
+
+  // Total final incluyendo delivery
+  const finalTotal = cartTotal + deliveryCost
 
   return (
     <section className="checkoutPage" aria-label="Procesar Pedido">
@@ -3432,7 +3556,7 @@ function CheckoutPage({
             <span className="checkoutPage__orderSummaryTitle">
               <ClipboardList size={18} /> Tu Pedido ({cartItems?.length || 0} items)
             </span>
-            <span className="checkoutPage__orderSummaryTotal">{formatPrice(cartTotal)}</span>
+            <span className="checkoutPage__orderSummaryTotal">{formatPrice(finalTotal)}</span>
           </summary>
           <div className="checkoutPage__orderItems">
             {cartItems?.map((item, index) => (
@@ -3451,6 +3575,24 @@ function CheckoutPage({
                 <span className="checkoutPage__orderItemPrice">{formatPrice(item.lineTotal)}</span>
               </div>
             ))}
+            
+            {/* Subtotal + Envío */}
+            {deliveryCost > 0 && (
+              <div className="checkoutPage__deliveryCostRow">
+                <span className="checkoutPage__deliveryCostLabel">
+                  <Truck size={14} /> Costo de envío
+                </span>
+                <span className="checkoutPage__deliveryCostPrice">{formatPrice(deliveryCost)}</span>
+              </div>
+            )}
+            {deliveryCost === 0 && checkoutData.deliveryType === 'domicilio' && (
+              <div className="checkoutPage__deliveryCostRow checkoutPage__deliveryCostRow--free">
+                <span className="checkoutPage__deliveryCostLabel">
+                  <Truck size={14} /> Envío
+                </span>
+                <span className="checkoutPage__deliveryCostPrice checkoutPage__deliveryCostPrice--free">¡GRATIS!</span>
+              </div>
+            )}
           </div>
         </details>
 
@@ -3487,9 +3629,14 @@ function CheckoutPage({
                   </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={checkoutData.customerPhone}
-                    onChange={(e) => setCheckoutData({ ...checkoutData, customerPhone: e.target.value })}
-                    placeholder="Para avisarte cuando esté listo"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '')
+                      setCheckoutData({ ...checkoutData, customerPhone: val })
+                    }}
+                    placeholder="Solo números, ej: 1155667788"
                     className={`checkoutPage__input ${checkoutData.customerPhone ? (isPhoneValid ? 'checkoutPage__input--valid' : '') : ''}`}
                     disabled={checkoutLoading}
                   />
@@ -3517,7 +3664,14 @@ function CheckoutPage({
                       disabled={checkoutLoading || !isEnabled}
                     >
                       <span className="checkoutPage__deliveryIcon">{type.icon}</span>
-                      <span className="checkoutPage__deliveryLabel">{type.label}</span>
+                      <span className="checkoutPage__deliveryLabel">
+                        {type.label}
+                        {type.costLabel && isEnabled && (
+                          <span className={`checkoutPage__deliveryCostBadge ${deliveryCost === 0 && checkoutData.deliveryType === 'domicilio' && isSelected ? 'checkoutPage__deliveryCostBadge--free' : ''}`}>
+                            {type.costLabel}
+                          </span>
+                        )}
+                      </span>
                       <span className="checkoutPage__deliveryDesc">{type.desc}</span>
                       {isSelected && <span className="checkoutPage__deliveryCheck"><CheckCircle size={16} /></span>}
                       {!isEnabled && <span className="checkoutPage__deliveryDisabled">No disponible</span>}
@@ -3679,8 +3833,13 @@ function CheckoutPage({
         <div className="checkoutPage__footer">
           <div className="checkoutPage__footerTotal">
             <span>Total a pagar</span>
-            <strong>{formatPrice(cartTotal)}</strong>
+            <strong>{formatPrice(finalTotal)}</strong>
           </div>
+          {deliveryCost > 0 && (
+            <div className="checkoutPage__footerDelivery">
+              <span>Incluye envío: {formatPrice(deliveryCost)}</span>
+            </div>
+          )}
           <button
             className={`checkoutPage__submitBtn ${canProcessPayment ? '' : 'checkoutPage__submitBtn--disabled'}`}
             onClick={handleProcessPayment}

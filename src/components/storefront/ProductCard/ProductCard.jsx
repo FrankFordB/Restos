@@ -37,14 +37,13 @@ export default function ProductCard({
   const isDisabled = disabled || isOutOfStock
   const isAddDisabled = disabled || !canAddMore
   
-  // Custom colors as CSS variables
-  const cardStyle = {
-    '--card-bg': colors.cardBg || undefined,
-    '--card-text': colors.cardText || undefined,
-    '--card-desc': colors.cardDesc || undefined,
-    '--card-price': colors.cardPrice || undefined,
-    '--card-button': colors.cardButton || undefined,
-  }
+  // Custom colors as CSS variables - only set when explicitly defined
+  const cardStyle = {}
+  if (colors.cardBg) cardStyle['--card-bg'] = colors.cardBg
+  if (colors.cardText) cardStyle['--card-text'] = colors.cardText
+  if (colors.cardDesc) cardStyle['--card-desc'] = colors.cardDesc
+  if (colors.cardPrice) cardStyle['--card-price'] = colors.cardPrice
+  if (colors.cardButton) cardStyle['--card-button'] = colors.cardButton
   
   // Calcular precio con descuento
   const hasDiscount = product.discount && product.discount > 0
@@ -81,40 +80,6 @@ export default function ProductCard({
       style={cardStyle}
       onClick={handleCardClick}
     >
-      {/* Badge Popular - solo para los 3 más vendidos */}
-      {isPopular && !isOutOfStock && !wouldExceedStock && !isLowStock && (
-        <div className="productCard__popularBadge">
-          <span><Flame size={14} /> Popular</span>
-        </div>
-      )}
-
-      {/* Cinta de descuento (ribbon) - esquina superior derecha */}
-      {product.discount && product.discount > 0 && (
-        <div className="productCard__discountRibbon">
-          <span>-{product.discount}%</span>
-        </div>
-      )}
-      
-      {/* Badge de Sin Stock */}
-      {isOutOfStock && (
-        <div className="productCard__outOfStockBadge">
-          <span>AGOTADO</span>
-        </div>
-      )}
-      
-      {/* Badge de Máximo alcanzado (cuando hay items en carrito pero no puede agregar más) */}
-      {wouldExceedStock && !isOutOfStock && (
-        <div className={`productCard__maxStockBadge ${isLimitedByCategory ? 'productCard__maxStockBadge--category' : ''}`}>
-          <span>{effectiveStock === 1 ? `ÚLTIMA: ${effectiveStock}` : `ÚLTIMAS: ${effectiveStock}`}</span>
-        </div>
-      )}
-      
-      {/* Badge de Últimas unidades */}
-      {isLowStock && !isOutOfStock && !wouldExceedStock && (
-        <div className={`productCard__lowStockBadge ${isLimitedByCategory ? 'productCard__lowStockBadge--category' : ''}`}>
-          <span>{effectiveStock === 1 ? `¡ÚLTIMA!` : `¡ÚLTIMAS: ${effectiveStock}!`}</span>
-        </div>
-      )}
       {/* Editable actions */}
       {isEditable && (
         <div className="productCard__editActions">
@@ -166,6 +131,41 @@ export default function ProductCard({
         className={`productCard__media ${isOverlay ? 'productCard__media--overlay' : ''}`} 
         aria-hidden="true"
       >
+        {/* Badge Popular - inside media to avoid overlapping title */}
+        {isPopular && !isOutOfStock && !wouldExceedStock && !isLowStock && (
+          <div className="productCard__popularBadge">
+            <span><Flame size={14} /> Popular</span>
+          </div>
+        )}
+
+        {/* Cinta de descuento (ribbon) */}
+        {product.discount && product.discount > 0 && (
+          <div className="productCard__discountRibbon">
+            <span>-{product.discount}%</span>
+          </div>
+        )}
+        
+        {/* Badge de Sin Stock */}
+        {isOutOfStock && (
+          <div className="productCard__outOfStockBadge">
+            <span>AGOTADO</span>
+          </div>
+        )}
+        
+        {/* Badge de Máximo alcanzado */}
+        {wouldExceedStock && !isOutOfStock && (
+          <div className={`productCard__maxStockBadge ${isLimitedByCategory ? 'productCard__maxStockBadge--category' : ''}`}>
+            <span>{effectiveStock === 1 ? `ÚLTIMA: ${effectiveStock}` : `ÚLTIMAS: ${effectiveStock}`}</span>
+          </div>
+        )}
+        
+        {/* Badge de Últimas unidades */}
+        {isLowStock && !isOutOfStock && !wouldExceedStock && (
+          <div className={`productCard__lowStockBadge ${isLimitedByCategory ? 'productCard__lowStockBadge--category' : ''}`}>
+            <span>{effectiveStock === 1 ? `¡ÚLTIMA!` : `¡ÚLTIMAS: ${effectiveStock}!`}</span>
+          </div>
+        )}
+
         {/* Liquid Glass background effect cuando hay zoom < 1 */}
         {product.imageUrl && product.focalPoint?.zoom && product.focalPoint.zoom < 1 && (
           <>

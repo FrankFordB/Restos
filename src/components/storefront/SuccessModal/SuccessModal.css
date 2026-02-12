@@ -324,6 +324,52 @@
   font-weight: 600;
 }
 
+/* Store Location for Pickup */
+.successModal__locationSection {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.successModal__locationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1e40af;
+  margin-bottom: 8px;
+}
+
+.successModal__locationAddress {
+  font-size: 0.9rem;
+  color: #374151;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.successModal__locationBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: #2563eb;
+  color: white;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.successModal__locationBtn:hover {
+  background: #1d4ed8;
+}
+
 /* Footer */
 .successModal__footer {
   margin-bottom: 24px;

@@ -2,6 +2,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  width: 100%;
   background: var(--card-bg, #ffffff);
   border-radius: 12px;
   overflow: hidden;
@@ -17,17 +18,17 @@
 
 /* Tamaños */
 .categoryCard--small {
-  width: 140px;
+  max-width: 200px;
   min-height: 160px;
 }
 
 .categoryCard--medium {
-  width: 180px;
+  max-width: 260px;
   min-height: 200px;
 }
 
 .categoryCard--large {
-  width: 220px;
+  max-width: 320px;
   min-height: 240px;
 }
 
@@ -385,17 +386,17 @@
 
 @media (max-width: 768px) {
   .categoryCard--small {
-    width: 120px;
+    max-width: 180px;
     min-height: 140px;
   }
 
   .categoryCard--medium {
-    width: 150px;
+    max-width: 220px;
     min-height: 170px;
   }
 
   .categoryCard--large {
-    width: 180px;
+    max-width: 260px;
     min-height: 200px;
   }
 

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import ImageUploaderWithEditor from '../../ui/ImageUploaderWithEditor/ImageUploaderWithEditor'
 import { 
   X, 
   Folder, 
@@ -11,6 +12,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Crop,
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { 
@@ -46,7 +48,7 @@ export default function CategoryModal({
   const allCategories = useAppSelector(selectCategoriesForTenant(tenantId))
   const allProducts = useAppSelector(selectProductsForTenant(tenantId))
   
-  const fileInputRef = useRef(null)
+  const uploaderRef = useRef(null)
 
   // Obtener categoría padre si existe
   const parentCategory = parentId 
@@ -65,6 +67,7 @@ export default function CategoryModal({
   const [imageMode, setImageMode] = useState('upload') // 'upload' | 'url'
   const [imagePreview, setImagePreview] = useState(null)
   const [imageFile, setImageFile] = useState(null)
+  const [imageFocalPoint, setImageFocalPoint] = useState(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
@@ -120,6 +123,7 @@ export default function CategoryModal({
         imageUrl: category.imageUrl || '',
       })
       setImagePreview(category.imageUrl || null)
+      setImageFocalPoint(category.focalPoint || null)
     } else {
       // Modo creación
       setFormData({
@@ -133,6 +137,10 @@ export default function CategoryModal({
     }
 
     setImageFile(null)
+    // Solo resetear focalPoint en modo creación (en edición ya se asignó arriba)
+    if (!category) {
+      setImageFocalPoint(null)
+    }
     setError(null)
   }, [isOpen, category])
 
@@ -141,30 +149,16 @@ export default function CategoryModal({
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // Manejar selección de archivo
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validar tipo
-    if (!file.type.startsWith('image/')) {
-      setError('Solo se permiten archivos de imagen')
-      return
+  // Manejar imagen editada desde ImageUploaderWithEditor
+  const handleImageReady = (file, focalPoint) => {
+    if (file) {
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
     }
-
-    // Validar tamaño (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La imagen no puede superar 5MB')
-      return
+    if (focalPoint) {
+      setImageFocalPoint(focalPoint)
     }
-
-    setImageFile(file)
     setError(null)
-
-    // Preview
-    const reader = new FileReader()
-    reader.onload = (e) => setImagePreview(e.target?.result)
-    reader.readAsDataURL(file)
   }
 
   // Manejar cambio de URL de imagen
@@ -229,6 +223,7 @@ export default function CategoryModal({
         icon: formData.icon.trim() || null,
         active: formData.active,
         imageUrl: finalImageUrl || null,
+        focalPoint: imageFocalPoint || null,
       }
 
       if (category) {
@@ -242,6 +237,7 @@ export default function CategoryModal({
             icon: categoryData.icon,
             active: categoryData.active,
             imageUrl: categoryData.imageUrl,
+            focalPoint: categoryData.focalPoint,
           },
         })).unwrap()
       } else {
@@ -394,32 +390,38 @@ export default function CategoryModal({
 
             {imageMode === 'upload' ? (
               <div className="categoryModal__uploadArea">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  style={{ display: 'none' }}
-                />
-                
                 {imagePreview ? (
                   <div className="categoryModal__imagePreview">
                     <img 
                       src={imagePreview} 
                       alt="Preview"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Click para cambiar imagen"
+                      style={imageFocalPoint ? { objectFit: 'cover', objectPosition: `${imageFocalPoint.x}% ${imageFocalPoint.y}%` } : undefined}
                     />
                     <div className="categoryModal__imageActions">
-                      <button 
+                      <button
                         className="categoryModal__changeImage"
-                        onClick={() => fileInputRef.current?.click()}
                         type="button"
-                        title="Cambiar imagen"
+                        title="Re-editar encuadre"
+                        onClick={() => uploaderRef.current?.openEditor(imagePreview)}
                       >
-                        <Upload size={14} />
-                        Cambiar
+                        <Crop size={14} />
+                        Editar
                       </button>
+                      <ImageUploaderWithEditor
+                        ref={uploaderRef}
+                        aspect={16 / 9}
+                        modalTitle="Editar imagen de categoría"
+                        onImageReady={handleImageReady}
+                      >
+                        <button 
+                          className="categoryModal__changeImage"
+                          type="button"
+                          title="Subir nueva imagen"
+                        >
+                          <Upload size={14} />
+                          Cambiar
+                        </button>
+                      </ImageUploaderWithEditor>
                       <button 
                         className="categoryModal__removeImage"
                         onClick={() => {
@@ -435,15 +437,21 @@ export default function CategoryModal({
                     </div>
                   </div>
                 ) : (
-                  <button 
-                    className="categoryModal__uploadButton"
-                    onClick={() => fileInputRef.current?.click()}
-                    type="button"
+                  <ImageUploaderWithEditor
+                    ref={uploaderRef}
+                    aspect={16 / 9}
+                    modalTitle="Editar imagen de categoría"
+                    onImageReady={handleImageReady}
                   >
-                    <Upload size={24} />
-                    <span>Click para subir imagen</span>
-                    <span className="categoryModal__uploadHint">PNG, JPG hasta 5MB</span>
-                  </button>
+                    <button 
+                      className="categoryModal__uploadButton"
+                      type="button"
+                    >
+                      <Upload size={24} />
+                      <span>Click para subir imagen</span>
+                      <span className="categoryModal__uploadHint">PNG, JPG hasta 5MB</span>
+                    </button>
+                  </ImageUploaderWithEditor>
                 )}
               </div>
             ) : (
@@ -456,6 +464,13 @@ export default function CategoryModal({
                 {imagePreview && formData.imageUrl && (
                   <div className="categoryModal__urlPreview">
                     <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)} />
+                    <button
+                      type="button"
+                      className="categoryModal__changeImage"
+                      onClick={() => uploaderRef.current?.openEditor(formData.imageUrl)}
+                    >
+                      <Crop size={14} /> Ajustar encuadre
+                    </button>
                   </div>
                 )}
               </div>

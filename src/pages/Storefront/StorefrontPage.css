@@ -2908,6 +2908,27 @@
   font-weight: 600;
   font-size: 0.9375rem;
   color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checkoutPage__deliveryCostBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.12), rgba(22, 163, 74, 0.06));
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  white-space: nowrap;
+}
+
+.checkoutPage__deliveryCostBadge--free {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.15), rgba(22, 163, 74, 0.08));
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.35);
 }
 
 .checkoutPage__deliveryDesc {
@@ -3166,6 +3187,49 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: #111827;
+}
+
+.checkoutPage__footerDelivery {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-align: right;
+  margin-top: -8px;
+}
+
+/* Delivery cost rows in order summary */
+.checkoutPage__deliveryCostRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px dashed #e5e7eb;
+  margin-top: 4px;
+}
+
+.checkoutPage__deliveryCostRow--free {
+  color: #16a34a;
+}
+
+.checkoutPage__deliveryCostLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.checkoutPage__deliveryCostRow--free .checkoutPage__deliveryCostLabel {
+  color: #16a34a;
+}
+
+.checkoutPage__deliveryCostPrice {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.checkoutPage__deliveryCostPrice--free {
+  color: #16a34a;
+  font-weight: 700;
 }
 
 .checkoutPage__submitBtn {

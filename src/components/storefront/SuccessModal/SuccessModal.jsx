@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import './SuccessModal.css'
-import { X, CheckCircle, Clock, PartyPopper, Heart } from 'lucide-react'
+import { X, CheckCircle, Clock, PartyPopper, Heart, MapPin, Navigation } from 'lucide-react'
 import Button from '../../ui/Button/Button'
 
 export default function SuccessModal({ 
   isOpen, 
   onClose, 
   tenant,
-  orderNumber = null
+  orderNumber = null,
+  deliveryType = null,
+  storeLocation = null,
 }) {
   const [visible, setVisible] = useState(false)
 
@@ -24,6 +26,18 @@ export default function SuccessModal({
 
   const storeName = tenant?.name || 'Nuestra Tienda'
   const logo = tenant?.logo || null
+
+  // Check if we should show store location (pickup from store)
+  const isPickup = deliveryType === 'mostrador'
+  const hasLocation = storeLocation && (storeLocation.lat || storeLocation.address)
+  const showLocation = isPickup && hasLocation
+
+  // Google Maps directions URL
+  const mapsUrl = storeLocation?.lat && storeLocation?.lng
+    ? `https://www.google.com/maps/dir/?api=1&destination=${storeLocation.lat},${storeLocation.lng}`
+    : storeLocation?.address
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(storeLocation.address)}`
+      : null
 
   const handleClose = () => {
     setVisible(false)
@@ -86,10 +100,34 @@ export default function SuccessModal({
             </div>
           )}
 
+          {/* Store Location for Pickup */}
+          {showLocation && (
+            <div className="successModal__locationSection">
+              <div className="successModal__locationHeader">
+                <MapPin size={18} />
+                <span>Retirá tu pedido en:</span>
+              </div>
+              {storeLocation.address && (
+                <p className="successModal__locationAddress">{storeLocation.address}</p>
+              )}
+              {mapsUrl && (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="successModal__locationBtn"
+                >
+                  <Navigation size={16} />
+                  Cómo llegar
+                </a>
+              )}
+            </div>
+          )}
+
           <div className="successModal__footer">
             <div className="successModal__thanks">
               <Heart size={16} className="successModal__heartIcon" />
-              <span>¡Esperamos que disfrutes tu pedido!</span>
+              <span>{isPickup ? '¡Te esperamos en el local!' : '¡Esperamos que disfrutes tu pedido!'}</span>
             </div>
           </div>
 

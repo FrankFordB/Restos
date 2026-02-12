@@ -10,6 +10,7 @@ import { fetchTutorialVideo, upsertTutorialVideo } from '../../../lib/supabaseAp
 import InfoTooltip from '../../ui/InfoTooltip/InfoTooltip'
 import PageTutorialButton from '../PageTutorialButton/PageTutorialButton'
 import TutorialSection from '../TutorialSection/TutorialSection'
+import PaymentMethodsConfig from '../PaymentMethodsConfig/PaymentMethodsConfig'
 import { useAppSelector } from '../../../app/hooks'
 import { selectUser } from '../../../features/auth/authSlice'
 
@@ -342,6 +343,9 @@ export default function MercadoPagoConfig({ tenantId }) {
           onSave={handleSaveTutorial}
         />
       </div>
+
+      {/* Payment Methods Config */}
+      <PaymentMethodsConfig tenantId={tenantId} mpConfigured={isConfigured} />
 
       {/* Toast */}
       {toast && (

@@ -363,10 +363,100 @@
   margin-top: 2px;
 }
 
-.footerEditor__currentLocation span {
+.footerEditor__locationInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footerEditor__locationAddress {
   font-size: 0.9rem;
   color: var(--text);
   line-height: 1.5;
+}
+
+.footerEditor__locationCoords {
+  font-size: 0.78rem;
+  color: var(--text-muted, #9ca3af);
+  font-family: 'Courier New', monospace;
+}
+
+/* GPS Button */
+.footerEditor__locationActions {
+  display: flex;
+  gap: 8px;
+}
+
+.footerEditor__gpsBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  width: 100%;
+  justify-content: center;
+}
+
+.footerEditor__gpsBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
+}
+
+.footerEditor__gpsBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Map hint (instructional) */
+.footerEditor__mapHint {
+  font-size: 0.8rem;
+  color: var(--text-muted, #9ca3af);
+  text-align: center;
+  margin: 0;
+  padding: 4px 0;
+  font-style: italic;
+}
+
+/* Section check indicator */
+.footerEditor__sectionCheck {
+  color: #22c55e;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+/* Location connections */
+.footerEditor__locationConnections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footerEditor__connectionItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(100, 100, 100, 0.1);
+  color: var(--text-muted, #9ca3af);
+}
+
+.footerEditor__connectionItem--active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.footerEditor__connectionItem--active svg {
+  color: #22c55e;
 }
 
 /* Fields */

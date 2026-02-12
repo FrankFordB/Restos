@@ -106,6 +106,7 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
   const [mapSearchQuery, setMapSearchQuery] = useState('')
   const [mapSearchResults, setMapSearchResults] = useState([])
   const [mapSearching, setMapSearching] = useState(false)
+  const [geolocating, setGeolocating] = useState(false)
 
   // Section expansion states
   const [expandedSections, setExpandedSections] = useState({
@@ -152,6 +153,13 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
     location_lng: null,
     use_site_terms: false
   })
+
+  const footerDataRef = useRef(footerData)
+
+  // Keep footerDataRef in sync
+  useEffect(() => {
+    footerDataRef.current = footerData
+  }, [footerData])
 
   // Custom links management
   const [newLinkLabel, setNewLinkLabel] = useState('')
@@ -281,6 +289,60 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
     }
   }
 
+  // Reverse geocode helper
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`,
+        { headers: { 'Accept': 'application/json', 'Accept-Language': 'es' } }
+      )
+      if (response.ok) {
+        const data = await response.json()
+        return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      }
+    } catch (_) {}
+    // CORS proxy fallback
+    try {
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`
+      )}`
+      const resp = await fetch(proxyUrl)
+      if (resp.ok) {
+        const data = await resp.json()
+        return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      }
+    } catch (_) {}
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+  }
+
+  // Update map marker position + reverse geocode + auto-save
+  const updateLocationFromCoords = async (lat, lng) => {
+    const address = await reverseGeocode(lat, lng)
+    const updatedData = {
+      ...footerDataRef.current,
+      location_lat: lat,
+      location_lng: lng,
+      location_address: address
+    }
+    setFooterData(updatedData)
+    handleSaveSection('location', updatedData)
+  }
+
+  // Place or move draggable marker
+  const placeMarker = (lat, lng) => {
+    if (!mapInstanceRef.current || !window.L) return
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng])
+    } else {
+      markerRef.current = window.L.marker([lat, lng], { draggable: true }).addTo(mapInstanceRef.current)
+      // Drag end → reverse geocode + save
+      markerRef.current.on('dragend', () => {
+        const pos = markerRef.current.getLatLng()
+        updateLocationFromCoords(pos.lat, pos.lng)
+      })
+    }
+  }
+
   // Search for locations using Nominatim
   const handleMapSearch = async () => {
     if (!mapSearchQuery.trim()) return
@@ -290,12 +352,26 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
     
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapSearchQuery)}&format=json&limit=5&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapSearchQuery)}&format=json&limit=5&addressdetails=1`,
+        { headers: { 'Accept': 'application/json', 'Accept-Language': 'es' } }
       )
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const results = await response.json()
       setMapSearchResults(results)
     } catch (err) {
       console.error('Error searching location:', err)
+      try {
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapSearchQuery)}&format=json&limit=5&addressdetails=1`
+        )}`
+        const response = await fetch(proxyUrl)
+        if (response.ok) {
+          const results = await response.json()
+          setMapSearchResults(results)
+        }
+      } catch (proxyErr) {
+        console.error('Proxy also failed:', proxyErr)
+      }
     } finally {
       setMapSearching(false)
     }
@@ -307,19 +383,11 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
     const lng = parseFloat(result.lon)
     const address = result.display_name
     
-    // Center map on selected location
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([lat, lng], 16)
-      
-      // Update or create marker
-      if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng])
-      } else {
-        markerRef.current = window.L.marker([lat, lng]).addTo(mapInstanceRef.current)
-      }
+      mapInstanceRef.current.setView([lat, lng], 17)
+      placeMarker(lat, lng)
     }
     
-    // Update footer data and save
     const updatedData = {
       ...footerData,
       location_lat: lat,
@@ -330,99 +398,95 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
     setFooterData(updatedData)
     setMapSearchResults([])
     setMapSearchQuery('')
-    
-    // Auto-save
     handleSaveSection('location', updatedData)
+  }
+
+  // Use current GPS location
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      setError(prev => ({ ...prev, location: 'Tu navegador no soporta geolocalización' }))
+      return
+    }
+    setGeolocating(true)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView([lat, lng], 17)
+          placeMarker(lat, lng)
+        }
+        await updateLocationFromCoords(lat, lng)
+        setGeolocating(false)
+      },
+      (err) => {
+        console.error('Geolocation error:', err)
+        const messages = {
+          1: 'Permiso de ubicación denegado. Habilítalo en la configuración de tu navegador.',
+          2: 'No se pudo determinar tu ubicación. Intenta de nuevo.',
+          3: 'La solicitud de ubicación expiró. Intenta de nuevo.'
+        }
+        setError(prev => ({ ...prev, location: messages[err.code] || 'Error de geolocalización' }))
+        setGeolocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    )
   }
 
   // Initialize map when location section is expanded
   useEffect(() => {
     if (!expandedSections.location || !mapRef.current) return
     
-    // Load Google Maps script if not already loaded
-    if (!window.google?.maps) {
-      // Use OpenStreetMap with Leaflet instead (free, no API key needed)
-      if (!window.L) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-        document.head.appendChild(link)
-        
-        const script = document.createElement('script')
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-        script.onload = () => initMap()
-        document.head.appendChild(script)
-      } else {
-        initMap()
-      }
+    if (!window.L) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+      
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.onload = () => initMap()
+      document.head.appendChild(script)
+    } else {
+      initMap()
     }
     
     function initMap() {
       if (!mapRef.current || mapInstanceRef.current) return
       
-      // Default location: Buenos Aires
       const defaultLat = footerData.location_lat || -34.6037
       const defaultLng = footerData.location_lng || -58.3816
+      const initialZoom = footerData.location_lat ? 17 : 13
       
-      const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], 15)
+      const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], initialZoom)
       
       window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap',
+        maxZoom: 19
       }).addTo(map)
       
-      // Add marker if we have coordinates
+      // Add draggable marker if we have coordinates
       if (footerData.location_lat && footerData.location_lng) {
-        markerRef.current = window.L.marker([footerData.location_lat, footerData.location_lng]).addTo(map)
+        markerRef.current = window.L.marker(
+          [footerData.location_lat, footerData.location_lng],
+          { draggable: true }
+        ).addTo(map)
+        
+        markerRef.current.on('dragend', () => {
+          const pos = markerRef.current.getLatLng()
+          updateLocationFromCoords(pos.lat, pos.lng)
+        })
       }
       
-      // Click handler to set location
-      map.on('click', async (e) => {
+      // Click handler to place/move marker
+      map.on('click', (e) => {
         const { lat, lng } = e.latlng
-        
-        // Update or create marker
-        if (markerRef.current) {
-          markerRef.current.setLatLng([lat, lng])
-        } else {
-          markerRef.current = window.L.marker([lat, lng]).addTo(map)
-        }
-        
-        // Reverse geocode to get address
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
-          )
-          const data = await response.json()
-          const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-          
-          const updatedData = {
-            ...footerData,
-            location_lat: lat,
-            location_lng: lng,
-            location_address: address
-          }
-          
-          setFooterData(updatedData)
-          
-          // Auto-save after selecting location - pass the updated data directly
-          handleSaveSection('location', updatedData)
-        } catch (err) {
-          console.error('Error getting address:', err)
-          const updatedData = {
-            ...footerData,
-            location_lat: lat,
-            location_lng: lng,
-            location_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-          }
-          
-          setFooterData(updatedData)
-          handleSaveSection('location', updatedData)
-        }
+        placeMarker(lat, lng)
+        updateLocationFromCoords(lat, lng)
       })
       
       mapInstanceRef.current = map
     }
     
-    // Small delay to ensure container is rendered
     const timer = setTimeout(() => {
       if (window.L && !mapInstanceRef.current) {
         initMap()
@@ -608,21 +672,35 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
         >
           <Navigation size={16} />
           <span>Ubicación en el mapa</span>
+          {footerData.location_lat && <CheckCircle size={14} className="footerEditor__sectionCheck" />}
           {expandedSections.location ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
         {expandedSections.location && (
           <div className="footerEditor__sectionContent">
             <p className="footerEditor__hint">
-              Busca una dirección o haz clic en el mapa para seleccionar la ubicación de tu tienda.
+              Esta ubicación se muestra en el footer de tu tienda ("Cómo llegar") y se envía a tus clientes en pedidos de tipo mostrador/pickup.
             </p>
             
+            {/* GPS + Search row */}
+            <div className="footerEditor__locationActions">
+              <button 
+                className="footerEditor__gpsBtn"
+                onClick={handleUseMyLocation}
+                disabled={geolocating}
+                type="button"
+              >
+                {geolocating ? <Loader2 size={16} className="spinning" /> : <Navigation size={16} />}
+                {geolocating ? 'Obteniendo...' : 'Mi ubicación actual'}
+              </button>
+            </div>
+
             {/* Map Search */}
             <div className="footerEditor__mapSearch">
               <div className="footerEditor__mapSearchInput">
                 <Input 
                   value={mapSearchQuery}
                   onChange={setMapSearchQuery}
-                  placeholder="Buscar dirección..."
+                  placeholder="Buscar dirección, ciudad, barrio..."
                   onKeyPress={(e) => e.key === 'Enter' && handleMapSearch()}
                 />
                 <button 
@@ -653,6 +731,11 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
                 </ul>
               )}
             </div>
+
+            {/* Instruction hint */}
+            <p className="footerEditor__mapHint">
+              Hacé clic en el mapa o arrastrá el pin para ajustar la ubicación exacta.
+            </p>
             
             {/* Interactive Map */}
             <div className="footerEditor__mapContainer" ref={mapRef}></div>
@@ -661,7 +744,29 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
             {footerData.location_address && (
               <div className="footerEditor__currentLocation">
                 <MapPin size={16} />
-                <span>{footerData.location_address}</span>
+                <div className="footerEditor__locationInfo">
+                  <span className="footerEditor__locationAddress">{footerData.location_address}</span>
+                  {footerData.location_lat && footerData.location_lng && (
+                    <span className="footerEditor__locationCoords">
+                      {Number(footerData.location_lat).toFixed(6)}, {Number(footerData.location_lng).toFixed(6)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Connection info */}
+            {footerData.location_lat && (
+              <div className="footerEditor__locationConnections">
+                <span className="footerEditor__connectionItem footerEditor__connectionItem--active">
+                  <CheckCircle size={12} /> Footer ("Cómo llegar")
+                </span>
+                <span className="footerEditor__connectionItem footerEditor__connectionItem--active">
+                  <CheckCircle size={12} /> Pedidos mostrador/pickup
+                </span>
+                <span className="footerEditor__connectionItem footerEditor__connectionItem--active">
+                  <CheckCircle size={12} /> WhatsApp de confirmación
+                </span>
               </div>
             )}
             

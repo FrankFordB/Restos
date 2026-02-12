@@ -80,6 +80,7 @@ export default function CategoryCard({
             alt={category.name}
             className="categoryCard__image"
             loading="lazy"
+            style={category.focalPoint ? { objectPosition: `${category.focalPoint.x}% ${category.focalPoint.y}%` } : undefined}
           />
         ) : (
           <div className="categoryCard__placeholder">
