@@ -370,7 +370,7 @@ export default function StoreFooter({ footerData, tenantData, themeData, storeSl
             {copyright_text || `© ${new Date().getFullYear()} ${displayName}. Todos los derechos reservados.`}
           </p>
           <p className="storeFooter__powered">
-            Creado con <a href="/" target="_blank" rel="noopener noreferrer">Restos</a>
+            Creado con <a href="/" target="_blank" rel="noopener noreferrer">Pyme Center</a>
           </p>
         </div>
       </div>

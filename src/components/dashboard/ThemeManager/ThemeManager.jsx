@@ -5,24 +5,19 @@ import Button from '../../ui/Button/Button'
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { fetchTenantTheme, saveTenantTheme, selectThemeForTenant } from '../../../features/theme/themeSlice'
 import {
-  SUBSCRIPTION_TIERS,
-  TIER_LABELS,
   FONTS,
-  CARD_STYLES,
   BUTTON_STYLES,
   LAYOUT_STYLES,
-  PRODUCT_CARD_LAYOUTS,
   COLOR_PALETTES,
-  isFeatureAvailable,
+  SUBSCRIPTION_TIERS,
+  getTierLevel,
+  loadGoogleFont,
 } from '../../../shared/subscriptions'
-import { ChevronDown, ChevronUp, Star, Crown, Palette, AlertTriangle, Sparkles, Pencil, ImageIcon, Upload, Eye, Type } from 'lucide-react'
+import { ChevronDown, ChevronUp, Palette, AlertTriangle, Sparkles, Eye, Type, Star, Crown, Lock } from 'lucide-react'
 
-export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION_TIERS.FREE, isSuperAdmin = false }) {
+export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION_TIERS.FREE }) {
   const dispatch = useAppDispatch()
   const savedTheme = useAppSelector(selectThemeForTenant(tenantId))
-  
-  // Super admin can access all features
-  const effectiveTier = isSuperAdmin ? SUBSCRIPTION_TIERS.PREMIUM_PRO : subscriptionTier
   
   // Estado local para preview en tiempo real
   const [localTheme, setLocalTheme] = useState(null)
@@ -35,6 +30,24 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
   const toggleSection = (section) => {
     setOpenSection(prev => prev === section ? null : section)
   }
+
+  // Filtrar opciones según el tier del usuario
+  const userTierLevel = getTierLevel(subscriptionTier)
+  
+  const filterByTier = (items) => {
+    return Object.entries(items).reduce((acc, [key, config]) => {
+      const itemTierLevel = getTierLevel(config.tier)
+      acc[key] = {
+        ...config,
+        locked: itemTierLevel > userTierLevel,
+      }
+      return acc
+    }, {})
+  }
+  
+  const availableFonts = useMemo(() => filterByTier(FONTS), [subscriptionTier])
+  const availableButtonStyles = useMemo(() => filterByTier(BUTTON_STYLES), [subscriptionTier])
+  const availableLayoutStyles = useMemo(() => filterByTier(LAYOUT_STYLES), [subscriptionTier])
 
   // Sincronizar con el tema guardado cuando cambia
   useEffect(() => {
@@ -63,10 +76,21 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
 
   // Actualizar estado local (preview inmediato)
   const updateLocal = (patch) => {
+    // Si se cambia la fuente, cargarla dinámicamente
+    if (patch.fontFamily) {
+      loadGoogleFont(patch.fontFamily)
+    }
     const newTheme = { ...theme, ...patch }
     setLocalTheme(newTheme)
     setHasChanges(true)
   }
+  
+  // Cargar la fuente actual al montar
+  useEffect(() => {
+    if (theme.fontFamily) {
+      loadGoogleFont(theme.fontFamily)
+    }
+  }, [theme.fontFamily])
 
   // Guardar en la base de datos
   const saveChanges = async () => {
@@ -103,16 +127,18 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
     setHasChanges(true)
   }
 
-  const renderTierBadge = (tier) => {
+  const renderTierBadge = (tier, locked = false) => {
     if (tier === SUBSCRIPTION_TIERS.FREE) return null
     return (
-      <span className={`tierBadge tierBadge--${tier}`} style={{ marginLeft: '8px', fontSize: '0.7rem' }}>
-        {tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
+      <span className={`tierBadge tierBadge--${tier} ${locked ? 'tierBadge--locked' : ''}`}>
+        {locked ? <Lock size={10} /> : tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={10} /> : <Crown size={10} />}
+        <span className="tierBadge__text">{tier}</span>
       </span>
     )
   }
 
   return (
+    
     <Card
       title={<><Palette size={18} style={{display: 'inline', verticalAlign: 'middle', marginRight: '6px'}} /> Diseño y Personalización</>}
       actions={
@@ -134,11 +160,12 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
       }
     >
       {hasChanges && (
+        
         <div className="theme__unsavedBanner">
           <AlertTriangle size={16} /> Tienes cambios sin guardar
         </div>
       )}
-      
+      <div className='Me'>
       <div className="theme">
         {/* PALETAS DE COLORES PREDISEÑADAS */}
         <div className="theme__accordion">
@@ -156,7 +183,6 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
               
               <div className="theme__palettesGrid">
                 {Object.entries(COLOR_PALETTES).map(([key, palette]) => {
-                  const available = isFeatureAvailable(palette.tier, effectiveTier)
                   const isSelected = theme.primary === palette.colors.primary && 
                                     theme.accent === palette.colors.accent &&
                                     theme.background === palette.colors.background
@@ -164,10 +190,9 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
                     <button
                       key={key}
                       type="button"
-                      className={`theme__paletteItem ${isSelected ? 'theme__paletteItem--selected' : ''} ${!available ? 'theme__paletteItem--locked' : ''}`}
-                      onClick={() => available && updateLocal(palette.colors)}
-                      disabled={!available}
-                      title={available ? palette.label : `Requiere ${TIER_LABELS[palette.tier]}`}
+                      className={`theme__paletteItem ${isSelected ? 'theme__paletteItem--selected' : ''}`}
+                      onClick={() => updateLocal(palette.colors)}
+                      title={palette.label}
                     >
                       <div className="theme__paletteColors">
                         {palette.preview.map((color, i) => (
@@ -180,11 +205,6 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
                       </div>
                       <span className="theme__paletteName">
                         {palette.label}
-                        {!available && (
-                          <span className="theme__paletteTier">
-                            {palette.tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
-                          </span>
-                        )}
                       </span>
                     </button>
                   )
@@ -255,11 +275,15 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
                   value={theme.fontFamily || 'Inter'}
                   onChange={(e) => updateLocal({ fontFamily: e.target.value })}
                 >
-                  {Object.entries(FONTS).map(([font, config]) => {
-                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                  {Object.entries(availableFonts).map(([font, config]) => {
                     return (
-                      <option key={font} value={font} disabled={!available}>
-                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      <option 
+                        key={font} 
+                        value={font}
+                        disabled={config.locked}
+                        style={{ fontFamily: config.family }}
+                      >
+                        {config.label} {config.locked ? '🔒' : config.tier !== SUBSCRIPTION_TIERS.FREE ? `(${config.tier})` : ''}
                       </option>
                     )
                   })}
@@ -292,35 +316,20 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
           {openSection === 'styles' && (
             <div className="theme__accordionContent">
               <label className="theme__row">
-                <span className="theme__label">Estilo de cards</span>
-                <select
-                  className="theme__select"
-                  value={theme.cardStyle || 'glass'}
-                  onChange={(e) => updateLocal({ cardStyle: e.target.value })}
-                >
-                  {Object.entries(CARD_STYLES).map(([style, config]) => {
-                    const available = isFeatureAvailable(config.tier, effectiveTier)
-                    return (
-                      <option key={style} value={style} disabled={!available}>
-                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-
-              <label className="theme__row">
                 <span className="theme__label">Estilo de botones</span>
                 <select
                   className="theme__select"
                   value={theme.buttonStyle || 'rounded'}
                   onChange={(e) => updateLocal({ buttonStyle: e.target.value })}
                 >
-                  {Object.entries(BUTTON_STYLES).map(([style, config]) => {
-                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                  {Object.entries(availableButtonStyles).map(([style, config]) => {
                     return (
-                      <option key={style} value={style} disabled={!available}>
-                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      <option 
+                        key={style} 
+                        value={style}
+                        disabled={config.locked}
+                      >
+                        {config.label} {config.locked ? '🔒' : config.tier !== SUBSCRIPTION_TIERS.FREE ? `(${config.tier})` : ''}
                       </option>
                     )
                   })}
@@ -334,96 +343,134 @@ export default function ThemeManager({ tenantId, subscriptionTier = SUBSCRIPTION
                   value={theme.layoutStyle || 'modern'}
                   onChange={(e) => updateLocal({ layoutStyle: e.target.value })}
                 >
-                  {Object.entries(LAYOUT_STYLES).map(([style, config]) => {
-                    const available = isFeatureAvailable(config.tier, effectiveTier)
+                  {Object.entries(availableLayoutStyles).map(([style, config]) => {
                     return (
-                      <option key={style} value={style} disabled={!available}>
-                        {config.label} {!available ? `(${TIER_LABELS[config.tier]})` : ''}
+                      <option 
+                        key={style} 
+                        value={style}
+                        disabled={config.locked}
+                        title={config.description}
+                      >
+                        {config.label} {config.locked ? '🔒' : config.tier !== SUBSCRIPTION_TIERS.FREE ? `(${config.tier})` : ''}
                       </option>
                     )
                   })}
                 </select>
               </label>
+              
+              {/* Descripción del layout seleccionado */}
+              {LAYOUT_STYLES[theme.layoutStyle]?.description && (
+                <p className="theme__layoutDesc">
+                  {LAYOUT_STYLES[theme.layoutStyle].description}
+                </p>
+              )}
             </div>
           )}
         </div>
-
-        {/* ENLACE A EDICIÓN DE CARDS */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle"> Cards de Productos</div>
-          <p className="theme__sectionDesc">Personaliza el diseño de las cards directamente en tu tienda</p>
-          <a 
-            href={`/store/${tenantId}`}
-            className="theme__cardEditLink"
-          >
-            <Pencil size={14} style={{marginRight: '6px'}} /> Editar Cards de Productos aquí
-          </a>
-        </div>
-
-        {/* LOGO E IMÁGENES */}
-        <div className="theme__section">
-          <div className="theme__sectionTitle"><ImageIcon size={16} style={{marginRight: '6px'}} /> Logo e Imágenes</div>
-          
-          <div className="theme__row">
-            <span className="theme__label">Logo</span>
-            {theme.logoUrl ? (
-              <div className="theme__logoPreview">
-                <img src={theme.logoUrl} alt="Logo" className="theme__logoImg" />
-                <Button variant="secondary" size="sm" onClick={() => set({ logoUrl: null })}>
-                  Cambiar
-                </Button>
-              </div>
-            ) : (
-              <div className="theme__uploadBox">
-                <div className="theme__uploadIcon"><Upload size={20} /></div>
-                <div className="theme__uploadText">Subir logo (PNG, JPG)</div>
-              </div>
-            )}
-          </div>
-        </div>
-
+</div>
+    
+<div className="theme__accordion2">
         {/* PREVIEW */}
         <div className="theme__section">
-          <div className="theme__sectionTitle"><Eye size={16} style={{marginRight: '6px'}} /> Vista Previa</div>
+          <div className="theme__sectionTitle"><Eye size={16} style={{marginRight: '6px', marginLeft:'12px'}} /> Vista Previa</div>
           
           <div className="theme__previewBox">
             <div className="theme__previewTitle">Así se verá tu tienda</div>
-            <div
-              className="theme__previewCard"
+            
+            {/* Mini Header */}
+            <div 
+              className="theme__previewHeader"
               style={{
-                background: theme.background,
-                border: `1px solid ${theme.primary}20`,
+                background: theme.primary,
+                fontFamily: FONTS[theme.fontFamily]?.family || 'Inter',
               }}
             >
-              <span style={{ color: theme.text, fontWeight: 700 }}>
-                Nombre del Producto
-              </span>
-              <span style={{ color: `${theme.text}99`, fontSize: '0.85rem' }}>
-                Descripción breve del producto
-              </span>
-              <button
-                className="theme__previewBtn"
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>Mi Tienda</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <span style={{ color: '#fff99', fontSize: '0.75rem' }}>Productos</span>
+                <span style={{ color: '#fff99', fontSize: '0.75rem' }}>Contacto</span>
+              </div>
+            </div>
+            
+            {/* Mini Store Content - Aplica layout CSS */}
+            <div
+              className="theme__previewContent"
+              style={{
+                background: theme.background,
+                fontFamily: FONTS[theme.fontFamily]?.family || 'Inter',
+                padding: LAYOUT_STYLES[theme.layoutStyle]?.css?.padding || '20px',
+              }}
+            >
+              {/* Product Cards Row - Aplica layout gap */}
+              <div 
+                className="theme__previewProducts"
                 style={{
-                  background: theme.accent,
-                  color: '#fff',
-                  borderRadius: theme.radius,
+                  gap: LAYOUT_STYLES[theme.layoutStyle]?.css?.gap || '24px',
                 }}
               >
-                Agregar al carrito
-              </button>
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="theme__previewCard"
+                    style={{
+                      background: '#fff',
+                      border: `1px solid ${theme.primary}15`,
+                      borderRadius: theme.radius,
+                    }}
+                  >
+                    <div 
+                      className="theme__previewCardImg" 
+                      style={{ background: `linear-gradient(135deg, ${theme.accent}40, ${theme.primary}20)` }}
+                    />
+                    <div className="theme__previewCardBody">
+                      <span style={{ color: theme.text, fontWeight: 600, fontSize: '0.8rem' }}>
+                        Producto {i}
+                      </span>
+                      <span style={{ color: `${theme.text}80`, fontSize: '0.7rem' }}>
+                        Descripción breve
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                        <span style={{ color: theme.accent, fontWeight: 700, fontSize: '0.85rem' }}>$99.00</span>
+                        <button
+                          className="theme__previewBtn"
+                          style={{
+                            ...BUTTON_STYLES[theme.buttonStyle]?.css,
+                            background: BUTTON_STYLES[theme.buttonStyle]?.css?.background || theme.accent,
+                            color: BUTTON_STYLES[theme.buttonStyle]?.css?.color || '#fff',
+                            '--accent': theme.accent,
+                            '--primary': theme.primary,
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Footer bar - Aplica button style */}
+              <div 
+                className="theme__previewFooter"
+                style={{ 
+                  background: theme.primary,
+                  borderRadius: BUTTON_STYLES[theme.buttonStyle]?.css?.borderRadius || '10px',
+                  ...BUTTON_STYLES[theme.buttonStyle]?.css?.boxShadow && {
+                    boxShadow: BUTTON_STYLES[theme.buttonStyle].css.boxShadow.replace('var(--accent)', theme.accent)
+                  },
+                }}
+              >
+                <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 600 }}>Ver carrito (2)</span>
+                <span style={{ color: '#fff', fontSize: '0.75rem' }}>$198.00</span>
+              </div>
             </div>
-          </div>
+          </div> 
         </div>
 
-        <p className="muted">
-          Los cambios se aplican automáticamente a tu tienda pública.
-          {effectiveTier === SUBSCRIPTION_TIERS.FREE && (
-            <span style={{ display: 'block', marginTop: '8px', color: '#8b5cf6' }}>
-              <Star size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Actualiza a Premium para acceder a más fuentes, estilos y opciones.
-            </span>
-          )}
+        <p className="theme__previewNote">
+          Los cambios se aplican a tu tienda pública una vez guardado.
         </p>
-      </div>
+      </div></div>
     </Card>
   )
 }

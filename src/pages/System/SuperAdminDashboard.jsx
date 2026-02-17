@@ -1083,7 +1083,14 @@ export default function SuperAdminDashboard() {
               <div className="superAdmin__tenantHeader">
                 <div className="superAdmin__tenantLogo">
                   {tenant.logo ? (
-                    <img src={tenant.logo} alt={tenant.name} />
+                    <img 
+                      src={tenant.logo} 
+                      alt={tenant.name}
+                      style={tenant.logo_focal_point ? {
+                        objectFit: 'cover',
+                        objectPosition: `${tenant.logo_focal_point.x}% ${tenant.logo_focal_point.y}%`
+                      } : undefined}
+                    />
                   ) : (
                     <Store size={24} />
                   )}

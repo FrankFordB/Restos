@@ -9,16 +9,16 @@ const faqData = [
     icon: Store,
     questions: [
       {
-        question: '¿Qué es Restos?',
-        answer: 'Restos es una plataforma integral para la gestión de restaurantes y establecimientos gastronómicos. Te permite crear tu tienda online, gestionar productos, recibir pedidos y personalizar la experiencia de tus clientes.'
+        question: '¿Qué es Pyme Center?',
+        answer: 'Pyme Center es una plataforma integral para la gestión de negocios y emprendimientos. Te permite crear tu tienda online, gestionar productos, recibir pedidos y personalizar la experiencia de tus clientes.'
       },
       {
         question: '¿Cómo puedo registrar mi restaurante?',
         answer: 'Registrarte es muy sencillo. Haz clic en "Crear mi restaurante" en la página principal, completa el formulario con los datos de tu negocio y en pocos minutos tendrás tu tienda online lista para empezar a vender.'
       },
       {
-        question: '¿Necesito conocimientos técnicos para usar Restos?',
-        answer: 'No, Restos está diseñado para ser intuitivo y fácil de usar. Nuestra interfaz es amigable y no requiere conocimientos de programación. Además, contamos con soporte técnico para ayudarte en todo momento.'
+        question: '¿Necesito conocimientos técnicos para usar Pyme Center?',
+        answer: 'No, Pyme Center está diseñado para ser intuitivo y fácil de usar. Nuestra interfaz es amigable y no requiere conocimientos de programación. Además, contamos con soporte técnico para ayudarte en todo momento.'
       },
       {
         question: '¿Puedo personalizar la apariencia de mi tienda?',
@@ -40,7 +40,7 @@ const faqData = [
       },
       {
         question: '¿Hay comisiones por las ventas?',
-        answer: 'Restos no cobra comisiones por venta. Solo pagas tu suscripción mensual. Las únicas comisiones son las de MercadoPago por procesar los pagos electrónicos.'
+        answer: 'Pyme Center no cobra comisiones por venta. Solo pagas tu suscripción mensual. Las únicas comisiones son las de MercadoPago por procesar los pagos electrónicos.'
       },
       {
         question: '¿Cómo configuro MercadoPago en mi tienda?',
@@ -97,7 +97,7 @@ const faqData = [
     icon: Shield,
     questions: [
       {
-        question: '¿Cuánto cuesta usar Restos?',
+        question: '¿Cuánto cuesta usar Pyme Center?',
         answer: 'Ofrecemos diferentes planes de suscripción adaptados a las necesidades de cada negocio. Contamos con un plan gratuito limitado y planes premium con más funcionalidades.'
       },
       {
@@ -120,7 +120,7 @@ const faqData = [
     questions: [
       {
         question: '¿Cómo puedo contactar al soporte técnico?',
-        answer: 'Puedes contactarnos por WhatsApp, email (soporte@restos.app) o a través del chat en vivo disponible en la plataforma. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00.'
+        answer: 'Puedes contactarnos por WhatsApp, email (soporte@pymecenter.app) o a través del chat en vivo disponible en la plataforma. Nuestro horario de atención es de lunes a viernes de 9:00 a 18:00.'
       },
       {
         question: '¿Ofrecen capacitación para usar la plataforma?',
@@ -247,7 +247,7 @@ export default function FaqPage() {
                 <MessageCircle size={18} />
                 WhatsApp
               </a>
-              <a href="mailto:soporte@restos.app" className="faqPage__contactBtn faqPage__contactBtn--secondary">
+              <a href="mailto:soporte@pymecenter.app" className="faqPage__contactBtn faqPage__contactBtn--secondary">
                 Enviar email
               </a>
             </div>

@@ -348,7 +348,7 @@ export default function HomePage() {
             <MessageCircle size={18} />
             Chat en vivo
           </a>
-          <a href="mailto:soporte@restos.app" className="home__helpBtn home__helpBtn--secondary">
+          <a href="mailto:soporte@pymecenter.app" className="home__helpBtn home__helpBtn--secondary">
             <Mail size={18} />
             Enviar email
           </a>

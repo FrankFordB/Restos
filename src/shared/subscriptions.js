@@ -41,6 +41,19 @@ export const TIER_ICONS = {
   [SUBSCRIPTION_TIERS.PREMIUM_PRO]: '👑',
 }
 
+// Helper para obtener nivel numérico del tier (para comparaciones)
+export function getTierLevel(tier) {
+  switch (tier) {
+    case SUBSCRIPTION_TIERS.PREMIUM_PRO:
+      return 3
+    case SUBSCRIPTION_TIERS.PREMIUM:
+      return 2
+    case SUBSCRIPTION_TIERS.FREE:
+    default:
+      return 1
+  }
+}
+
 // Widgets disponibles por nivel
 export const WIDGET_TYPES = {
   HERO: 'hero',
@@ -333,41 +346,210 @@ export const CATEGORY_CARD_LAYOUTS = {
 }
 
 // Estilos de botones
+// FREE: 1 básico, PREMIUM: 4 adicionales, PREMIUM_PRO: 4 adicionales
 export const BUTTON_STYLES = {
-  rounded: { label: 'Redondeado', tier: SUBSCRIPTION_TIERS.FREE },
-  pill: { label: 'Píldora', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  square: { label: 'Cuadrado', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  soft: { label: 'Suave', tier: SUBSCRIPTION_TIERS.PREMIUM_PRO },
+  // FREE (1)
+  rounded: { 
+    label: 'Redondeado', 
+    tier: SUBSCRIPTION_TIERS.FREE,
+    css: { borderRadius: '8px' }
+  },
+  // PREMIUM (4)
+  pill: { 
+    label: 'Píldora', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    css: { borderRadius: '50px' }
+  },
+  square: { 
+    label: 'Cuadrado', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    css: { borderRadius: '4px' }
+  },
+  sharp: { 
+    label: 'Angular', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    css: { borderRadius: '0' }
+  },
+  soft: { 
+    label: 'Suave', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    css: { borderRadius: '12px' }
+  },
+  // PREMIUM_PRO (4)
+  gradient: { 
+    label: 'Gradiente', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    css: { borderRadius: '8px', background: 'linear-gradient(135deg, var(--accent), var(--primary))' }
+  },
+  outline: { 
+    label: 'Contorno', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    css: { borderRadius: '8px', background: 'transparent', border: '2px solid var(--accent)', color: 'var(--accent)' }
+  },
+  glow: { 
+    label: 'Resplandor', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    css: { borderRadius: '8px', boxShadow: '0 0 20px var(--accent)' }
+  },
+  glass: { 
+    label: 'Cristal', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    css: { borderRadius: '12px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)' }
+  },
 }
 
 // Estilos de layout
+// FREE: 1 básico, PREMIUM: 4 adicionales, PREMIUM_PRO: 4 adicionales
 export const LAYOUT_STYLES = {
-  modern: { label: 'Moderno', tier: SUBSCRIPTION_TIERS.FREE },
-  classic: { label: 'Clásico', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  minimal: { label: 'Minimalista', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  bold: { label: 'Audaz', tier: SUBSCRIPTION_TIERS.PREMIUM_PRO },
+  // FREE (1)
+  modern: { 
+    label: 'Moderno', 
+    tier: SUBSCRIPTION_TIERS.FREE,
+    description: 'Layout limpio y espacioso',
+    css: { gap: '24px', padding: '20px' }
+  },
+  // PREMIUM (4)
+  classic: { 
+    label: 'Clásico', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Diseño tradicional elegante',
+    css: { gap: '16px', padding: '16px' }
+  },
+  compact: { 
+    label: 'Compacto', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Más contenido en menos espacio',
+    css: { gap: '12px', padding: '12px' }
+  },
+  spacious: { 
+    label: 'Espacioso', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Mucho espacio entre elementos',
+    css: { gap: '32px', padding: '28px' }
+  },
+  minimal: { 
+    label: 'Minimalista', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM,
+    description: 'Solo lo esencial',
+    css: { gap: '20px', padding: '16px' }
+  },
+  // PREMIUM_PRO (4)
+  bold: { 
+    label: 'Audaz', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Colores y formas llamativas',
+    css: { gap: '24px', padding: '24px' }
+  },
+  elegant: { 
+    label: 'Elegante', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Sofisticado y refinado',
+    css: { gap: '28px', padding: '32px' }
+  },
+  brutalist: { 
+    label: 'Brutalista', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Bordes duros, sin redondeo',
+    css: { gap: '16px', padding: '20px' }
+  },
+  magazine: { 
+    label: 'Revista', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO,
+    description: 'Estilo editorial profesional',
+    css: { gap: '32px', padding: '40px' }
+  },
 }
 
-// Fuentes disponibles
+// Fuentes disponibles con familia CSS real y URL de Google Fonts
 export const FONTS = {
-  'Inter': { label: 'Inter', tier: SUBSCRIPTION_TIERS.FREE },
-  'system-ui': { label: 'Sistema', tier: SUBSCRIPTION_TIERS.FREE },
-  'Poppins': { label: 'Poppins', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  'Montserrat': { label: 'Montserrat', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  'Playfair Display': { label: 'Playfair Display', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  'Roboto': { label: 'Roboto', tier: SUBSCRIPTION_TIERS.FREE },
-  'Open Sans': { label: 'Open Sans', tier: SUBSCRIPTION_TIERS.FREE },
-  'Lora': { label: 'Lora', tier: SUBSCRIPTION_TIERS.PREMIUM },
-  'Raleway': { label: 'Raleway', tier: SUBSCRIPTION_TIERS.PREMIUM_PRO },
-  'Oswald': { label: 'Oswald', tier: SUBSCRIPTION_TIERS.PREMIUM_PRO },
+  // FREE (3)
+  'Inter': { 
+    label: 'Inter', 
+    tier: SUBSCRIPTION_TIERS.FREE, 
+    family: "'Inter', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+  },
+  'system-ui': { 
+    label: 'Sistema', 
+    tier: SUBSCRIPTION_TIERS.FREE, 
+    family: "system-ui, -apple-system, sans-serif",
+    url: null // Sistema, no necesita carga
+  },
+  'Roboto': { 
+    label: 'Roboto', 
+    tier: SUBSCRIPTION_TIERS.FREE, 
+    family: "'Roboto', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap'
+  },
+  // PREMIUM (4)
+  'Poppins': { 
+    label: 'Poppins', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM, 
+    family: "'Poppins', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap'
+  },
+  'Montserrat': { 
+    label: 'Montserrat', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM, 
+    family: "'Montserrat', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap'
+  },
+  'Open Sans': { 
+    label: 'Open Sans', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM, 
+    family: "'Open Sans', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap'
+  },
+  'Lora': { 
+    label: 'Lora', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM, 
+    family: "'Lora', serif",
+    url: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap'
+  },
+  // PREMIUM_PRO (4)
+  'Playfair Display': { 
+    label: 'Playfair Display', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO, 
+    family: "'Playfair Display', serif",
+    url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap'
+  },
+  'Raleway': { 
+    label: 'Raleway', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO, 
+    family: "'Raleway', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap'
+  },
+  'Oswald': { 
+    label: 'Oswald', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO, 
+    family: "'Oswald', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap'
+  },
+  'Bebas Neue': { 
+    label: 'Bebas Neue', 
+    tier: SUBSCRIPTION_TIERS.PREMIUM_PRO, 
+    family: "'Bebas Neue', sans-serif",
+    url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap'
+  },
 }
 
-// Helper: verificar si una feature está disponible para un tier
+// Helper para cargar una fuente de Google Fonts dinámicamente
+export function loadGoogleFont(fontKey) {
+  const font = FONTS[fontKey]
+  if (!font?.url) return
+  
+  const existingLink = document.querySelector(`link[href="${font.url}"]`)
+  if (!existingLink) {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = font.url
+    document.head.appendChild(link)
+  }
+}
+
+// Helper: todas las features disponibles para todos los vendedores
 export function isFeatureAvailable(featureTier, userTier) {
-  const tierOrder = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PREMIUM, SUBSCRIPTION_TIERS.PREMIUM_PRO]
-  const featureIndex = tierOrder.indexOf(featureTier)
-  const userIndex = tierOrder.indexOf(userTier)
-  return userIndex >= featureIndex
+  return true
 }
 
 // Helper: obtener widgets disponibles para un tier

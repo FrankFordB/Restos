@@ -18,6 +18,34 @@ function safeExtFromFile(file) {
 }
 
 /**
+ * Obtener MIME type basado en la extensión del archivo.
+ * Útil cuando file.type viene vacío (común en Windows).
+ */
+const MIME_TYPES = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+  '.avif': 'image/avif',
+  '.tiff': 'image/tiff',
+  '.tif': 'image/tiff',
+}
+
+function getContentType(file) {
+  // Usar file.type si está disponible y es una imagen
+  if (file?.type?.startsWith('image/')) {
+    return file.type
+  }
+  // Fallback: detectar por extensión
+  const ext = safeExtFromFile(file)
+  return MIME_TYPES[ext] || 'image/jpeg'
+}
+
+/**
  * Borra todos los archivos existentes en una carpeta del bucket.
  * Útil para limpiar imágenes viejas antes de subir una nueva.
  * @param {string} folderPath - Ruta de la carpeta
@@ -99,7 +127,7 @@ export async function uploadProductImage({ tenantId, productId, file }) {
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
-    contentType: file.type || 'application/octet-stream',
+    contentType: getContentType(file),
     cacheControl: '3600',
   })
 
@@ -161,7 +189,7 @@ export async function uploadCategoryImage({ tenantId, categoryId, file }) {
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
-    contentType: file.type || 'application/octet-stream',
+    contentType: getContentType(file),
     cacheControl: '3600',
   })
 
@@ -207,7 +235,7 @@ export async function uploadHeroImage({ tenantId, file }) {
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
-    contentType: file.type || 'application/octet-stream',
+    contentType: getContentType(file),
     cacheControl: '3600',
   })
 
@@ -253,7 +281,7 @@ export async function uploadTenantLogo({ tenantId, file }) {
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
-    contentType: file.type || 'application/octet-stream',
+    contentType: getContentType(file),
     cacheControl: '3600',
   })
 
@@ -299,7 +327,7 @@ export async function uploadWelcomeImage({ tenantId, file }) {
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
-    contentType: file.type || 'application/octet-stream',
+    contentType: getContentType(file),
     cacheControl: '3600',
   })
 

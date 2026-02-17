@@ -208,9 +208,9 @@ export default function PrivacyPage() {
           <p className="legalPage__contactText">
             Si tiene preguntas sobre el uso de sus datos personales, contáctenos
           </p>
-          <a href="mailto:privacidad@restos.app" className="legalPage__contactBtn">
+          <a href="mailto:privacidad@pymecenter.app" className="legalPage__contactBtn">
             <Mail size={18} />
-            privacidad@restos.app
+            privacidad@pymecenter.app
           </a>
         </div>
       </div>

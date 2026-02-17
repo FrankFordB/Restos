@@ -109,7 +109,7 @@ export default function BannedAccountModal({
           </div>
         <div className="bannedModal__contactButtons">
                 <a 
-                  href="mailto:soporte@restos.app?subject=Revisión de cuenta suspendida" 
+                  href="mailto:soporte@pymecenter.app?subject=Revisión de cuenta suspendida" 
                   className="bannedModal__contactBtn bannedModal__contactBtn--email"
                   target="_blank"
                   rel="noopener noreferrer"

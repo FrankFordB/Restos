@@ -85,7 +85,15 @@ export default function StoreHeader({
       <nav className="storeHeader__nav">
         <div className="storeHeader__brand">
           {tenant?.logo && (
-            <img src={tenant.logo} alt={tenant.name} className="storeHeader__brandLogo" />
+            <img 
+              src={tenant.logo} 
+              alt={tenant.name} 
+              className="storeHeader__brandLogo"
+              style={tenant?.logo_focal_point ? {
+                objectFit: 'cover',
+                objectPosition: `${tenant.logo_focal_point.x}% ${tenant.logo_focal_point.y}%`
+              } : undefined}
+            />
           )}
           <div className="storeHeader__brandText">
             <Link to="/" className="storeHeader__logo">

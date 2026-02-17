@@ -43,16 +43,20 @@ export default function StoreEditor() {
   const subscriptionTier = useMemo(() => getActiveSubscriptionTier(tenantData || currentTenant), [tenantData, currentTenant])
   const [tenantName, setTenantName] = useState('')
   const [tenantLogo, setTenantLogo] = useState('')
+  const [logoFocalPoint, setLogoFocalPoint] = useState(null)
   const [tenantDescription, setTenantDescription] = useState('')
   const [tenantSlogan, setTenantSlogan] = useState('')
   const [welcomeModalEnabled, setWelcomeModalEnabled] = useState(true)
   const [welcomeModalTitle, setWelcomeModalTitle] = useState('')
   const [welcomeModalMessage, setWelcomeModalMessage] = useState('')
   const [welcomeModalImage, setWelcomeModalImage] = useState('')
+  const [welcomeModalImageFocalPoint, setWelcomeModalImageFocalPoint] = useState(null)
   const [welcomeModalFeatures, setWelcomeModalFeatures] = useState(null) // null = usar default
   const [welcomeModalFeaturesDesign, setWelcomeModalFeaturesDesign] = useState('pills')
   const [savingRestaurant, setSavingRestaurant] = useState(false)
   const [restaurantSuccess, setRestaurantSuccess] = useState(false)
+  const [savingWelcomeModal, setSavingWelcomeModal] = useState(false)
+  const [welcomeModalSuccess, setWelcomeModalSuccess] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingWelcomeImage, setUploadingWelcomeImage] = useState(false)
   
@@ -95,12 +99,14 @@ export default function StoreEditor() {
             setTenantData(tenant)
             setTenantName(tenant.name || '')
             setTenantLogo(tenant.logo || '')
+            setLogoFocalPoint(tenant.logo_focal_point || null)
             setTenantDescription(tenant.description || '')
             setTenantSlogan(tenant.slogan || '')
             setWelcomeModalEnabled(tenant.welcome_modal_enabled !== false)
             setWelcomeModalTitle(tenant.welcome_modal_title || '')
             setWelcomeModalMessage(tenant.welcome_modal_message || '')
             setWelcomeModalImage(tenant.welcome_modal_image || '')
+            setWelcomeModalImageFocalPoint(tenant.welcome_modal_image_focal_point || null)
             setWelcomeModalFeatures(tenant.welcome_modal_features || null)
             setWelcomeModalFeaturesDesign(tenant.welcome_modal_features_design || 'pills')
             setOpeningHours(tenant.opening_hours || [])
@@ -145,14 +151,29 @@ export default function StoreEditor() {
     loadTenant()
     
     // Recargar cuando la ventana gane foco (ej: volver de MercadoPago)
+    // Usar debounce largo para evitar interferir con file pickers e imagen processing
+    let focusTimeoutId = null
     const handleFocus = () => {
-      console.log('🔄 StoreEditor: ventana ganó foco, recargando...')
-      loadTenant()
+      // Cancelar cualquier recarga pendiente
+      if (focusTimeoutId) clearTimeout(focusTimeoutId)
+      
+      // Esperar 2 segundos para dar tiempo a que se procese la imagen
+      focusTimeoutId = setTimeout(() => {
+        // No recargar si hay upload en progreso (verificar estado del DOM)
+        const hasOpenModal = document.querySelector('.imageEditor__overlay')
+        if (hasOpenModal) {
+          console.log('🔄 StoreEditor: modal de imagen abierto, saltando recarga')
+          return
+        }
+        console.log('🔄 StoreEditor: ventana ganó foco, recargando...')
+        loadTenant()
+      }, 2000)
     }
     window.addEventListener('focus', handleFocus)
     
     return () => { 
       cancelled = true
+      if (focusTimeoutId) clearTimeout(focusTimeoutId)
       window.removeEventListener('focus', handleFocus)
     }
   }, [user?.tenantId, currentTenant])
@@ -185,26 +206,46 @@ export default function StoreEditor() {
 
   // Cuando el usuario confirma el logo editado
   const handleLogoReady = async (file, focalPoint) => {
-    if (!file) return // Solo ajuste de encuadre, sin archivo nuevo
+    console.log('[StoreEditor] handleLogoReady llamado:', { file: file?.name, focalPoint })
+    
     setUploadingLogo(true)
     setError(null)
 
     try {
       if (isSupabaseConfigured) {
-        const logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
-        setTenantLogo(logoUrl)
+        let logoUrl = tenantLogo
         
-        // Guardar automáticamente el logo en la base de datos
-        await updateTenantInfo({
+        // Si hay archivo nuevo, subirlo
+        if (file) {
+          console.log('[StoreEditor] Subiendo logo a Supabase...')
+          logoUrl = await uploadTenantLogo({ tenantId: user.tenantId, file })
+          console.log('[StoreEditor] Logo subido:', logoUrl)
+          setTenantLogo(logoUrl)
+        }
+        
+        // Guardar logo y focal point en la base de datos
+        const updateData = {
           tenantId: user.tenantId,
-          logo: logoUrl,
-        })
+        }
+        if (file) {
+          updateData.logo = logoUrl
+        }
+        if (focalPoint) {
+          updateData.logoFocalPoint = focalPoint
+          setLogoFocalPoint(focalPoint) // Actualizar estado local
+        }
+        
+        console.log('[StoreEditor] Guardando en base de datos:', updateData)
+        await updateTenantInfo(updateData)
+        console.log('[StoreEditor] Logo y focal point guardados en base de datos')
       } else {
         // Mock: usar objectURL
-        setTenantLogo(URL.createObjectURL(file))
+        if (file) {
+          setTenantLogo(URL.createObjectURL(file))
+        }
       }
     } catch (e) {
-      console.error('Error subiendo logo:', e)
+      console.error('[StoreEditor] Error subiendo logo:', e)
       setError(e?.message || 'Error al subir el logo')
     } finally {
       setUploadingLogo(false)
@@ -237,6 +278,7 @@ export default function StoreEditor() {
     }
   }
 
+  // Guardar solo información del restaurante
   const handleSaveRestaurant = async () => {
     if (!user?.tenantId) return
 
@@ -246,55 +288,73 @@ export default function StoreEditor() {
 
     try {
       if (isSupabaseConfigured) {
-        // Save tenant info
         await updateTenantInfo({
           tenantId: user.tenantId,
           name: tenantName,
           logo: tenantLogo,
+          logoFocalPoint: logoFocalPoint,
           description: tenantDescription,
           slogan: tenantSlogan,
         })
-
-        // Save welcome modal settings
-        await updateTenantWelcomeModal({
-          tenantId: user.tenantId,
-          enabled: welcomeModalEnabled,
-          title: welcomeModalTitle,
-          message: welcomeModalMessage,
-          image: welcomeModalImage,
-          features: welcomeModalFeatures,
-          featuresDesign: welcomeModalFeaturesDesign,
-        })
-
-        // Save opening hours
-        await updateTenantOpeningHours({
-          tenantId: user.tenantId,
-          openingHours: openingHours,
-        })
       } else {
-        // Save to localStorage in mock mode
         const mockTenant = loadJson(MOCK_TENANT_KEY, {})
         mockTenant[user.tenantId] = {
+          ...mockTenant[user.tenantId],
           name: tenantName,
           logo: tenantLogo,
           description: tenantDescription,
           slogan: tenantSlogan,
-          welcomeModalEnabled,
-          welcomeModalTitle,
-          welcomeModalMessage,
-          welcomeModalImage,
-          welcomeModalFeatures,
-          welcomeModalFeaturesDesign,
-          openingHours,
         }
         saveJson(MOCK_TENANT_KEY, mockTenant)
       }
       setRestaurantSuccess(true)
       setTimeout(() => setRestaurantSuccess(false), 3000)
     } catch (e) {
-      setError(e?.message || 'Error al guardar la configuración del restaurante')
+      setError(e?.message || 'Error al guardar la información del restaurante')
     } finally {
       setSavingRestaurant(false)
+    }
+  }
+
+  // Guardar solo configuración del welcome modal
+  const handleSaveWelcomeModal = async () => {
+    if (!user?.tenantId) return
+
+    setSavingWelcomeModal(true)
+    setError(null)
+    setWelcomeModalSuccess(false)
+
+    try {
+      if (isSupabaseConfigured) {
+        await updateTenantWelcomeModal({
+          tenantId: user.tenantId,
+          enabled: welcomeModalEnabled,
+          title: welcomeModalTitle,
+          message: welcomeModalMessage,
+          image: welcomeModalImage,
+          imageFocalPoint: welcomeModalImageFocalPoint,
+          features: welcomeModalFeatures,
+          featuresDesign: welcomeModalFeaturesDesign,
+        })
+      } else {
+        const mockTenant = loadJson(MOCK_TENANT_KEY, {})
+        mockTenant[user.tenantId] = {
+          ...mockTenant[user.tenantId],
+          welcomeModalEnabled,
+          welcomeModalTitle,
+          welcomeModalMessage,
+          welcomeModalImage,
+          welcomeModalFeatures,
+          welcomeModalFeaturesDesign,
+        }
+        saveJson(MOCK_TENANT_KEY, mockTenant)
+      }
+      setWelcomeModalSuccess(true)
+      setTimeout(() => setWelcomeModalSuccess(false), 3000)
+    } catch (e) {
+      setError(e?.message || 'Error al guardar el modal de bienvenida')
+    } finally {
+      setSavingWelcomeModal(false)
     }
   }
 
@@ -561,7 +621,14 @@ export default function StoreEditor() {
             <div className="account__logoUpload">
               {tenantLogo ? (
                 <div className="account__logoPreview">
-                  <img src={tenantLogo} alt="Logo" />
+                  <img 
+                    src={tenantLogo} 
+                    alt="Logo"
+                    style={logoFocalPoint ? {
+                      objectFit: 'cover',
+                      objectPosition: `${logoFocalPoint.x}% ${logoFocalPoint.y}%`
+                    } : undefined}
+                  />
                   <button 
                     className="account__logoRemove"
                     onClick={() => setTenantLogo('')}
@@ -626,7 +693,15 @@ export default function StoreEditor() {
             <p className="account__hint">Se muestra en el modal de bienvenida</p>
           </div>
 
-          
+          {/* Botón guardar información del restaurante */}
+          <div className="account__actions">
+            <Button onClick={handleSaveRestaurant} disabled={savingRestaurant}>
+              {savingRestaurant ? 'Guardando...' : 'Guardar información'}
+            </Button>
+            {restaurantSuccess && (
+              <span className="account__successMsg">✓ Guardado correctamente</span>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -654,6 +729,8 @@ export default function StoreEditor() {
           onMessageChange={setWelcomeModalMessage}
           welcomeModalImage={welcomeModalImage}
           onImageChange={setWelcomeModalImage}
+          welcomeModalImageFocalPoint={welcomeModalImageFocalPoint}
+          onFocalPointChange={setWelcomeModalImageFocalPoint}
           welcomeModalFeatures={welcomeModalFeatures}
           onFeaturesChange={setWelcomeModalFeatures}
           welcomeModalFeaturesDesign={welcomeModalFeaturesDesign}
@@ -665,6 +742,16 @@ export default function StoreEditor() {
           onImageUpload={handleWelcomeImageUpload}
           uploadingImage={uploadingWelcomeImage}
         />
+        
+        {/* Botón guardar welcome modal */}
+        <div className="account__actions" style={{ padding: '16px' }}>
+          <Button onClick={handleSaveWelcomeModal} disabled={savingWelcomeModal}>
+            {savingWelcomeModal ? 'Guardando...' : 'Guardar modal de bienvenida'}
+          </Button>
+          {welcomeModalSuccess && (
+            <span className="account__successMsg">✓ Guardado correctamente</span>
+          )}
+        </div>
       </Card>
 
       {/* Opening Hours */}
@@ -901,21 +988,6 @@ export default function StoreEditor() {
         {/* Audio element para prueba de sonido */}
         <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
       </Card>
-
-      {/* Save Button */}
-      <div className="account__actions" style={{ marginTop: '16px' }}>
-        <Button onClick={handleSaveRestaurant} disabled={savingRestaurant}>
-          <Save size={16} />
-          {savingRestaurant ? 'Guardando...' : 'Guardar todos los cambios'}
-        </Button>
-      </div>
-
-      {restaurantSuccess && (
-        <div className="account__successMessage">
-          <div className="account__successIcon"><Check size={20} /></div>
-          <span>Configuración del restaurante guardada correctamente</span>
-        </div>
-      )}
 
       {/* Diseño y Personalización */}
       <ThemeManager tenantId={user?.tenantId} subscriptionTier={subscriptionTier} />

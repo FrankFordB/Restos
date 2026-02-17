@@ -69,7 +69,15 @@ export default function StoreTermsPage() {
         <div className="storeTerms__heroContent">
           <div className="storeTerms__storeBadge">
             {tenant.logo ? (
-              <img src={tenant.logo} alt={tenant.name} className="storeTerms__storeLogo" />
+              <img 
+                src={tenant.logo} 
+                alt={tenant.name} 
+                className="storeTerms__storeLogo"
+                style={tenant.logo_focal_point ? {
+                  objectFit: 'cover',
+                  objectPosition: `${tenant.logo_focal_point.x}% ${tenant.logo_focal_point.y}%`
+                } : undefined}
+              />
             ) : (
               <Store size={24} />
             )}
@@ -102,7 +110,7 @@ export default function StoreTermsPage() {
             Aceptación de los Términos
           </h2>
           <p className="storeTerms__text">
-            Al acceder y utilizar la plataforma Restos ("el Servicio"), usted acepta estar sujeto a estos 
+            Al acceder y utilizar la plataforma Pyme Center ("el Servicio"), usted acepta estar sujeto a estos 
             Términos de Servicio, todas las leyes y regulaciones aplicables, y acepta que es responsable 
             del cumplimiento de las leyes locales aplicables. Si no está de acuerdo con alguno de estos 
             términos, tiene prohibido usar o acceder a este sitio.
@@ -120,7 +128,7 @@ export default function StoreTermsPage() {
             Descripción del Servicio
           </h2>
           <p className="storeTerms__text">
-            Restos es una plataforma de gestión para restaurantes y establecimientos gastronómicos que permite:
+            Pyme Center es una plataforma de gestión para negocios y emprendimientos que permite:
           </p>
           <ul className="storeTerms__list">
             <li>Crear y administrar tiendas online para venta de productos alimenticios</li>
@@ -209,7 +217,7 @@ export default function StoreTermsPage() {
             <Mail size={20} />
             <div>
               <p>Para consultas relacionadas con estos términos, puede contactarnos:</p>
-              <strong>Email: soporte@restos.com</strong>
+              <strong>Email: soporte@pymecenter.app</strong>
             </div>
           </div>
         </section>

@@ -17,8 +17,9 @@ import './ImageEditorModal.css'
  * Props:
  * - isOpen        : boolean
  * - onClose       : () => void
- * - onConfirm     : (focalPoint: { x: number, y: number }) => void
+ * - onConfirm     : (focalPoint: { x: number, y: number }, file?: File) => void
  * - imageSrc      : string (base64 data-url o URL remota)
+ * - imageFile     : File (opcional, el archivo original para devolver en confirm)
  * - aspect        : number (ancho/alto, default 1)
  * - title         : string
  */
@@ -27,6 +28,7 @@ export default function ImageEditorModal({
   onClose,
   onConfirm,
   imageSrc,
+  imageFile = null,
   aspect = 1,
   title = 'Editar imagen',
 }) {
@@ -87,13 +89,18 @@ export default function ImageEditorModal({
   }
 
   const handleConfirm = () => {
-    if (!croppedAreaPercent) return
+    console.log('[ImageEditorModal] handleConfirm llamado, croppedAreaPercent:', croppedAreaPercent)
+    if (!croppedAreaPercent) {
+      console.log('[ImageEditorModal] No hay croppedAreaPercent, abortando')
+      return
+    }
     // Calcular punto focal (centro del área de recorte en porcentajes)
     const focalPoint = {
       x: Math.round(croppedAreaPercent.x + croppedAreaPercent.width / 2),
       y: Math.round(croppedAreaPercent.y + croppedAreaPercent.height / 2),
     }
-    onConfirm(focalPoint)
+    console.log('[ImageEditorModal] Focal point calculado:', focalPoint, 'imageFile:', imageFile?.name)
+    onConfirm(focalPoint, imageFile)
   }
 
   if (!isOpen || !imageSrc) return null

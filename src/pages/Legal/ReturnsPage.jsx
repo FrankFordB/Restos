@@ -44,7 +44,7 @@ export default function ReturnsPage() {
           <div>
             <h3>Información Importante</h3>
             <p>
-              Restos es una plataforma que conecta restaurantes con sus clientes. <strong>Las políticas 
+              Pyme Center es una plataforma que conecta negocios con sus clientes. <strong>Las políticas 
               de devolución son gestionadas individualmente por cada restaurante</strong> según sus 
               propias normas y procedimientos.
             </p>
@@ -191,10 +191,10 @@ export default function ReturnsPage() {
         <section className="legalPage__section">
           <h2 className="legalPage__sectionTitle">
             <span className="legalPage__sectionNumber">6</span>
-            Rol de Restos como Plataforma
+            Rol de Pyme Center como Plataforma
           </h2>
           <p className="legalPage__text">
-            Como plataforma intermediaria, Restos:
+            Como plataforma intermediaria, Pyme Center:
           </p>
           <ul className="legalPage__list">
             <li>Facilita la comunicación entre clientes y restaurantes</li>
@@ -248,9 +248,9 @@ export default function ReturnsPage() {
             Si no logra resolver un problema directamente con el restaurante, nuestro equipo de 
             soporte puede ayudar a mediar
           </p>
-          <a href="mailto:soporte@restos.app" className="legalPage__contactBtn">
+          <a href="mailto:soporte@pymecenter.app" className="legalPage__contactBtn">
             <Mail size={18} />
-            soporte@restos.app
+            soporte@pymecenter.app
           </a>
         </div>
       </div>

@@ -105,14 +105,32 @@ export default function UserDashboardPage() {
   }
   
   // Recargar tenant cuando la ventana gana foco (ej: volver de MercadoPago)
+  // Usar debounce largo para evitar interferir con file pickers e imagen processing
   useEffect(() => {
+    let focusTimeoutId = null
+    
     const handleFocus = () => {
-      console.log('🔄 Ventana ganó foco, refrescando tenant...')
-      refreshTenant()
+      // Cancelar cualquier refresh pendiente
+      if (focusTimeoutId) clearTimeout(focusTimeoutId)
+      
+      // Esperar 2 segundos para dar tiempo a que se procese la imagen
+      focusTimeoutId = setTimeout(() => {
+        // No recargar si hay modal de imagen abierto
+        const hasOpenModal = document.querySelector('.imageEditor__overlay')
+        if (hasOpenModal) {
+          console.log('🔄 Dashboard: modal de imagen abierto, saltando recarga')
+          return
+        }
+        console.log('🔄 Ventana ganó foco, refrescando tenant...')
+        refreshTenant()
+      }, 2000)
     }
     
     window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
+    return () => {
+      if (focusTimeoutId) clearTimeout(focusTimeoutId)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [user?.tenantId])
   
   // Detectar si viene de un pago exitoso (payment_success en URL o localStorage)

@@ -71,7 +71,14 @@ export default function CartPanel({ items, total, onClear, onCheckout, onAdd, on
                   {/* Thumbnail */}
                   <div className="cart__thumb">
                     {it.product?.imageUrl ? (
-                      <img src={it.product.imageUrl} alt={it.product.name} />
+                      <img 
+                        src={it.product.imageUrl} 
+                        alt={it.product.name}
+                        style={it.product.focalPoint ? {
+                          objectFit: 'cover',
+                          objectPosition: `${it.product.focalPoint.x}% ${it.product.focalPoint.y}%`
+                        } : undefined}
+                      />
                     ) : (
                       <div className="cart__thumbPlaceholder">
                         <Package size={16} />

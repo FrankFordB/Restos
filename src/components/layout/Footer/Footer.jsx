@@ -43,7 +43,7 @@ export default function Footer({ variant = 'full' }) {
               <div className="footer__brandIcon">
                 <Store size={20} />
               </div>
-              <span className="footer__brandName">Restos</span>
+              <span className="footer__brandName">Pyme Center</span>
             </div>
             
             <div className="footer__compactLinks">
@@ -66,7 +66,7 @@ export default function Footer({ variant = 'full' }) {
             </div>
             
             <div className="footer__copyright">
-              © {new Date().getFullYear()} Restos. Todos los derechos reservados.
+              © {new Date().getFullYear()} Pyme Center. Todos los derechos reservados.
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function Footer({ variant = 'full' }) {
               <div className="footer__brandIcon">
                 <Store size={24} />
               </div>
-              <span className="footer__brandName">Restos</span>
+              <span className="footer__brandName">Pyme Center</span>
             </div>
             <p className="footer__brandDesc">
               La plataforma más completa para gestionar tu restaurante y tienda online. 
@@ -144,7 +144,7 @@ export default function Footer({ variant = 'full' }) {
             <h4 className="footer__columnTitle">Soporte</h4>
             <ul className="footer__links">
               <li>
-                <a href="mailto:soporte@restos.app" className="footer__link">
+                <a href="mailto:soporte@pymecenter.app" className="footer__link">
                   <ChevronRight size={14} />
                   Centro de ayuda
                 </a>
@@ -156,7 +156,7 @@ export default function Footer({ variant = 'full' }) {
                 </Link>
               </li>
               <li>
-                <a href="mailto:soporte@restos.app" className="footer__link">
+                <a href="mailto:soporte@pymecenter.app" className="footer__link">
                   <ChevronRight size={14} />
                   Contactar soporte
                 </a>
@@ -215,7 +215,7 @@ export default function Footer({ variant = 'full' }) {
               </li>
               <li className="footer__contactItem">
                 <Mail size={16} />
-                <a href="mailto:contacto@restos.app" className="footer__contactLink">contacto@restos.app</a>
+                <a href="mailto:contacto@pymecenter.app" className="footer__contactLink">contacto@pymecenter.app</a>
               </li>
               <li className="footer__contactItem">
                 <Clock size={16} />
@@ -229,7 +229,7 @@ export default function Footer({ variant = 'full' }) {
         {/* Copyright */}
         <div className="footer__bottom">
           <div className="footer__copyright">
-            © {new Date().getFullYear()} Restos. Todos los derechos reservados.
+            © {new Date().getFullYear()} Pyme Center. Todos los derechos reservados.
           </div>
           <div className="footer__madeWith">
             Hecho con <Heart size={14} className="footer__heart" /> para restaurantes

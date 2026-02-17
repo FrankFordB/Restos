@@ -891,33 +891,51 @@ export async function updateTenantVisibility({ tenantId, isPublic }) {
 }
 
 // Update tenant branding and info
-// Note: columns logo, description, slogan may not exist - handle gracefully
-export async function updateTenantInfo({ tenantId, name, logo, description, slogan }) {
+// Note: columns logo, description, slogan, logo_focal_point may not exist - handle gracefully
+export async function updateTenantInfo({ tenantId, name, logo, logoFocalPoint, description, slogan }) {
   ensureSupabase()
+  
+  console.log('[updateTenantInfo] Llamado con:', { tenantId, name, logo, logoFocalPoint, description, slogan })
   
   // First, try with all fields
   const patch = {}
   if (name !== undefined) patch.name = name
   if (logo !== undefined) patch.logo = logo
+  if (logoFocalPoint !== undefined) patch.logo_focal_point = logoFocalPoint
   if (description !== undefined) patch.description = description
   if (slogan !== undefined) patch.slogan = slogan
+
+  console.log('[updateTenantInfo] Patch a aplicar:', patch)
+
+  if (Object.keys(patch).length === 0) {
+    console.log('[updateTenantInfo] Nada que actualizar')
+    return null
+  }
 
   try {
     const { data, error } = await supabase
       .from('tenants')
       .update(patch)
       .eq('id', tenantId)
-      .select('id, name, slug, is_public, premium_until, subscription_tier')
+      .select('id, name, slug, is_public, premium_until, subscription_tier, logo, logo_focal_point')
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('[updateTenantInfo] Error:', error)
+      throw error
+    }
+    console.log('[updateTenantInfo] Éxito, data:', data)
     return data
   } catch (err) {
+    console.error('[updateTenantInfo] Catch error:', err.message)
     // If error mentions missing columns, try with only basic fields
-    if (err.message?.includes('column') && err.message?.includes('schema cache')) {
-      console.warn('updateTenantInfo: Some columns may not exist, trying with basic fields only')
+    if (err.message?.includes('column') || err.message?.includes('schema')) {
+      console.warn('[updateTenantInfo] Columna faltante, intentando sin logo_focal_point')
       const basicPatch = {}
       if (name !== undefined) basicPatch.name = name
+      if (logo !== undefined) basicPatch.logo = logo
+      if (description !== undefined) basicPatch.description = description
+      if (slogan !== undefined) basicPatch.slogan = slogan
       
       if (Object.keys(basicPatch).length === 0) {
         // Nothing to update with basic fields
@@ -945,13 +963,14 @@ export async function updateTenantInfo({ tenantId, name, logo, description, slog
 
 // Update tenant welcome modal settings
 // Note: welcome_modal_* columns may not exist - handle gracefully
-export async function updateTenantWelcomeModal({ tenantId, enabled, title, message, image, features, featuresDesign }) {
+export async function updateTenantWelcomeModal({ tenantId, enabled, title, message, image, imageFocalPoint, features, featuresDesign }) {
   ensureSupabase()
   const patch = {}
   if (enabled !== undefined) patch.welcome_modal_enabled = enabled
   if (title !== undefined) patch.welcome_modal_title = title
   if (message !== undefined) patch.welcome_modal_message = message
   if (image !== undefined) patch.welcome_modal_image = image
+  if (imageFocalPoint !== undefined) patch.welcome_modal_image_focal_point = imageFocalPoint
   if (features !== undefined) patch.welcome_modal_features = features
   if (featuresDesign !== undefined) patch.welcome_modal_features_design = featuresDesign
 

@@ -96,6 +96,7 @@ export default function WelcomeModalEditor({
   welcomeModalTitle = '',
   welcomeModalMessage = '',
   welcomeModalImage = '',
+  welcomeModalImageFocalPoint = null,
   welcomeModalFeatures = null,
   welcomeModalFeaturesDesign = 'pills',
   currentTier = SUBSCRIPTION_TIERS.FREE,
@@ -103,6 +104,7 @@ export default function WelcomeModalEditor({
   onTitleChange,
   onMessageChange,
   onImageChange,
+  onFocalPointChange,
   onImageUpload,
   onFeaturesChange,
   onFeaturesDesignChange,
@@ -161,6 +163,11 @@ export default function WelcomeModalEditor({
 
   // Image handler – convierte el File a data URL para mantener el flujo existente
   const handleImageReady = (file, focalPoint) => {
+    // Siempre actualizar el focal point si se proporciona
+    if (focalPoint) {
+      onFocalPointChange?.(focalPoint)
+    }
+    
     if (!file) return // Solo ajuste de encuadre, sin archivo nuevo
     const reader = new FileReader()
     reader.onload = () => {
@@ -169,16 +176,9 @@ export default function WelcomeModalEditor({
     reader.readAsDataURL(file)
   }
 
-  // Verificar si un diseño está disponible
-  const isDesignAvailable = (design) => {
-    if (design.tier === SUBSCRIPTION_TIERS.FREE) return true
-    if (design.tier === SUBSCRIPTION_TIERS.PREMIUM) {
-      return currentTier === SUBSCRIPTION_TIERS.PREMIUM || currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO
-    }
-    if (design.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO) {
-      return currentTier === SUBSCRIPTION_TIERS.PREMIUM_PRO
-    }
-    return false
+  // Todos los diseños disponibles para todos los vendedores
+  const isDesignAvailable = () => {
+    return true
   }
 
   // Datos para el preview
@@ -187,6 +187,7 @@ export default function WelcomeModalEditor({
     logo: tenantLogo,
     slogan: tenantSlogan,
     heroImage: welcomeModalImage || heroImage,
+    heroImageFocalPoint: welcomeModalImageFocalPoint,
     title: welcomeModalTitle || '¡Bienvenido!',
     message: welcomeModalMessage || 'Explora nuestro menú y realiza tu pedido.',
     features,
@@ -247,7 +248,14 @@ export default function WelcomeModalEditor({
               <div className="welcomeEditor__imageUpload">
                 {welcomeModalImage ? (
                   <div className="welcomeEditor__imagePreview">
-                    <img src={welcomeModalImage} alt="Preview" />
+                    <img 
+                      src={welcomeModalImage} 
+                      alt="Preview"
+                      style={welcomeModalImageFocalPoint ? {
+                        objectFit: 'cover',
+                        objectPosition: `${welcomeModalImageFocalPoint.x}% ${welcomeModalImageFocalPoint.y}%`
+                      } : undefined}
+                    />
                     <button 
                       className="welcomeEditor__imageRemove"
                       onClick={() => onImageChange?.('')}
@@ -310,12 +318,7 @@ export default function WelcomeModalEditor({
                 )}
               </div>
 
-              {currentTier === SUBSCRIPTION_TIERS.FREE ? (
-                <div className="welcomeEditor__premiumLock">
-                  <Lock size={24} />
-                  <p>Personaliza los beneficios destacados con Premium</p>
-                </div>
-              ) : (
+              {(
                 <>
                   {/* Lista de features editables */}
                   <div className="welcomeEditor__featuresList">

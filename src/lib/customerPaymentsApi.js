@@ -68,6 +68,7 @@ export async function createCustomerPaymentPreference({
   deliveryNotes = null,
   deliveryLat = null,
   deliveryLng = null,
+  deliveryCost = 0,
 }) {
   // Validaciones
   if (!isSupabaseConfigured) {
@@ -121,13 +122,15 @@ export async function createCustomerPaymentPreference({
     }
   })
 
-  const total = formattedItems.reduce((sum, item) => sum + item.lineTotal, 0)
+  const itemsTotal = formattedItems.reduce((sum, item) => sum + item.lineTotal, 0)
+  const deliveryAmount = Number(deliveryCost) || 0
+  const total = itemsTotal + deliveryAmount
   
   if (total <= 0) {
     throw new Error('El total del carrito debe ser mayor a 0')
   }
 
-  console.log('💰 Total calculado:', total)
+  console.log('💰 Total calculado:', total, '(productos:', itemsTotal, '+ envío:', deliveryAmount, ')')
 
   // 4. Crear orden en la base de datos
   // IMPORTANTE: Usamos status='pending' pero is_paid=false
@@ -204,6 +207,18 @@ export async function createCustomerPaymentPreference({
     currency_id: 'ARS',
     unit_price: Math.round((item.lineTotal / item.qty) * 100) / 100, // Precio unitario incluyendo extras
   }))
+
+  // Agregar costo de envío como item si corresponde
+  if (deliveryAmount > 0) {
+    mpItems.push({
+      id: 'delivery_fee',
+      title: 'Costo de envío',
+      description: 'Envío a domicilio',
+      quantity: 1,
+      currency_id: 'ARS',
+      unit_price: Math.round(deliveryAmount * 100) / 100,
+    })
+  }
 
   // External reference para identificar el pago
   const externalReference = JSON.stringify({

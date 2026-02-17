@@ -124,7 +124,7 @@ export default function Header({ sidebarCollapsed = false, onTabChange }) {
       <header className={`header app__header ${sidebarCollapsed ? 'header--sidebarCollapsed' : ''}`}>
         <div className="container header__inner">
           <Link className="header__brand" to="/">
-FrankFood
+Pyme Center
           </Link>
 
           {/* Store Status Indicator - Solo para admins con tenant */}
@@ -212,6 +212,10 @@ FrankFood
                         src={currentTenant.logo} 
                         alt={currentTenant.name || 'Logo'} 
                         className="header__userMenuLogo"
+                        style={currentTenant?.logo_focal_point ? {
+                          objectFit: 'cover',
+                          objectPosition: `${currentTenant.logo_focal_point.x}% ${currentTenant.logo_focal_point.y}%`
+                        } : undefined}
                       />
                     ) : (
                       <span className="header__userMenuDefaultLogo"><UtensilsCrossed size={20} /></span>
@@ -228,6 +232,10 @@ FrankFood
                             src={currentTenant.logo} 
                             alt={currentTenant.name || 'Logo'} 
                             className="header__userMenuHeaderLogo"
+                            style={currentTenant?.logo_focal_point ? {
+                              objectFit: 'cover',
+                              objectPosition: `${currentTenant.logo_focal_point.x}% ${currentTenant.logo_focal_point.y}%`
+                            } : undefined}
                           />
                         ) : (
                           <span className="header__userMenuHeaderDefaultLogo"><UtensilsCrossed size={24} /></span>

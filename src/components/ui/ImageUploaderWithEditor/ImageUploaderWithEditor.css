@@ -4,25 +4,26 @@
   cursor: pointer;
 }
 
-.imageUploader__wrapper:focus-visible {
-  outline: 2px solid var(--accent, #6c5ce7);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm, 6px);
+.imageUploader__wrapper--disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
-/* Input oculto dentro del wrapper */
+/* Wrap para los children: pointer-events:none para que los clicks
+   siempre burbujeen al wrapper padre y abran el file picker */
+.imageUploader__childrenWrap {
+  display: inline-flex;
+  pointer-events: none !important;
+}
+
+/* Todos los elementos dentro del children wrap no deben capturar clicks */
+.imageUploader__childrenWrap * {
+  pointer-events: none !important;
+}
+
+/* Input completamente oculto — se activa por .click() programático */
 .imageUploader__hiddenInput {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Evitar que los children capturen clicks */
-.imageUploader__wrapper > *:not(.imageUploader__hiddenInput) {
-  pointer-events: none;
+  display: none;
 }
 
 .imageUploader__trigger {

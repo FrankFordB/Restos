@@ -45,7 +45,7 @@ export default function TermsPage() {
             Aceptación de los Términos
           </h2>
           <p className="legalPage__text">
-            Al acceder y utilizar la plataforma Restos ("el Servicio"), usted acepta estar sujeto a estos 
+            Al acceder y utilizar la plataforma Pyme Center ("el Servicio"), usted acepta estar sujeto a estos 
             Términos de Servicio, todas las leyes y regulaciones aplicables, y acepta que es responsable 
             del cumplimiento de las leyes locales aplicables. Si no está de acuerdo con alguno de estos 
             términos, tiene prohibido usar o acceder a este sitio.
@@ -63,7 +63,7 @@ export default function TermsPage() {
             Descripción del Servicio
           </h2>
           <p className="legalPage__text">
-            Restos es una plataforma de gestión para restaurantes y establecimientos gastronómicos que permite:
+            Pyme Center es una plataforma de gestión para negocios y emprendimientos que permite:
           </p>
           <ul className="legalPage__list">
             <li>Crear y administrar tiendas online para venta de productos alimenticios</li>
@@ -123,7 +123,7 @@ export default function TermsPage() {
           </h2>
           <p className="legalPage__text">
             Los términos de pago varían según el plan de suscripción seleccionado. Al suscribirse 
-            a un plan de pago, usted autoriza a Restos a cobrar las tarifas aplicables según el 
+            a un plan de pago, usted autoriza a Pyme Center a cobrar las tarifas aplicables según el 
             método de pago proporcionado.
           </p>
           <ul className="legalPage__list">
@@ -142,7 +142,7 @@ export default function TermsPage() {
           <p className="legalPage__text">
             Todo el contenido, características y funcionalidad del Servicio, incluyendo pero no 
             limitado a textos, gráficos, logotipos, iconos, imágenes, clips de audio, descargas 
-            digitales y software, son propiedad de Restos o sus licenciantes y están protegidos 
+            digitales y software, son propiedad de Pyme Center o sus licenciantes y están protegidos 
             por las leyes de propiedad intelectual.
           </p>
           <p className="legalPage__text">
@@ -158,7 +158,7 @@ export default function TermsPage() {
             Limitación de Responsabilidad
           </h2>
           <p className="legalPage__text">
-            Restos no será responsable por daños indirectos, incidentales, especiales, consecuentes 
+            Pyme Center no será responsable por daños indirectos, incidentales, especiales, consecuentes 
             o punitivos, incluyendo pérdida de beneficios, datos, uso, buena voluntad u otras 
             pérdidas intangibles, resultantes de:
           </p>
@@ -204,7 +204,7 @@ export default function TermsPage() {
           <p className="legalPage__contactText">
             Nuestro equipo legal está disponible para aclarar cualquier duda
           </p>
-          <a href="mailto:legal@restos.app" className="legalPage__contactBtn">
+          <a href="mailto:legal@pymecenter.app" className="legalPage__contactBtn">
             <Mail size={18} />
             Contactar al equipo legal
           </a>

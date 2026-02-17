@@ -7,16 +7,45 @@
 
 /**
  * Crea un HTMLImageElement desde una URL o base64.
+ * Incluye timeout para evitar bloqueos con imágenes que no cargan.
  * @param {string} url
+ * @param {number} [timeoutMs=15000] - Tiempo máximo de espera en ms
  * @returns {Promise<HTMLImageElement>}
  */
-export function createImage(url) {
+export function createImage(url, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
+    if (!url) {
+      reject(new Error('URL de imagen vacía o inválida'))
+      return
+    }
+
     const img = new window.Image()
-    img.addEventListener('load', () => resolve(img))
-    img.addEventListener('error', (err) =>
-      reject(err instanceof Error ? err : new Error('No se pudo cargar la imagen')),
+    let timeoutId = null
+    let settled = false
+
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      img.onload = null
+      img.onerror = null
+    }
+
+    const settle = (fn) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      fn()
+    }
+
+    img.onload = () => settle(() => resolve(img))
+    img.onerror = (err) => settle(() => 
+      reject(err instanceof Error ? err : new Error('No se pudo cargar la imagen. Verificá que el archivo no esté corrupto.'))
     )
+
+    // Timeout para evitar esperas infinitas
+    timeoutId = setTimeout(() => {
+      settle(() => reject(new Error('La imagen tardó demasiado en cargar. Intentá con un archivo más pequeño.')))
+    }, timeoutMs)
+
     // crossOrigin solo para URLs remotas; data: URLs no lo necesitan
     if (url && !url.startsWith('data:')) {
       img.setAttribute('crossOrigin', 'anonymous')
@@ -113,21 +142,80 @@ export async function getCroppedImg(imageSrc, pixelCrop, rotation = 0) {
 }
 
 /**
- * Verifica si un archivo es una imagen válida, usando type y extensión como fallback.
- * En Windows, file.type puede ser '' para ciertos formatos (HEIC, etc.).
+ * Verifica si un archivo es una imagen válida.
+ * Muy permisivo: acepta cualquier archivo que tenga type image/* o extensión de imagen.
+ * En Windows, file.type puede venir vacío para ciertos archivos.
  * @param {File} file
  * @returns {boolean}
  */
 export function isValidImageFile(file) {
-  if (file?.type?.startsWith('image/')) return true
+  // Si no hay archivo, no es válido
+  if (!file) return false
 
-  // Fallback: verificar extensión del archivo
+  // Verificar por MIME type (si está disponible y es imagen)
+  const type = (file?.type || '').toLowerCase()
+  if (type.startsWith('image/')) {
+    console.log('[isValidImageFile] Válido por MIME type:', type)
+    return true
+  }
+
+  // Fallback: verificar extensión del archivo (muy común en Windows)
   const name = (file?.name || '').toLowerCase()
   const imageExtensions = [
-    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp',
-    '.svg', '.avif', '.heic', '.heif', '.ico', '.tiff', '.tif',
+    '.jpg', '.jpeg', '.jpe', '.jfif', '.jif',  // JPEG variants
+    '.png', '.apng',                             // PNG variants
+    '.gif',                                      // GIF
+    '.webp',                                     // WebP
+    '.bmp', '.dib',                             // Bitmap
+    '.svg', '.svgz',                            // SVG
+    '.avif',                                     // AVIF
+    '.ico', '.cur',                             // Icons
+    '.tiff', '.tif',                            // TIFF
+    '.pjpeg', '.pjp',                           // Progressive JPEG
   ]
-  return imageExtensions.some((ext) => name.endsWith(ext))
+  
+  const hasValidExt = imageExtensions.some((ext) => name.endsWith(ext))
+  if (hasValidExt) {
+    console.log('[isValidImageFile] Válido por extensión:', name)
+    return true
+  }
+
+  // Si tiene algún type que contenga "image", aceptar
+  if (type.includes('image')) {
+    console.log('[isValidImageFile] Válido por type parcial:', type)
+    return true
+  }
+
+  console.log('[isValidImageFile] Rechazado - type:', type, 'name:', name)
+  return false
+}
+
+/**
+ * Lista de formatos problemáticos que no son soportados por todos los browsers.
+ */
+const UNSUPPORTED_FORMATS = ['.heic', '.heif']
+
+/**
+ * Verifica si un archivo es una imagen en formato no soportado por el browser.
+ * @param {File} file
+ * @returns {{ isUnsupported: boolean, format: string | null }}
+ */
+export function checkUnsupportedFormat(file) {
+  const name = (file?.name || '').toLowerCase()
+  
+  for (const ext of UNSUPPORTED_FORMATS) {
+    if (name.endsWith(ext)) {
+      return { isUnsupported: true, format: ext.toUpperCase().replace('.', '') }
+    }
+  }
+  
+  // También verificar por MIME type
+  const type = (file?.type || '').toLowerCase()
+  if (type.includes('heic') || type.includes('heif')) {
+    return { isUnsupported: true, format: 'HEIC/HEIF' }
+  }
+  
+  return { isUnsupported: false, format: null }
 }
 
 /**

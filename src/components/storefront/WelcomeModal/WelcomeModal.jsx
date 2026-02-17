@@ -102,7 +102,9 @@ export default function WelcomeModal({
     tenant?.description || 
     'Explora nuestro menú y realiza tu pedido de forma rápida y sencilla.'
   const heroImage = tenant?.welcome_modal_image || tenant?.hero_image || null
+  const heroImageFocalPoint = tenant?.welcome_modal_image_focal_point || null
   const logo = tenant?.logo || null
+  const logoFocalPoint = tenant?.logo_focal_point || null
   const slogan = tenant?.slogan || null
   
   // Features dinámicos
@@ -154,7 +156,14 @@ export default function WelcomeModal({
           {/* Background with Gradient or Image */}
           <div className="welcomeModal__heroBg">
             {heroImage ? (
-              <img src={heroImage} alt="" className="welcomeModal__heroImage" />
+              <img 
+                src={heroImage} 
+                alt="" 
+                className="welcomeModal__heroImage"
+                style={heroImageFocalPoint ? {
+                  objectPosition: `${heroImageFocalPoint.x}% ${heroImageFocalPoint.y}%`
+                } : undefined}
+              />
             ) : (
               <div className="welcomeModal__heroGradient" />
             )}
@@ -183,7 +192,15 @@ export default function WelcomeModal({
           <div className="welcomeModal__heroContent">
             {logo ? (
               <div className="welcomeModal__logoWrapper">
-                <img src={logo} alt={storeName} className="welcomeModal__logo" />
+                <img 
+                  src={logo} 
+                  alt={storeName} 
+                  className="welcomeModal__logo"
+                  style={logoFocalPoint ? {
+                    objectFit: 'cover',
+                    objectPosition: `${logoFocalPoint.x}% ${logoFocalPoint.y}%`
+                  } : undefined}
+                />
               </div>
             ) : (
               <div className="welcomeModal__logoPlaceholder">

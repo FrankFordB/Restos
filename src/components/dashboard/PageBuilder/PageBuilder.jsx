@@ -40,9 +40,6 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
 
   const handleAddWidget = useCallback((widgetType) => {
     const config = WIDGET_CONFIG[widgetType]
-    if (!isFeatureAvailable(config.tier, subscriptionTier)) {
-      return // No disponible para este tier
-    }
 
     const newWidget = {
       widget_type: widgetType,
@@ -148,24 +145,17 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
                 </div>
                 <div className="pageBuilder__sectionBody">
                   {allWidgets.map(([type, config]) => {
-                    const isAvailable = isFeatureAvailable(config.tier, subscriptionTier)
                     return (
                       <button
                         key={type}
-                        className={`pageBuilder__widgetBtn ${!isAvailable ? 'pageBuilder__widgetBtn--locked' : ''}`}
+                        className="pageBuilder__widgetBtn"
                         onClick={() => handleAddWidget(type)}
-                        disabled={!isAvailable}
-                        title={!isAvailable ? `Requiere ${TIER_LABELS[config.tier]}` : config.description}
+                        title={config.description}
                       >
                         <span className="pageBuilder__widgetIcon">{config.icon}</span>
                         <div className="pageBuilder__widgetInfo">
                           <div className="pageBuilder__widgetLabel">
                             {config.label}
-                            {config.tier !== SUBSCRIPTION_TIERS.FREE && (
-                              <span className="pageBuilder__widgetTier">
-                                {config.tier === SUBSCRIPTION_TIERS.PREMIUM ? 'PRO' : 'PRO+'}
-                              </span>
-                            )}
                           </div>
                         </div>
                       </button>
@@ -174,7 +164,7 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
                 </div>
               </div>
 
-              {subscriptionTier === SUBSCRIPTION_TIERS.FREE && (
+              {subscriptionTier === '__disabled__' && (
                 <div className="upgradePrompt">
                   <div className="upgradePrompt__icon"></div>
                   <h4 className="upgradePrompt__title">Desbloquea más widgets</h4>
@@ -194,22 +184,15 @@ export default function PageBuilder({ tenantId, subscriptionTier = SUBSCRIPTION_
               </div>
               <div className="pageBuilder__sectionBody">
                 {templates.map((tpl) => {
-                  const isAvailable = isFeatureAvailable(tpl.tier_required, subscriptionTier)
                   return (
                     <button
                       key={tpl.id}
-                      className={`pageBuilder__widgetBtn ${!isAvailable ? 'pageBuilder__widgetBtn--locked' : ''}`}
-                      disabled={!isAvailable}
+                      className="pageBuilder__widgetBtn"
                     >
                       <span className="pageBuilder__widgetIcon"><Palette size={18} /></span>
                       <div className="pageBuilder__widgetInfo">
                         <div className="pageBuilder__widgetLabel">
                           {tpl.name}
-                          {tpl.tier_required !== SUBSCRIPTION_TIERS.FREE && (
-                            <span className="pageBuilder__widgetTier">
-                              {tpl.tier_required === SUBSCRIPTION_TIERS.PREMIUM ? 'PRO' : 'PRO+'}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </button>

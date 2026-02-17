@@ -959,10 +959,10 @@ export default function StorefrontPage() {
   
   const effectiveTier = isSuperAdmin ? SUBSCRIPTION_TIERS.PREMIUM_PRO : subscriptionTier
 
-  // Hero limits by tier
-  const canUploadHeroImage = effectiveTier !== SUBSCRIPTION_TIERS.FREE
+  // Hero limits - all tiers can upload
+  const canUploadHeroImage = true
   const maxHeroSlides = effectiveTier === SUBSCRIPTION_TIERS.PREMIUM_PRO ? 3 : 
-                        effectiveTier === SUBSCRIPTION_TIERS.PREMIUM ? 1 : 1
+                        effectiveTier === SUBSCRIPTION_TIERS.PREMIUM ? 3 : 3
   const canAddMoreSlides = heroSlides.length < maxHeroSlides
 
   // Get card layout from theme (local for preview, or saved)
@@ -1059,7 +1059,6 @@ export default function StorefrontPage() {
   const handleHeroImageUpload = async (index, file, focalPoint) => {
     // Si solo se ajustó el encuadre (sin archivo nuevo), no subir
     if (!file) return
-    if (!canUploadHeroImage) return
     setUploadingHeroImage(index)
     try {
       const publicUrl = await uploadHeroImage({ tenantId, file })
@@ -2049,24 +2048,17 @@ export default function StorefrontPage() {
                       <label className="store__heroSectionTitle">Estilo del Carrusel</label>
                       <div className="store__heroStylesGrid">
                         {Object.entries(STORE_HERO_STYLES).map(([styleId, config]) => {
-                          const available = isFeatureAvailable(config.tier, effectiveTier)
                       const isSelected = heroStyle === styleId
                       return (
                         <button
                           key={styleId}
                           type="button"
-                          className={`store__heroStyleOption ${isSelected ? 'store__heroStyleOption--selected' : ''} ${!available ? 'store__heroStyleOption--locked' : ''}`}
-                          onClick={() => available && updateHeroTheme({ heroStyle: styleId })}
-                          disabled={!available}
-                          title={available ? config.description : `Requiere ${TIER_LABELS[config.tier]}`}
+                          className={`store__heroStyleOption ${isSelected ? 'store__heroStyleOption--selected' : ''}`}
+                          onClick={() => updateHeroTheme({ heroStyle: styleId })}
+                          title={config.description}
                         >
                           <span className="store__heroStyleIcon">{config.icon || ''}</span>
                           <span className="store__heroStyleLabel">{config.label}</span>
-                          {!available && (
-                            <span className="store__heroStyleTier">
-                              {config.tier === SUBSCRIPTION_TIERS.PREMIUM ? <Star size={12} /> : <Crown size={12} />}
-                            </span>
-                          )}
                         </button>
                       )
                     })}
@@ -2142,21 +2134,16 @@ export default function StorefrontPage() {
                   <label className="store__heroSectionTitle">Estilo de botones del carrusel</label>
                   <div className="store__heroButtonStyleGrid">
                     {Object.entries(CAROUSEL_BUTTON_STYLES).map(([styleId, styleConfig]) => {
-                      const available = isFeatureAvailable(styleConfig.tier, effectiveTier)
-                      const isPro = styleConfig.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO
                       return (
                         <button
                           key={styleId}
                           type="button"
-                          className={`store__heroButtonStyleBtn ${heroCarouselButtonStyle === styleId ? 'store__heroButtonStyleBtn--selected' : ''} ${!available ? 'store__heroButtonStyleBtn--locked' : ''}`}
-                          onClick={() => available && updateHeroTheme({ heroCarouselButtonStyle: styleId })}
-                          disabled={!available}
+                          className={`store__heroButtonStyleBtn ${heroCarouselButtonStyle === styleId ? 'store__heroButtonStyleBtn--selected' : ''}`}
+                          onClick={() => updateHeroTheme({ heroCarouselButtonStyle: styleId })}
                           title={styleConfig.description}
                         >
                           <span className="store__heroButtonStylePreview">{styleConfig.preview}</span>
                           <span className="store__heroButtonStyleLabel">{styleConfig.label}</span>
-                          {!available && <Lock size={12} className="store__heroButtonStyleLock" />}
-                          {isPro && available && <Crown size={10} className="store__heroButtonStylePro" />}
                         </button>
                       )
                     })}
@@ -2168,9 +2155,6 @@ export default function StorefrontPage() {
                   <div className="store__heroSlidesHeader">
                     <label className="store__heroSectionTitle">
                       Slides del Carrusel ({heroSlides.length}/{maxHeroSlides})
-                      {effectiveTier === SUBSCRIPTION_TIERS.FREE && (
-                        <span className="store__heroTierNote"> - <Star size={12} /> Premium para imágenes</span>
-                      )}
                     </label>
                     {canAddMoreSlides ? (
                       <Button size="sm" variant="secondary" onClick={addHeroSlide}>
@@ -2204,42 +2188,36 @@ export default function StorefrontPage() {
                             onChange={(e) => updateHeroSlide(index, 'subtitle', e.target.value)}
                             className="store__heroSlideInput"
                           />
-                          {canUploadHeroImage ? (
-                            <div className="store__heroImageUpload">
-                              <input
-                                type="text"
-                                placeholder="URL de imagen o sube un archivo"
-                                value={slide.imageUrl || ''}
-                                onChange={(e) => updateHeroSlide(index, 'imageUrl', e.target.value)}
-                                className="store__heroSlideInput"
-                              />
-                              <ImageUploaderWithEditor
-                                ref={heroUploaderRef}
-                                aspect={16 / 9}
-                                modalTitle="Ajustar encuadre del hero"
-                                disabled={uploadingHeroImage !== null}
-                                onImageReady={(file, focalPoint) => handleHeroImageUpload(index, file, focalPoint)}
+                          <div className="store__heroImageUpload">
+                            <input
+                              type="text"
+                              placeholder="URL de imagen o sube un archivo"
+                              value={slide.imageUrl || ''}
+                              onChange={(e) => updateHeroSlide(index, 'imageUrl', e.target.value)}
+                              className="store__heroSlideInput"
+                            />
+                            <ImageUploaderWithEditor
+                              ref={heroUploaderRef}
+                              aspect={16 / 9}
+                              modalTitle="Ajustar encuadre del hero"
+                              disabled={uploadingHeroImage !== null}
+                              onImageReady={(file, focalPoint) => handleHeroImageUpload(index, file, focalPoint)}
+                            >
+                              <span className="store__heroUploadBtn">
+                                {uploadingHeroImage === index ? <Loader2 size={16} className="icon-spin" /> : <FolderUp size={16} />}
+                              </span>
+                            </ImageUploaderWithEditor>
+                            {slide.imageUrl && (
+                              <button
+                                type="button"
+                                className="store__heroUploadBtn"
+                                title="Editar recorte"
+                                onClick={() => heroUploaderRef.current?.openEditor(slide.imageUrl)}
                               >
-                                <span className="store__heroUploadBtn">
-                                  {uploadingHeroImage === index ? <Loader2 size={16} className="icon-spin" /> : <FolderUp size={16} />}
-                                </span>
-                              </ImageUploaderWithEditor>
-                              {slide.imageUrl && (
-                                <button
-                                  type="button"
-                                  className="store__heroUploadBtn"
-                                  title="Editar recorte"
-                                  onClick={() => heroUploaderRef.current?.openEditor(slide.imageUrl)}
-                                >
-                                  <Crop size={16} />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="store__heroLockedField">
-                              <Lock size={14} /> Imagen de fondo disponible con <Star size={12} /> Premium
-                            </div>
-                          )}
+                                <Crop size={16} />
+                              </button>
+                            )}
+                          </div>
                           {/* Mobile Focal Point Selector - Draggable with Controls */}
                           {slide.imageUrl && (
                             <div className="store__heroMobileFocus">
@@ -2567,16 +2545,14 @@ export default function StorefrontPage() {
                   <label className="store__cardSectionTitle">Layout</label>
                   <div className="store__layoutGrid">
                     {Object.entries(PRODUCT_CARD_LAYOUTS).map(([layoutId, config]) => {
-                      const available = isFeatureAvailable(config.tier, effectiveTier)
                       const isSelected = cardLayout === layoutId
                       
                       return (
                         <button
                           key={layoutId}
                           type="button"
-                          className={`store__layoutBtn ${isSelected ? 'selected' : ''} ${!available ? 'locked' : ''}`}
-                          onClick={() => available && updateCardTheme({ productCardLayout: layoutId })}
-                          disabled={!available}
+                          className={`store__layoutBtn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => updateCardTheme({ productCardLayout: layoutId })}
                           title={config.description}
                         >
                           <span className="store__layoutIcon">
@@ -2590,9 +2566,6 @@ export default function StorefrontPage() {
                             {layoutId === 'banner' && <Tag size={18} />}
                           </span>
                           <span className="store__layoutName">{config.label}</span>
-                          {!available && <span className="store__layoutLock"><Lock size={12} /></span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM && <span className="store__tierBadge premium"><Star size={10} /></span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO && <span className="store__tierBadge pro"><Crown size={10} /></span>}
                         </button>
                       )
                     })}
@@ -2606,16 +2579,14 @@ export default function StorefrontPage() {
                   </label>
                   <div className="store__layoutGrid">
                     {Object.entries(CATEGORY_CARD_LAYOUTS).map(([layoutId, config]) => {
-                      const available = isFeatureAvailable(config.tier, effectiveTier)
                       const isSelected = categoryLayout === layoutId
                       
                       return (
                         <button
                           key={layoutId}
                           type="button"
-                          className={`store__layoutBtn ${isSelected ? 'selected' : ''} ${!available ? 'locked' : ''}`}
-                          onClick={() => available && updateCardTheme({ categoryCardLayout: layoutId })}
-                          disabled={!available}
+                          className={`store__layoutBtn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => updateCardTheme({ categoryCardLayout: layoutId })}
                           title={config.description}
                         >
                           <span className="store__layoutIcon">
@@ -2630,9 +2601,6 @@ export default function StorefrontPage() {
                             {layoutId === 'banner' && <RectangleHorizontal size={18} />}
                           </span>
                           <span className="store__layoutName">{config.label}</span>
-                          {!available && <span className="store__layoutLock"><Lock size={12} /></span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM && <span className="store__tierBadge premium"><Star size={10} /></span>}
-                          {config.tier === SUBSCRIPTION_TIERS.PREMIUM_PRO && <span className="store__tierBadge pro"><Crown size={10} /></span>}
                         </button>
                       )
                     })}
@@ -3395,6 +3363,7 @@ function CheckoutPage({
             deliveryNotes: checkoutData.deliveryNotes,
             deliveryLat: checkoutData.deliveryLat || null,
             deliveryLng: checkoutData.deliveryLng || null,
+            deliveryCost: deliveryCost || 0,
           })
 
           // Guardar datos en localStorage para recuperar después del pago

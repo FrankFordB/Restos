@@ -981,13 +981,13 @@ export default function StoreFooterEditor({ tenantId, tenantName, openingHours }
               />
               <FileText size={16} />
               <div className="footerEditor__termsInfo">
-                <span>Usar términos de Restos</span>
+                <span>Usar términos de Pyme Center</span>
                 <small>Muestra un enlace a los términos y condiciones de la plataforma en el footer de tu tienda.</small>
               </div>
             </label>
             {footerData.use_site_terms && (
               <p className="footerEditor__hint footerEditor__hint--success">
-                <CheckCircle size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Se mostrará un enlace "Términos y condiciones" que llevará a una página con las políticas de Restos dentro de tu tienda.
+                <CheckCircle size={14} style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> Se mostrará un enlace "Términos y condiciones" que llevará a una página con las políticas de Pyme Center dentro de tu tienda.
               </p>
             )}
             <SectionSaveButton

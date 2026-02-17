@@ -596,7 +596,7 @@ export default function RegisterPage() {
                   URL de tu tienda
                 </label>
                 <div className="authPage__slugInput">
-                  <span className="authPage__slugPrefix">restos.app/tienda/</span>
+                  <span className="authPage__slugPrefix">pymecenter.app/tienda/</span>
                   <Input 
                     value={tenantSlug} 
                     onChange={setTenantSlug} 

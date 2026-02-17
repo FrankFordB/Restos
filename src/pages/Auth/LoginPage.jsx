@@ -138,7 +138,7 @@ export default function LoginPage() {
             <Store size={48} />
           </div>
           <h1 className="authPage__heroTitle">
-            Bienvenido a <span>Restos</span>
+            Bienvenido a <span>Pyme Center</span>
           </h1>
           <p className="authPage__heroSubtitle">
             La plataforma más completa para gestionar tu restaurante y tienda online

@@ -282,9 +282,9 @@ export default function CookiesPage() {
           <p className="legalPage__contactText">
             Si tiene alguna duda sobre nuestra política de cookies, contáctenos
           </p>
-          <a href="mailto:privacidad@restos.app" className="legalPage__contactBtn">
+          <a href="mailto:privacidad@pymecenter.app" className="legalPage__contactBtn">
             <Mail size={18} />
-            privacidad@restos.app
+            privacidad@pymecenter.app
           </a>
         </div>
       </div>

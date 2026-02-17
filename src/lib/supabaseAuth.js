@@ -70,7 +70,17 @@ export async function signUpWithEmailOTP({ email, password }) {
     },
   })
 
-  if (error) throw error
+  if (error) {
+    // Provide more helpful messages for common Supabase email errors
+    const msg = error.message || ''
+    if (msg.toLowerCase().includes('sending confirmation email') || msg.toLowerCase().includes('email rate limit')) {
+      throw new Error(
+        'No se pudo enviar el email de confirmación. Esto puede deberse a un límite de envíos del servicio de email. ' +
+        'Intentá de nuevo en unos minutos o contactá al administrador para configurar un proveedor SMTP.'
+      )
+    }
+    throw error
+  }
   
   return {
     user: data.user,

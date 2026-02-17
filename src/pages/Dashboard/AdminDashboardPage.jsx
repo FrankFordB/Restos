@@ -326,11 +326,7 @@ export default function AdminDashboardPage() {
             </nav>
 
             {activeTab === 'theme' && (
-              <ThemeManager 
-                tenantId={adminManagedTenantId} 
-                subscriptionTier={managedTenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE}
-                isSuperAdmin={true}
-              />
+              <ThemeManager tenantId={adminManagedTenantId} subscriptionTier={managedTenant?.subscription_tier || SUBSCRIPTION_TIERS.FREE} />
             )}
             {activeTab === 'products' && <ProductsManager tenantId={adminManagedTenantId} />}
             {activeTab === 'orders' && <OrdersManager tenantId={adminManagedTenantId} />}

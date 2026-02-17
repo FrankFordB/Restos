@@ -91,7 +91,7 @@ export const createSubscriptionPreference = async ({
     items: [
       {
         id: `subscription_${tenantId}_${planTier}_${billingPeriod}`,
-        title: `Suscripción ${tierLabel} ${periodLabel} - Restos`,
+        title: `Suscripción ${tierLabel} ${periodLabel} - Pyme Center`,
         description: `Plan ${tierLabel} para ${tenantName}`,
         quantity: 1,
         currency_id: 'ARS',
@@ -109,7 +109,7 @@ export const createSubscriptionPreference = async ({
       amount,
       subscriptionId, // ID para correlación con webhook
     }),
-    statement_descriptor: 'RESTOS',
+    statement_descriptor: 'PYME CENTER',
     // Aceptar todos los métodos de pago de MercadoPago
     // El webhook confirmará el pago cuando se acredite
     // SIEMPRE enviar back_urls - MercadoPago las usa para el botón "Volver al sitio"
